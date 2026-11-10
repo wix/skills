@@ -75,7 +75,7 @@ npx skills add wix/skills -g
 | [wix-docs](skills/wix-docs/SKILL.md) | Look up the Wix API/SDK docs (shared fallback) | Confirming an exact Wix endpoint, method schema, field, or enum before writing code — `curl` doc-search + the `.md`-twin trick, or the Wix MCP tools. Referenced by the other skills as their docs-lookup fallback |
 | [wix-studio-two](skills/wix-studio-two/SKILL.md) | Create or edit a Wix Studio 2 site | Creating a new Studio 2 site or changing an existing one, with no local setup: the site's code is exported to a remote machine, edited and previewed there, and saved to Wix when the user asks. Not for Wix Editor or Studio 1 sites, headless sites (use wix-headless-kit), or content and business changes (use wix-manage) |
 | [wix-readme](skills/wix-readme/SKILL.md) | Index of the plugin: its skills and the Wix MCP tools | Right after installing the plugin, or when asking what the plugin can do and which skill or tool fits a task |
-| [wix-replatform](wix-replatform/README.md) | Migrate sites from WordPress and other platforms into Wix | Migrating an existing business from another platform into Wix. Both backend data and website. `npx skills add wix/skills/wix-replatform` |
+| [wix-replatform](skills/wix-replatform/README.md) | Migrate sites from WordPress and other platforms into Wix | Migrating an existing business from another platform into Wix. Both backend data and website. `npx skills add wix/skills` |
 
 ## Supported Agents
 
@@ -114,7 +114,7 @@ During a migration run, `wix-replatform`:
 - **Sends run telemetry to Wix** (`https://frog.wix.com/migration-data-validator`): stage timings and outcomes, migrated record counts, errors and gaps by type (never record contents), the source platform and site URL, the destination site ID and the operator's Wix user ID. Turn it off with `RP_TELEMETRY_BI_DISABLED=1`.
 - **Reads the agent's Claude Code session transcripts** (`~/.claude/projects/`) at the end of the run, copies them compressed into the migration project's `telemetry/transcripts/` folder on your machine, and adds a summary (token cost, turn counts, tool failures, retry loops) to the run telemetry. The transcripts themselves stay local. Turn it off with `RP_TELEMETRY_TRANSCRIPT_DISABLED=1`.
 
-Set the variables in the environment the agent runs in. See [wix-replatform/README.md](wix-replatform/README.md).
+Set the variables in the environment the agent runs in. See [skills/wix-replatform/README.md](skills/wix-replatform/README.md).
 
 ## Contributing
 
