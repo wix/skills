@@ -1,6 +1,6 @@
 ---
 name: wix-headless-kit
-description: "Build a Wix Headless site fast by wiring SHIPPED, verified @wix/sdk code instead of authoring the integration from recipes. Each Wix business vertical ships a typed, framework-agnostic React core (data layer returning plain DTOs, hooks, headless components) plus an Astro overlay (SSR pages with owner-editable SEO pre-wired) and a build-time REST seed script — the agent scaffolds via the Wix CLI, deploys the shipped code, seeds the backend, designs the presentation layer itself on the shipped hooks (product card/grid, PDP, home, theme), and releases to Wix hosting. Works on Wix-managed Astro (ambient auth, the default) and on any React-based project (Vite, non-Astro) over the public OAuth client id. Verticals: stores/storefront (products, categories, variants, cart, hosted checkout), bookings (services, appointment/class time slots, staff, booking form, checkout-or-place), rentals (rooms, vehicles, gear by the hour or the day: resources, customer-picked length, priced quote, checkout), blog (posts, categories/tags, rich content), cms (structured content collections), forms (schema-driven visitor forms: render, validate, submit), events (listing, RSVP, ticket sales), members (login, gated pages, account), portfolio (project collections, media galleries), pricing-plans (plan grid, hosted purchase), restaurants (menus, online ordering, table reservations), faq (categorized questions and answers, search, a link per question), donations (campaign pages, goal progress, one-time and recurring donations via hosted checkout). Triggers: build me a store/blog/booking/rental/event/restaurant/portfolio/FAQ/donation site fast, take appointments fast, rent out rooms/cars/equipment headless, sell tickets or membership plans headless, collect donations headless, wix headless kit, connect a Wix business app with ready-made SDK code."
+description: "Builds new Wix sites or puts the user's own site online, with or without a Wix account. The pages are code in any web technology, and Wix runs the backend. Adds working business features from ready-made Wix code: a store, bookings, a blog, members and more. Use when the user wants a site on Wix or wants their site online, or asks for Wix Headless. Managing an existing site's products, bookings or other data belongs to wix-manage."
 ---
 
 # Wix Headless Kit
@@ -18,6 +18,23 @@ re-litigate them.
 it as-is when the brief doesn't contradict it. When the brief asks for something that shape
 doesn't express — or once the site exists and the work turns to managing or extending it — that's
 `wix-docs` and `wix-manage`, not a workaround here.
+
+## Choose the flow
+
+- **The site needs business features** (a vertical from [Verticals](#verticals)), on a new site,
+  on the user's own project or on a site published earlier: [the run](#the-run). Its step 3 reads
+  what the folder holds and names the path for each case, a site dropped earlier included.
+- **No business features: pages to put online as they are**, the user's files or pages you write
+  for them (HTML, CSS and JavaScript; a framework project is built first and its static output
+  published). With a login, Upload a Website or HTML Files,
+  `wix-manage/references/sites/upload-static-site.md`, which also changes the site later. With
+  none, Publish a Site Without a Wix Account,
+  `wix-manage/references/sites/publish-without-a-wix-account.md`: it publishes, hands over the
+  live site and the claim link, publishes changes while the site is unclaimed, and claims it
+  through the link, the Wix MCP or the Wix CLI.
+- **Business features and no login**: the run needs the user's login. Publish the pages without
+  an account, give the user the claim link, and continue with the run on the claimed site
+  (`<SKILL_ROOT>/guides/existing-site.md`).
 
 ## The model
 
@@ -137,8 +154,10 @@ the machine; with the tools in your list the route is still `plugin`:
   and the frontend as a few small static pages dropped with the upload tool, written against the
   kit's REST twins and cores as reference (its step 5); the compose is not run, since every file
   it writes would have to be written out as text.
-- **`cli`** — where the Wix MCP's tools are not in your tool list:
-  a logged-in Wix CLI (`npx @wix/cli@latest whoami`; `npx @wix/cli@latest login` is a
+- **`cli`** — the Wix MCP's tools are not in your tool list. Look first for the Wix plugin in
+  your client's plugin directory: tell the user its name and ask them to install and connect it,
+  or to add the Wix MCP server in the client's settings, which makes this the `plugin` route.
+  Otherwise, a logged-in Wix CLI (`npx @wix/cli@latest whoami`; `npx @wix/cli@latest login` is a
   device-code flow: surface the URL and code to the user, never read tokens into context).
   `node <SKILL_ROOT>/install/bootstrap.mjs` checks the CLI and runs the login when there is none;
   `wix create`, `wix env pull` and `wix release` do what the steps below say.

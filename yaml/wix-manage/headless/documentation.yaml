@@ -6,3 +6,7 @@ apiDoc:
       title: Upload a Website or HTML Files
       docsEntry: https://dev.wix.com/docs/go-headless/wix-managed-headless/other-frameworks/your-own-frontend
       tags: [sites]
+    - file: ../../../skills/wix-manage/references/sites/publish-without-a-wix-account.md
+      title: Publish a Site Without a Wix Account
+      docsEntry: https://dev.wix.com/docs/go-headless/wix-managed-headless/other-frameworks/your-own-frontend
+      tags: [sites]

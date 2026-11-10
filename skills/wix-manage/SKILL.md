@@ -1,6 +1,6 @@
 ---
 name: wix-manage
-description: "REST recipes to configure and manage a Wix site's business solutions — stores, bookings, donations, payments, CMS, and more. Open the matching recipe for the exact endpoint, method, and payload before calling — never guess a Wix API, never write Wix dashboard URL from memory. Routes to: automations, stores, bookings, donations, get-paid, CMS, contacts, forms, media, app-installation, custom-apps, pricing-plans, restaurants, ricos rich-content, sites, collaborators, blog, calendar, domains, events, site-properties, ecommerce, marketing, online-programs, google-ads, google-business-profile, analytics, accessibility, seo, dashboard-navigation."
+description: "REST recipes to configure and manage a Wix site's business solutions — stores, bookings, donations, payments, CMS, and more — and to publish HTML, CSS and JavaScript files as a live Wix site, with or without a Wix account. Open the matching recipe for the exact endpoint, method, and payload before calling — never guess a Wix API, never write Wix dashboard URL from memory. Routes to: automations, stores, bookings, donations, get-paid, CMS, contacts, forms, media, app-installation, custom-apps, pricing-plans, restaurants, ricos rich-content, sites, collaborators, blog, calendar, domains, events, site-properties, ecommerce, marketing, online-programs, google-ads, google-business-profile, analytics, accessibility, seo, dashboard-navigation."
 compatibility: Requires Wix REST API access (API key or OAuth).
 ---
 
@@ -480,6 +480,9 @@ Creates a Wix Headless website: a site in the user's Wix account whose frontend 
 ### [Manage OAuth Apps](references/sites/manage-oauth-apps.md)
 Create, read, update, and query OAuth apps for a Wix headless site. Each OAuth app's id is the client_id a frontend uses to mint anonymous visitor tokens and call Wix APIs.
 
+### [Publish a Site Without a Wix Account](references/sites/publish-without-a-wix-account.md)
+Publish HTML, CSS and JavaScript as a live Wix site with no Wix account or login, then give the user a link to keep it. Covers creating the site, publishing changes while it is unclaimed, and claiming it into the user's account through the claim link, the Wix MCP or the Wix CLI. Use when you publish for a user who has no Wix account or is not signed in. Not for a site already in the user's account (use Upload a Website or HTML Files).
+
 ### [Query Sites](references/sites/query-sites.md)
 List, count, and find the sites in a Wix account. Covers the namespace filter for headless sites, counting before enumerating, cursor pagination, and resolving a site by name.
 
@@ -496,7 +499,7 @@ Drive the Wix Site Import agent to migrate an existing store or site from anothe
 "Builds direct links to the account-level sites pages on manage.wix.com — the My Sites list (all sites in the account) and each site's own dashboard. Pairs the site list with the Query Sites read API. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
 
 ### [Upload a Website or HTML Files](references/sites/upload-static-site.md)
-Publish HTML, CSS, JavaScript or a static build as a Wix Headless website; inspect its deployed files and edit them on the same site and URL. Covers file and ZIP uploads, selective additions, replacements and deletions while preserving other files, full-site replacement, authenticated and anonymous publishing, verification, and connecting a Wix business backend; a Wix Astro build is released as a server-rendered site rather than dropped. Use for files the user supplies or pages you create for them. Not for migrating a live site from another platform by URL or CSV (use Site Import), embedding code in an editor-built Wix site, or uploading assets to Media Manager.
+Publish HTML, CSS, JavaScript or a static build as a Wix Headless website; inspect its deployed files and edit them on the same site and URL. Covers file and ZIP uploads, selective additions, replacements and deletions while preserving other files, full-site replacement, authenticated publishing, verification, and connecting a Wix business backend; a Wix Astro build is released as a server-rendered site rather than dropped. Use for files the user supplies or pages you create for them. Not for publishing without a Wix account (use Publish a Site Without a Wix Account), migrating a live site from another platform by URL or CSV (use Site Import), embedding code in an editor-built Wix site, or uploading assets to Media Manager.
 
 ---
 
