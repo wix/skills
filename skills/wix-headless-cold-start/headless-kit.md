@@ -148,13 +148,14 @@ Do the six steps in this order. For each step: what you do, the call, and the re
 - Set the region settings that the brief gives. Then create the content: the content in the brief,
   or placeholder content that you write if the brief gives none.
 - Copy the function in `api-run.md` and change only the plan at the top.
+- Give a picture to every item that the pages show with one. The plan takes it as a URL, or as
+  the id of a file in the Media Manager of the site; `api-run.md` names the fields.
 - Calls, first the region settings: the Update Business Region call from the recipe (currency, time
   zone), and the region `PATCH` for a place. Then the calls of the seed script, in its order, with
   its bodies, through `ExecuteWixAPI` with `scope: "site"` and `siteId`. Create. Do not delete.
   Report what the site already had.
 - Reference: `seed-{solution}.mjs` and the modules it imports from its folder;
   `{TEMPLATES}/{solution}/seed/SEED.md` (the plan and its fields);
-  `{TEMPLATES}/shared/seed/images.mjs` (how to make an image and put its file id on the item);
   `{MANAGE}/references/site-properties/change-payment-currency-site-properties.md` (currency, time
   zone, region).
 
@@ -288,12 +289,12 @@ the pages use. A name that a module does not export stops the whole page.
 The modules carry the data. The pages are the design job. `static.md` of the solution tells you
 how to do it, with `DESIGN.md` and `CONTENT.md`.
 
-If the pages show an item with a picture, put the picture on the item itself in step 4
-(`{TEMPLATES}/shared/seed/images.mjs`). Then the pages of Wix, for example checkout, show it too.
-Put every other picture on a page (a hero, a banner) in the Wix Media of the site, in the same way.
-Do not link to a picture on another website. If the user gave no pictures, you can suggest to
-generate them. You can generate them yourself and upload them with `UploadImageToWixSite`. Or you
-can use the image generation of Wix (`generateImage` in `images.mjs`).
+Set the picture of an item in the plan in step 4. Wix stores it with the item, and the pages
+read it from the modules. Do not write it into the HTML of a page. Put every other picture on a
+page (a hero, a banner) in the Wix Media of the site with `UploadImageToWixSite`. Do not link to a
+picture on another website. If the user gave no pictures, generate them or choose them yourself,
+and tell the user that they are placeholders. `UploadImageToWixSite` returns the id of the file
+for the plan.
 
 ### Step 5: the tags for search engines
 
