@@ -341,9 +341,27 @@ Then compare your query with the file of `wix-headless-kit`. Read the site files
 
 ### Step 5: the upload
 
-A response has a size limit. Send pages as text one or two files per call. Add a later file through
-"Change it later" in the upload recipe; it keeps the other files. If your client passes
-`attachments` as files, send the pages as one zip attachment.
+`UploadHeadlessWebsiteFiles` takes the `siteId` and the files. It creates no site. It returns the
+live URL, the dashboard and the list of files on the site. The full recipe is
+`{MANAGE}/references/sites/upload-static-site.md`. In short:
+
+- **The first upload** sends the whole site, with an `index.html` in the root.
+- **A later upload** sends only the files that changed, each one complete. The tool keeps the other
+  files. `deletePaths` removes files. `replaceAll: true` keeps only the files you send.
+- **As files:** if your client passes `attachments` as files, send the pages as one zip
+  attachment. The limit is 10 MB per call.
+- **As text:** otherwise send the pages in the `files` text format, one or two files per call,
+  because a call that you write has a size limit.
+- **The limit:** 20 MiB for all the files of a site. Large images and video go to Wix Media; the
+  recipe shows how.
+- **An Astro build is released, not uploaded as pages.** The same tool takes the zip of the
+  project, as an attachment or in two calls from a shell: "The Astro build" below, and "Release a
+  Wix Astro build" in the recipe. Do not upload pages over a site that was released as a build.
+- **To change the site later,** follow "Change it later" in the recipe. It lists, reads and
+  patches the files on the same site and URL.
+- **With no Wix login,** the same pages go live through
+  `{MANAGE}/references/sites/publish-without-a-wix-account.md`. It gives the user a link to keep
+  the site.
 
 ## The Astro build
 
