@@ -1,6 +1,7 @@
 {
   "name": "wix",
-  "description": "Build, manage, and deploy Wix sites and apps. Includes CLI development skills and Wix MCP server for site management, eCommerce, CMS, dashboard extensions, and more.",
+  "displayName": "Wix: AI website builder & custom domains",
+  "description": "Build your entire site and buy a domain right from the chat. Just ask Wix for the website you want, including all the functionality you need, and get a complete, business-ready site generated for you in minutes. You can also connect the perfect custom domain to your site and manage everything seamlessly in one place. If you like, you can edit your site with your AI agent or inside the Wix Harmony editor using tons more AI tools and smooth drag and drop.\n\nFor developers: build and deploy Wix apps with the Wix CLI, including dashboard extensions, backend APIs, site widgets, service plugins and data collections. Build headless sites with Wix Headless, fully hosted on Wix or self-hosted in any framework, powered by Wix backend services for eCommerce, bookings, CMS, events and members. Manage your store, bookings, contacts and site settings programmatically.",
   "version": "1.41.3",
   "author": {
     "name": "Wix",
@@ -10,7 +11,7 @@
   "repository": "https://github.com/wix/skills",
   "license": "MIT",
   "privacyPolicyUrl": "https://www.wix.com/about/privacy",
-  "keywords": ["wix", "wix-cli", "wix-mcp", "ecommerce", "cms", "wix-apps"],
+  "keywords": ["wix", "wix-cli", "wix-mcp", "wix-apps", "wix headless", "site", "sites", "website", "websites", "web", "webpage", "create a website", "build a website", "design a website", "website builder", "ai website builder", "no-code website builder", "site builder", "landing page", "small business website", "professional website", "domain", "domains", "domain name", "custom domain", "connect domain", "buy a domain", "hosting", "web hosting", "frontend", "headless", "headless website", "headless cms", "connect frontend", "web app", "cms", "content management", "rest api", "sdk", "store", "online store", "shop", "ecommerce", "ecommerce website", "sell online", "shopping cart", "checkout", "product catalog", "booking", "bookings", "booking website", "service business website", "appointment", "appointments", "schedule", "scheduling", "calendar booking", "restaurant", "restaurants", "restaurant website", "online ordering", "food menu", "table reservations", "event", "events", "event website", "tickets", "sell tickets", "rsvp", "blog", "blogs", "blog website", "portfolio", "portfolio website", "photography website", "gallery", "membership", "members", "member portal", "subscription", "pricing plans", "paywall", "form", "forms", "contact form", "invoicing", "invoices", "payments", "payment links", "html", "backend"],
   "skills": [
     "./skills/wix-design-system",
     "./skills/wix-app",
