@@ -48,6 +48,8 @@ The following dataTypes are NOT allowed for context items or data props:
 - `onFocus` (deprecated)
 - `onSubmit` (deprecated)
 
+`filter` and `sort` are not allowed for context items either, at any depth (`context.items`, or inside a context item's `data` or `arrayItems`). A context item has no `filter` or `sort` field, so the definition never reaches the checkpoint: it fails with `dataType 'filter' must include a 'filter' field` even when the source declares `filter: {...}`, and no edit to the definition fixes it. To let the page filter by a visitor's choice, expose the choice itself: a `text` or `textEnum` item such as `selectedCategoryId`, plus a `function` item that sets it. The provider applies the filter to its own query and exposes the filtered list as `arrayItems`.
+
 `DataType` is a closed enum: every `dataType` — on context items, data items, function parameters and return types — must be one of the values in the table below. The checkpoint validates the manifest against this enum and rejects anything else with `INVALID_ARGUMENT` (`value 'pointerEvent' does not match any of the allowed values`), after the build has already passed. A function bound to an element's event handler declares `parameters: []`; the DOM event is not a parameter and has no data type.
 
 ### Available Data Types
@@ -79,8 +81,8 @@ The following dataTypes are NOT allowed for context items or data props:
 | `menuItems` | Array | Menu item collections |
 | `data` | object | Complex nested objects |
 | `function` | function | Actions, callbacks |
-| `filter` | object | WQL filter (no matching type in `@wix/editor-react-types`) |
-| `sort` | array | WQL sort definition (no matching type in `@wix/editor-react-types`) |
+| `filter` | object | WQL filter. Data items only, never a context item (see [Filter and Sort Types](CONTEXT_PROVIDER_SPEC.md#filter-and-sort-types)) |
+| `sort` | array | WQL sort definition. Data items only, never a context item (see [Filter and Sort Types](CONTEXT_PROVIDER_SPEC.md#filter-and-sort-types)) |
 
 ### Link configuration
 

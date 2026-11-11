@@ -59,8 +59,32 @@ Defines a single data item. Used in both the `data` map (configuration props) an
 | vectorArt | VectorArt | SVG editing definition | Only when dataType is `vectorArt` |
 | richText | RichText | Rich text ability filters | Only when dataType is `richText` |
 | function | EditorFunction | Custom function definition | Only when dataType is `function` |
+| filter | FilterDefinition | Fields a WQL filter can use | Required when dataType is `filter` |
+| sort | SortDefinition | Fields a WQL sort can use | Required when dataType is `sort` |
 
 The same disallowed data types that apply to context items also apply to data items (see [Disallowed Data Types](CONTEXT_SPEC_ITEMS.md#disallowed-data-types)).
+
+### Filter and Sort Types
+
+Data items only: a context item cannot be `filter` or `sort` (see [Disallowed Data Types](CONTEXT_SPEC_ITEMS.md#disallowed-data-types)).
+
+A `filter` data item needs a `filter` key, and a `sort` data item needs a `sort` key. Each holds up to three lists, and at least one must be non-empty:
+
+| Key | Holds |
+|-----|-------|
+| inlineItems | Fields described inline. Filter: `name`, `displayName`, `dataType`, optional `operators`. Sort: `name`, `displayName`, optional `ascendingDisplayName` / `descendingDisplayName` |
+| dataItems | References to other data items: `{ itemPath: { itemKey: '<key>' } }` |
+| contextItems | References to context items: `{ itemPath: { itemKey: '<key>' } }` |
+
+A missing key fails the checkpoint with `dataType 'filter' must include a 'filter' field`. An empty one (`filter: {}`) fails with `must include at least one of 'inlineItems', 'dataItems', or 'contextItems'`. TypeScript accepts both, because every field is optional.
+
+```typescript
+productFilter: {
+  dataType: 'filter',
+  displayName: 'Product filter',
+  filter: { inlineItems: [{ name: 'category', displayName: 'Category', dataType: 'text', operators: ['eq'] }] },
+}
+```
 
 ### Text Type
 
