@@ -132,6 +132,7 @@ Builds Wix Headless sites with business features from the ready-made code in `wi
 - `guides/existing-site.md`: a new frontend for a Wix site that already has its content, and continuing a site built in an earlier session.
 - `guides/migration.md`: a site moving to code after "Go Headless" in its dashboard.
 - `guides/reference-mode.md`: a stack that cannot run the shipped React code.
+- `guides/seo.md`: the SEO tags every page carries, on each stack.
 - `guides/feedback.md`: sending the user's feedback on building with Wix.
 - `install/`: the scripts of a run (`setup.mjs`, `attach.mjs`, `deploy.mjs`, `install.mjs`, `templates.mjs`, `context.mjs`, `bootstrap.mjs`, `check.mjs`) and `pins.json`, the pinned CLI and templates versions.
 
