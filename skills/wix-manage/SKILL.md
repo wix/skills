@@ -184,6 +184,9 @@ Updates an existing contact's email, phone, name, or address with the Contacts A
 ### [Analyse Domain](references/domains/analyse-domain.md)
 Report on the domains in the user's own Wix account — what kind a domain is, which site it is on, when it expires and whether it renews — for one domain, or by listing and filtering the account's domains.
 
+### [Analyse Domain DNS](references/domains/analyse-domain-dns.md)
+Answer questions about the DNS settings of a domain already in the user's Wix account, whether it is set up correctly, and why its site isn't showing — where the settings are kept, whether they have propagated, the records in its Wix DNS zone and what they should be, which records are wrong or block SSL, and the email records. Read-only. Not for connecting a domain bought elsewhere: that is Connect External Domain or Sub Domain.
+
 ### [Assign Domain](references/domains/assign-domain.md)
 Connect a domain the user already owns to one of their Wix sites, as its primary domain or as a redirect — the starting point for every "connect my domain to my site" request, whether or not a domain is named; change which of a site's domains is primary; move a domain from one site to another; or take a domain off its site.
 
@@ -192,6 +195,9 @@ Check whether a domain name, or several at once, can be registered through Wix, 
 
 ### [Connect External Domain or Sub Domain](references/domains/connect-external-domain-or-sub-domain.md)
 Connect a domain registered with another provider (not bought through Wix), or a subdomain, to a Wix site by handing over the dashboard connect link. Never buys a domain, and never assigns one the account already holds.
+
+### [Update Domain DNS](references/domains/update-domain-dns.md)
+Change the records in the Wix DNS zone of a domain already in the user's Wix account — add a domain-verification code (Google, Microsoft) as a text record, point the site or the bare domain at another host, make a name an alias, set up email, change or remove a record, or switch DNSSEC. Only for domains whose DNS Wix serves; the change is shown and confirmed first. Not for a site's SEO settings, and not for a domain bought elsewhere that isn't connected yet: that is Connect External Domain or Sub Domain.
 
 ### [Domain Search, Purchase and Connect](references/domains/domain-search-purchase-and-connect.md)
 Buy a domain through Wix — intent, suggestions, site resolution, registration, privacy, cart and checkout. A request to connect a domain the user owns to their site starts at Assign Domain; connecting a domain registered with another provider, or a subdomain, is Connect External Domain or Sub Domain. Availability checks are not done here: they all use Check Domain Availability.
