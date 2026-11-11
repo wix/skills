@@ -6,6 +6,10 @@ apiDoc:
       title: Analyse Domain
       docsEntry: https://dev.wix.com/docs/api-reference/account-level/domains
       tags: [domains]
+    - file: ../../../skills/wix-manage/references/domains/analyse-domain-dns.md
+      title: Analyse Domain DNS
+      docsEntry: https://dev.wix.com/docs/api-reference/account-level/domains
+      tags: [domains]
     - file: ../../../skills/wix-manage/references/domains/assign-domain.md
       title: Assign Domain
       docsEntry: https://dev.wix.com/docs/api-reference/account-level/domains
@@ -16,6 +20,10 @@ apiDoc:
       tags: [domains]
     - file: ../../../skills/wix-manage/references/domains/connect-external-domain-or-sub-domain.md
       title: Connect External Domain or Sub Domain
+      docsEntry: https://dev.wix.com/docs/api-reference/account-level/domains
+      tags: [domains]
+    - file: ../../../skills/wix-manage/references/domains/update-domain-dns.md
+      title: Update Domain DNS
       docsEntry: https://dev.wix.com/docs/api-reference/account-level/domains
       tags: [domains]
     - file: ../../../skills/wix-manage/references/domains/domain-search-purchase-and-connect.md

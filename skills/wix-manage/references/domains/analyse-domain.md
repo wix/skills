@@ -137,9 +137,11 @@ including registrant details, and none of them is read or mentioned.
 | `where` is `null`, including when a request failed | "I can't find {domain} in your Wix account." Do not mention the failed call. A miss is not proof that the user doesn't own it: these lists see the Wix account, not the registry. Never say someone else owns it, and say nothing about who holds it. If the user then asks whether it can be registered, use [Check Domain Availability](check-domain-availability.md); to buy it, [Domain Search, Purchase and Connect](domain-search-purchase-and-connect.md); to connect it from another provider, [Connect External Domain or Sub Domain](connect-external-domain-or-sub-domain.md). |
 
 This call is the last source: do not search the docs or call any other API, even when the user asked
-for an expiry, a renewal or add-ons. Add-ons, SSL, DNS propagation and the contact-verification status
-are not reported. An expiry or renewal that the result does not carry is never stated or guessed: say
-Wix can't report it for this domain. The result carries no price: never state or estimate one.
+for an expiry, a renewal or add-ons. Add-ons, SSL and the contact-verification status are not reported.
+An expiry or renewal that the result does not carry is never stated or guessed: say Wix can't report it
+for this domain. The result carries no price: never state or estimate one. DNS propagation and DNS records
+are not in this result either: hand those questions to [Analyse Domain DNS](analyse-domain-dns.md), and a
+"not secure" warning too (it never states a certificate's state).
 
 ## Several domains
 
@@ -226,8 +228,9 @@ is never listed as on no site.
   the domains that are on a site; a question about domains on no site is still answered in full.
 - `expiryRead: false`: the expiry and renewal could not be read. Answer a question about them with
   "Wix can't report it right now"; the other columns still stand.
-- A question that needs a field the rows don't carry (add-ons, SSL, DNS propagation) is not answered
-  from here: say Wix can't report it.
+- A question that needs a field the rows don't carry (add-ons, SSL) is not answered from here: say Wix
+  can't report it. A DNS propagation or DNS records question for one of the domains goes to
+  [Analyse Domain DNS](analyse-domain-dns.md).
 
 Answer a list in one table, one row per domain, with only the columns the question needs. A count is
 `matched`. When more than 25 domains match, give the count, show the first 25, and offer the rest.
@@ -238,7 +241,7 @@ No WHOIS, registrant, registrar or owner lookup, no valuation, and nothing about
 in the account. Anything beyond reading a domain's state is another skill's task. Say what you found,
 then hand over:
 
-- A domain's DNS records, or changing them: no skill covers it yet, so stop there.
+- Why a domain isn't connecting or showing the site, its DNS propagation, or its DNS records: [Analyse Domain DNS](analyse-domain-dns.md). Changing a record: [Update Domain DNS](update-domain-dns.md).
 - Buying a domain: [Domain Search, Purchase and Connect](domain-search-purchase-and-connect.md).
 - Bringing in a domain registered with another provider, or a subdomain: [Connect External Domain or Sub Domain](connect-external-domain-or-sub-domain.md).
 - Putting a domain on a site, changing its role there, moving it, or taking it off: [Assign Domain](assign-domain.md).
