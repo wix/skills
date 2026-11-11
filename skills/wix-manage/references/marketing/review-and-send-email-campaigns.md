@@ -1,11 +1,11 @@
 ---
 name: "Review and Send Email Campaigns"
-description: "Reads a Wix site's email marketing campaigns and reports on them: which campaigns were sent and when, drafts and scheduled campaigns, the subject and content of a campaign (for example whether one mentions a discount code, or its word count), delivery and engagement results, the contacts who received, opened or clicked a campaign, and the site's monthly email quota. Also creates a draft campaign from text and sends or schedules a draft once the user confirms. Use when the user asks about their email campaigns or newsletters, how a campaign performed or who it reached, or wants a campaign drafted or a draft sent."
+description: "Reads a Wix site's email marketing campaigns and reports on them: which campaigns were sent and when, drafts and scheduled campaigns, the subject and content of a campaign (for example whether one mentions a discount code, or its word count), delivery and engagement results, the contacts who received, opened or clicked a campaign, and the site's monthly email quota. Also sends or schedules an existing draft once the user confirms. Use when the user asks about their email campaigns or newsletters, how a campaign performed or who it reached, or wants an existing draft sent."
 ---
 
 # Review and Send Email Campaigns
 
-Uses the [Campaign API](https://dev.wix.com/docs/api-reference/business-management/marketing/emails/email-marketing/campaign/introduction) of Wix Email Marketing. Every call in Steps 1-4 is read-only. Step 5 creates a draft, and Step 6 sends email to real contacts.
+Uses the [Campaign API](https://dev.wix.com/docs/api-reference/business-management/marketing/emails/email-marketing/campaign/introduction) of Wix Email Marketing. Every call in Steps 1-4 is read-only. Step 5 sends email to real contacts.
 
 All calls are `GET` with query parameters unless the step says otherwise. Repeat an array parameter once per value (`?visibilityStatuses=DRAFT&visibilityStatuses=PUBLISHED`); a comma-joined value returns `400`. Every call below is complete and was run as written: send it without looking up its schema first.
 
@@ -143,42 +143,7 @@ The contacts are in `contacts[]`, with labels in `info.labelKeys.items`. To labe
 
 **Emails used this month:** `GET https://www.wixapis.com/email-marketing/v1/account-details` returns `accountDetails.quotaPeriod.quotaUsage.emails` (sent in this period), `accountDetails.package.monthlyQuotaAllocation.emails` (the plan's limit), `accountDetails.quotaPeriod.dateFrom` and `dateTo`. To break the emails down by campaign, add up `email.delivered` and `email.bounced` (Step 3) of the campaigns published in that period.
 
-## Step 5: Create a draft
-
-Create a draft when the user asks for one; a draft sends nothing. The call below is complete and was run as written: send it without looking up its schema first.
-
-`POST https://www.wixapis.com/email-marketing/v1/campaigns` takes only these fields:
-
-| Field | What to send |
-|---|---|
-| `composer.composerDataJson` | Required. The content, as a string that holds JSON: `{"mjml":"<mjml>...</mjml>"}` |
-| `campaignEditorType.value` | `MJML` |
-| `emailSubject` | The subject line. It is also the campaign's name in the dashboard (`title`); there is no separate title field. When the user names the campaign, use that name as the subject unless they give a subject too |
-| `emailPreheader` | Optional preview text shown after the subject |
-
-There are no sender or audience fields on a draft. The sender comes from the site's email marketing settings, and the audience is chosen when the draft is sent (Step 6).
-
-Write the content in MJML: `<mjml><mj-body>`, then one `<mj-section><mj-column>` that holds an `<mj-text>` per paragraph, and an optional `<mj-button href="...">` for a link. A heading is an `<mj-text>` with `font-size` and `font-weight`:
-
-```bash
-curl -X POST 'https://www.wixapis.com/email-marketing/v1/campaigns' \
--H 'Content-Type: application/json' \
--H 'Authorization: <AUTH>' \
--d '{
-  "composer": {
-    "composerDataJson": "{\"mjml\":\"<mjml><mj-body><mj-section><mj-column><mj-text font-size=\\\"24px\\\" font-weight=\\\"bold\\\">Spring Pottery Workshop</mj-text><mj-text>Registration opens on March 3. Places are limited.</mj-text><mj-button href=\\\"https://www.example.com/workshop\\\">Save my place</mj-button></mj-column></mj-section></mj-body></mjml>\"}"
-  },
-  "campaignEditorType": { "value": "MJML" },
-  "emailSubject": "Spring Workshop",
-  "emailPreheader": "Registration opens March 3"
-}'
-```
-
-`composerDataJson` is a string, so escape the quotes inside it, and escape them twice inside an attribute value as shown; an object there returns `400 Unexpected value for field composer_data_json`. `campaignEditorType.value` must match the key in that string (`MJML` with `mjml`; `HTML` with `html` for raw HTML). A mismatch is accepted but makes sending fail later, and the editor type cannot be changed after creation.
-
-The response holds the new campaign in `campaign`: `campaignId`, `title` (the subject), `editorType`, `visibilityStatus` `DRAFT` and `distributionStatus` `NOT_STARTED`. That proves the draft was saved; no read-back is needed. Give the user the campaigns link from [Marketing Dashboard Navigation](marketing-dashboard-navigation.md) to review the draft.
-
-## Step 6: Send or schedule a draft
+## Step 5: Send or schedule a draft
 
 Publishing sends email to real contacts and cannot be undone. Before you send:
 
