@@ -138,7 +138,6 @@ function createAuditServices() {
     '@wix/site-service-lightbox': {
       open: async () => {},
       close: () => {},
-      getContext: () => undefined,
       getPayload: () => undefined,
     },
   };
