@@ -20,7 +20,7 @@ Base URL `https://www.wixapis.com/_serverless/pa-google` unless shown in full; t
 Calls run on the current site from the call context; ask which site only when none is selected, and never list sites to hunt for a campaign.
 
 1. Campaign pasted by the user → use it as is, without fetching it. Campaign ID known → use it.
-2. Otherwise `GET /v1/campaigns` **once**; it returns full campaign objects. Read `id`, `name`, `campaignType`, `status`, `resourceName`, `createdDate`, `actionDate`, `budget.amountMicros`.
+2. Otherwise `GET /v1/campaigns` **once**; never call it again for a smaller response. It returns full campaign objects, every asset, signal and setting included, and takes no parameter for fewer fields, so in the code that makes the call, map each campaign to the fields this recipe reads before returning it: `id`, `name`, `campaignType`, `status`, `resourceName`, `createdDate`, `actionDate`, `budget.amountMicros`, and, on Performance Max campaigns only, `performanceMaxCampaign.url` and `.languages` (read for search themes).
 3. Ignore `DRAFT` campaigns (nothing serves yet). One non-draft campaign left → proceed; several → list them one line each and ask. Mention a draft in one line; if the user explicitly wants to improve a draft, offer to add assets when there are few and to add search themes, otherwise point to launching it ([Manage Campaign Lifecycle](manage-campaign-lifecycle.md)).
 
 **Days running** = days since `actionDate` (last launch or resume), else since `createdDate`. A statement from the user about the campaign's age ("just created", "still learning", "running for a month") overrides the dates: use it, do not recompute or dispute it.
@@ -33,7 +33,7 @@ Status other than `LIVE` or `LEARNING`: name the blocking action first, then con
 | --- | --- |
 | `PERFORMANCE_MAX_LEADS`, under 14 days (or the user says it is new or still learning) | **Success guide only**; no recommendations or analytics calls. Say performance-based advice starts after about two weeks. Discourage edits during learning except adding search themes (which the guide itself raises); if the user insists, warn that an edit resets Google's learning, then proceed |
 | `PERFORMANCE_MAX_LEADS`, 14 days or more | **Recommendations + analytics.** Do not retrieve the guide for advice (reading it to mark or reopen an item is still fine). While `status` is `LEARNING` (about 28 days), say the data is usable but early |
-| `PERFORMANCE_MAX` (general or retail) | Recommendations + analytics; add shopping performance when `performanceMaxCampaign.feedLabel` is set |
+| `PERFORMANCE_MAX` (retail) | Recommendations + analytics, always with shopping performance (`POST /v1/shopping-performance-metrics`) |
 | `SMART` | Offer the Performance Max Leads upgrade first (below); if declined, run the Smart path |
 
 ## Campaign success guide (Performance Max Leads, first 14 days)
