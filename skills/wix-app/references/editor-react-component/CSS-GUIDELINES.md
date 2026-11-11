@@ -69,7 +69,7 @@ DOM context.
 
 Narrow exceptions, neither defining editable appearance: a relationship
 selector for behavior-only visibility that needs ancestor state (a
-hover-revealed play/pause control), and an icon part's layout-only `svg` rule
+hover-revealed play/pause control), and an icon part's `svg` rules
 (`VECTOR-ART.md`). Keep each control's size, color, border, typography, and state
 styling on its own single-class rules.
 
@@ -224,7 +224,7 @@ per icon (`--start-icon-size`), applied via `inline-size`/`block-size` and
 previous/next) moves to the root, so a repeated inline icon keeps its controls
 on the part: `currentColor` from text in the part (a visually hidden,
 `aria-hidden` label in an icon-only button) and a size in `em`. Root `--icon-*`
-is only for one that needs its own color; replaceable icons follow
+is only for one that needs its own color; content icons follow
 `VECTOR-ART.md`.
 
 - **Inline** (chevron, play/pause): the `svg` applies them through a module
@@ -244,7 +244,7 @@ is only for one that needs its own color; replaceable icons follow
 }
 ```
 
-- **Replaceable**: follow `VECTOR-ART.md`.
+- **Content** (service, feature, contact): follow `VECTOR-ART.md`.
 
 ## Interaction and Motion
 
