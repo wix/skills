@@ -8,6 +8,12 @@ description: "Build a Wix Headless site from a single prompt: the business solut
 This page tells you how to build the site, step by step. Read this page in full. Read each skill
 page that this page names in full. A fetch that makes a summary removes the calls. Do not use one.
 
+**When the site is done.** A site with a business solution is done when three things are true:
+its content is in Wix (step 4), its pages read that content through the modules (step 5), and a
+visitor's read returns it (the check in step 5). An upload that succeeds does not make the site
+done. Do not reply to the user before the check passes, except to ask for something that only the
+user can give.
+
 ## 1. Find and use the Wix Plugin and tools
 
 The Wix plugin connects you to Wix. It has the Wix tools (the Wix MCP, signed in as the user) and
@@ -108,10 +114,9 @@ content (the check in step 5). A site with the app installed and its content wri
 is not complete. The owner cannot change that content in the dashboard, and the pages do not show
 what the owner adds there.
 
-You can upload a first version before all of this is in place. It is a step, not the end. Continue
-with the steps that remain, and do not wait for the user to ask. In every message that gives the
-user a link, say what this version is: which pages read from the site, which pages are static, and
-which steps remain. Do not say that the site is done before the check in step 5 passes.
+The upload comes after the content: step 4 is before step 5. Do not give the user a link before
+the check in step 5 passes. In every message that gives the user a link, say which pages read from
+the site and which pages are static.
 
 Do the six steps in this order. For each step: what you do, the call, and the reference.
 
@@ -120,6 +125,8 @@ Do the six steps in this order. For each step: what you do, the call, and the re
   folder, for example `storefront`, `bookings`, `blog`.
 - If the brief needs no solution (a landing page, a game), do steps 2, 5 and 6 only.
 - Reference: `{SKILL_ROOT}/SKILL.md`, section "Verticals"; `{TEMPLATES}/{solution}/static.md`.
+- Read `{TEMPLATES}/{solution}/api-run.md` now. It has the call for steps 3 and 4 written out,
+  the names that the pages import, and the visitor read for the check.
 
 **Step 2: create the site.**
 - Create the site, with its solutions installed.
@@ -130,8 +137,9 @@ Do the six steps in this order. For each step: what you do, the call, and the re
 - Install each other app that the solutions need. On a site that already exists, install each app
   it needs.
 - Call: `POST /apps-installer-service/v1/app-instance/install` with
-  `{ appInstance: { appDefId, enabled: true } }` and `scope: "site"`. You can repeat this call
-  safely.
+  `{ tenant: { tenantType: "SITE", id: siteId }, appInstance: { appDefId, enabled: true } }` and
+  `scope: "site"`. You can repeat this call safely. The function in `api-run.md` makes this call
+  for a solution that the provision call does not install.
 - Reference: the `install…App` function at the top of
   `{TEMPLATES}/{solution}/seed/seed-{solution}.mjs`.
   `{MANAGE}/references/app-installation/install-wix-apps.md` shows the same call for any app.
@@ -139,6 +147,7 @@ Do the six steps in this order. For each step: what you do, the call, and the re
 **Step 4: set the region, then create the content.**
 - Set the region settings that the brief gives. Then create the content: the content in the brief,
   or placeholder content that you write if the brief gives none.
+- Copy the function in `api-run.md` and change only the plan at the top.
 - Calls, first the region settings: the Update Business Region call from the recipe (currency, time
   zone), and the region `PATCH` for a place. Then the calls of the seed script, in its order, with
   its bodies, through `ExecuteWixAPI` with `scope: "site"` and `siteId`. Create. Do not delete.
@@ -168,6 +177,10 @@ Do the six steps in this order. For each step: what you do, the call, and the re
   with other output, is cut in the middle and the end of the file is lost.
 
 **Step 6: close.**
+- Start with the status of the build, one line each: the number of items that you created in Wix
+  for each solution; the pages that read them; the visitor check, as passed, failed or not run. If
+  a number is 0, or the check did not pass, the site is not done. Go back to that step. Do not
+  send the message.
 - Give the live URL and the dashboard URL, each on its own line.
 - Say what you wrote as placeholder content.
 - Say which pages read from the site through the modules and which pages are static. If a step did
@@ -267,6 +280,9 @@ a control only if the modules return its setting. Decide this when the page load
 write the page. Do not build the controls from the content that you made in step 4. The owner
 changes the settings in the dashboard, and the page follows on the next load.
 
+Import only the names in a module's declarations. `api-run.md` of the solution lists the ones that
+the pages use. A name that a module does not export stops the whole page.
+
 ### Step 5: the design
 
 The modules carry the data. The pages are the design job. `static.md` of the solution tells you
@@ -352,6 +368,8 @@ upload is not enough. Write one `ExecuteWixAPI` script that reads as a visitor:
 1. Mint the token in the way that `client.ts` does.
 2. Send the calls that the page functions make, with `fetch()` and that token. Take the bodies from
    the `.ts` file that holds each function.
+
+`api-run.md` of the solution has this script written out.
 
 **Caution:** `wix.request` always sends the owner token. It does not matter which token you give
 it. A check through `wix.request` reads what the owner sees, not what a visitor sees.
