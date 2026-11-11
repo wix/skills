@@ -36,7 +36,7 @@ const sameIds = (a, b) => JSON.stringify(ids(a.products)) === JSON.stringify(ids
 async function readCatalog(wix, writers) {
   const products = await writers.queryAllStoresProducts(wix);
   const categories = await writers.queryAllStoresCategories(wix);
-  const slim = (item) => ({ id: item.id, slug: item.slug ?? null });
+  const slim = (item) => ({ id: item.id, slug: item.slug ?? null, ...(item.createdDate ? { createdDate: item.createdDate } : {}) });
   return { products: products.filter((item) => item && item.id).map(slim), categories: categories.filter((item) => item && item.id).map(slim) };
 }
 
@@ -108,7 +108,7 @@ function notSettled(baseline) {
 // resolved (see captureAroundInstall): a collection that is `null` there is unknown, so every item
 // of it is `pre_existing`. Known rows -- the pre-install items and anything an earlier attempt
 // recorded -- keep their record, listed or not.
-function classify(catalog, preInstall, known = { products: [], categories: [] }) {
+function classify(catalog, preInstall, known = { products: [], categories: [] }, since = null) {
   const out = {};
   for (const collection of ['products', 'categories']) {
     const before = preInstall[collection];
@@ -117,6 +117,9 @@ function classify(catalog, preInstall, known = { products: [], categories: [] })
       const row = kept.get(item.id);
       if (row) return row.status === 'deleted' ? { ...row, status: 'present' } : row;
       if (before === null) return { id: item.id, slug: item.slug, kind: 'pre_existing', status: 'present', reason: 'pre_install_catalog_unreadable' };
+      // On a retry the pre-install read is the first attempt's. Wix's sample items carry an old creation date, so an item
+      // created after that attempt began is the owner's, not a sample: it stays pre-existing and is never deleted.
+      if (since && !before.some((old) => old.id === item.id) && Date.parse(item.createdDate) > Date.parse(since)) return { id: item.id, slug: item.slug, kind: 'pre_existing', status: 'present', reason: 'created_after_first_attempt' };
       return { id: item.id, slug: item.slug, kind: before.some((old) => old.id === item.id) ? 'pre_existing' : 'install_seeded', status: 'present' };
     });
     for (const row of known[collection]) if (!out[collection].some((item) => item.id === row.id)) out[collection].push(row);
@@ -168,7 +171,7 @@ async function captureAroundInstall({ projectDir, wix, writers, installed, insta
     // finished; seeded items an earlier delete missed are tried again.
     if (prior.settled === false) {
       const { catalog, reads, settled } = await settledCatalog(wix, writers, { sleep, delayMs });
-      const next = { ...prior, phase: 'installed', ...classify(catalog, prior.preInstall || { products: null, categories: null }, prior), postInstallReads: reads, settled };
+      const next = { ...prior, phase: 'installed', ...classify(catalog, prior.preInstall || { products: null, categories: null }, prior, prior.startedAt), postInstallReads: reads, settled };
       if (!settled) { writeBaseline(projectDir, next); throw notSettled(next); }
       await finish(projectDir, next, wix, writers);
       return { baseline: next, unchanged: false };
@@ -193,7 +196,8 @@ async function captureAroundInstall({ projectDir, wix, writers, installed, insta
   const preInstall = {};
   for (const collection of ['products', 'categories']) {
     const retried = reinstall ? undefined : prior?.preInstall?.[collection];
-    preInstall[collection] = read[collection] ?? retried ?? (siteOrigin === 'created' && !prior ? [] : null);
+    // The first attempt's read comes first: a read taken now may already hold sample products that attempt seeded.
+    preInstall[collection] = retried ?? read[collection] ?? (siteOrigin === 'created' && !prior ? [] : null);
   }
   const known = { products: [...(prior?.products || [])], categories: [...(prior?.categories || [])] };
   for (const collection of ['products', 'categories']) {
@@ -207,7 +211,7 @@ async function captureAroundInstall({ projectDir, wix, writers, installed, insta
   baseline.phase = 'installed';
   writeBaseline(projectDir, baseline);
   const { catalog, reads, settled } = await settledCatalog(wix, writers, { sleep, delayMs });
-  Object.assign(baseline, classify(catalog, preInstall, known), { postInstallReads: reads, settled });
+  Object.assign(baseline, classify(catalog, preInstall, known, !reinstall && prior ? prior.startedAt : null), { postInstallReads: reads, settled });
   // Still changing after every read: record what is known and stop before deleting anything.
   if (!settled) { writeBaseline(projectDir, baseline); throw notSettled(baseline); }
   await finish(projectDir, baseline, wix, writers);

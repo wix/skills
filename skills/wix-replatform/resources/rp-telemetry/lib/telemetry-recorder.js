@@ -27,6 +27,7 @@ const os = require('node:os');
 const crypto = require('node:crypto');
 const { execFileSync } = require('node:child_process');
 const biSink = require('./bi-sink.js');
+const skillPing = require('./skill-ping.js');
 
 // 1.1.0 — added `skills_commit` to the run-start record and rollup (additive).
 // 1.2.0 — BI sink: added `telemetry_health.bi_push_failures`, the
@@ -2178,13 +2179,14 @@ function markIdentitySettled(projectDir, runId) {
   } catch { /* a missing marker only costs a re-check */ }
 }
 
-async function adoptIdentity(projectDir, { now, resolveIdentity = resolveOperatorIdentity } = {}) {
+async function adoptIdentity(projectDir, { now, resolveIdentity = resolveOperatorIdentity, pingFetch } = {}) {
   try {
     // Cheapest checks first, because this runs on every command: no login yet (one small file
     // read) means nothing to do; a run already known to have its id is settled by the marker;
     // otherwise a text match over the journal settles "id already there" without a replay.
     const userId = resolveIdentity();
     if (!biSink.isGuid(userId)) return { adopted: false };
+    await skillPing.linkSession(telemetryDir(projectDir), pingFetch);
     const file = journalPath(projectDir);
     if (!fs.existsSync(file)) return { adopted: false };
     if (identitySettled(projectDir, file)) return { adopted: false };
@@ -2416,7 +2418,7 @@ function startAdopts(state, ts, supervisorStartedAt) {
 // `supervisorStartedAt` is injectable for the same reason (tests need no real supervisor);
 // the default reads the live supervisor's `active.json`.
 async function start(projectDir, dimsInput, {
-  now, resolveIdentity = resolveOperatorIdentity, supervisorStartedAt,
+  now, resolveIdentity = resolveOperatorIdentity, supervisorStartedAt, pingFetch,
 } = {}) {
   const ts = nowIso(now);
   const dims = validateDims(dimsInput);
@@ -2514,6 +2516,7 @@ async function start(projectDir, dimsInput, {
 
   if (plan.kind === 'adopted' || plan.kind === 'resumed') {
     const { state } = plan;
+    if (biSink.isGuid(plan.operatorId)) await skillPing.linkSession(telemetryDir(projectDir), pingFetch);
     // Session-boundary heal: re-push the started row and every folded event
     // class whenever operator identity is known — from this call's dims or
     // the journal. A halted run may never reach finalize's full re-push, so
@@ -2534,6 +2537,8 @@ async function start(projectDir, dimsInput, {
   }
 
   const { record, attempt, skillsVersion, skillsCommit } = plan;
+  await skillPing.startSession(telemetryDir(projectDir), skillsVersion, pingFetch);
+  if (biSink.isGuid(record.dims.wix_user_id)) await skillPing.linkSession(telemetryDir(projectDir), pingFetch);
   // Emit `replatform_run` phase:started. Without a GUID operator identity it goes out under
   // the run's placeholder subject (never the all-zeros GUID: BI did not ingest it); the
   // operator's copy follows when the id is known.
