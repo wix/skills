@@ -162,6 +162,13 @@ To pull in records that arrived after an import ("the source kept selling"), ask
 to re-run the import for the same project. It reuses the destination and mapping instead of
 starting over.
 
+### What the skill sends to Wix
+
+Each run sends two small messages to a Wix service: one when the run starts, with a random
+session id and the skill's version, and one after you log in to Wix, which links that session id
+to your Wix account. Nothing else is in them: no site, project or source address. They are
+always sent; the telemetry off switches do not apply to them.
+
 ---
 
 ## The `replatform` command line (optional)

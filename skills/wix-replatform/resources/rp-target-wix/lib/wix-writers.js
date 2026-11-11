@@ -6848,8 +6848,11 @@ const { STORES_APP_DEF_ID } = require('../../../lib/catalog-baseline.js');
 const RICH_TEXT_VIEWER_APP_DEF_ID = '61270055-5726-4cb1-9a7a-467bbbaf465f';
 const NO_EDITOR_PART_ERROR = /no EDITOR_INSTALLATION component found|No actions were added to the transaction/i;
 // The installer refuses an app whose page path another app already took (Wix bug: it fails where the
-// legacy installer renamed the page). The failed app is rolled back.
-const PAGE_PATH_CONFLICT_ERROR = /pageUriSEO is invalid: not unique across site/i;
+// legacy installer renamed the page; since 2026-11-10 it also refuses Stores on a blank site). The failed
+// app is rolled back; the caller installs it with the generic installer.
+const PAGE_PATH_CONFLICT_ERROR = /pageUriSEO is invalid: not unique across site|Router not valid - Page Uri SEO already exist/i;
+// The editor installer cannot find a component the app declares (seen for some accounts on 2026-11-11).
+const EDITOR_COMPONENT_MISSING_ERROR = /EditorInstallationHandler: component not found|^component not found/i;
 // TEMPORARY. `EDITOR_INSTALL_EXPERIMENTS` are Conductor overrides that a server-to-server call
 // leaves off, sent with every editor install: the eCommerce feature that adds the side-cart
 // lightbox is closed for Harmony, and any app that pulls in eCommerce fails with "component not found"
@@ -7002,13 +7005,22 @@ async function deleteCalendarEvent(wix, id) {
 }
 
 // Composite provisioning helper: idempotently ensures Bookings is installed and returns the
-// default staff resource id every CLASS/COURSE session needs. Cheap enough to call once per run
-// (an install-status GET, an install POST only when missing, and a resources GET), but callers
-// should still call it once per run rather than once per record.
-async function ensureBookingsProvisioned(wix, { siteId } = {}) {
+// default staff resource id every CLASS/COURSE session needs. Callers should call it once per run rather
+// than once per record: it reads the installed-apps list, installs only when missing and then reads the
+// list again until the app shows (up to about 30 s, since the list lags an install), then reads resources.
+async function ensureBookingsProvisioned(wix, { siteId, sleep } = {}) {
   const installed = await isWixAppInstalled(wix, WIX_BOOKINGS_APP_DEF_ID);
   if (!installed) {
     await installWixApp(wix, { appDefId: WIX_BOOKINGS_APP_DEF_ID, siteId });
+    // The install call alone proves nothing: the installed-apps list must show the app, enabled. The list
+    // lags an install, so it is read a few times before the app is called missing.
+    let listed = await isWixAppInstalled(wix, WIX_BOOKINGS_APP_DEF_ID);
+    for (let attempt = 0; attempt < 6 && !listed; attempt += 1) {
+      await pauseFor(wix, sleep)(5000);
+      listed = await isWixAppInstalled(wix, WIX_BOOKINGS_APP_DEF_ID);
+    }
+    // A dry-run client sends nothing, so its list never shows the app: nothing to verify there.
+    if (!listed && wix.dryRun !== true) throw new Error(`ensureBookingsProvisioned: the install call returned but Wix Bookings (${WIX_BOOKINGS_APP_DEF_ID}) is not listed as installed and enabled on site ${siteId || 'unknown'}`);
   }
   // The default "Business Owner" resource is auto-provisioned as a side effect of the install
   // above, not synchronously guaranteed by the install response — read-after-write race, same
@@ -7017,7 +7029,7 @@ async function ensureBookingsProvisioned(wix, { siteId } = {}) {
   let resources = await queryBookingsResources(wix);
   if (!resources.length && !installed) {
     for (let attempt = 0; attempt < 4 && !resources.length; attempt += 1) {
-      await pauseFor(wix)(750);
+      await pauseFor(wix, sleep)(750);
       resources = await queryBookingsResources(wix);
     }
   }
@@ -9517,6 +9529,7 @@ module.exports = {
   EDITOR_INSTALL_EXPERIMENTS,
   NO_EDITOR_PART_ERROR,
   PAGE_PATH_CONFLICT_ERROR,
+  EDITOR_COMPONENT_MISSING_ERROR,
   editorInstallCompanions,
   EDITOR_INSTALL_URL,
   RICH_TEXT_VIEWER_APP_DEF_ID,

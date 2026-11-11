@@ -148,7 +148,7 @@ function appPagesOperatorActions(record, receipt, currentSiteId = null) {
   if (apps.length) actions.push({
     code: 'harmony_app_pages_unconfirmed',
     severity: 'high',
-    action: `Site owner/designer: setup installed these apps on the Wix Harmony site${site}: ${names(apps)}. It cannot read the site's pages, so the pages each app adds are unconfirmed — visitors may find them missing (a site whose app was installed another way, or before this run, may lack them).${editorLink} Open the editor and confirm each app's pages exist, and before any publication open them in the preview. Nothing in the pipeline clears this item: record the confirmation in the cutover checklist.`,
+    action: `Site owner/designer: setup installed these apps on the Wix Harmony site${site}: ${names(apps)}. It cannot read the site's pages, so the pages each app adds are unconfirmed — visitors may find them missing (a site whose app was installed another way, or before this run, may lack them).${editorLink} Open the editor and confirm each app's pages exist, and before any publication open them in the preview. Wix says an app its ordinary installer put on the site is finished by the editor when it opens (not yet confirmed here), so do not add that app's pages by hand (they would be duplicated); after opening the editor, check the app is still on the site's app list, and if its pages are still missing, report that instead of adding them. Nothing in the pipeline clears this item: record the confirmation in the cutover checklist.`,
     deadlineReason: 'before switching traffic',
     entity: 'website',
     affectedCount: apps.length,

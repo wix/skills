@@ -59,13 +59,32 @@ sends the app's id to the service with the editor switch it needs, then reads th
 back. An app the service says has no editor part is installed
 with the generic installer instead. The service installs an app's own dependencies. A small
 companions table in the writers lists apps an app's widgets need that it does not add (Wix Stores: the
-rich-text viewer app, installed first). Every other editor keeps the generic install. If the installer refuses an app because another app already owns its page paths (Wix installs two
-apps that add the same eCommerce pages, such as Stores and Bookings, only one at a time), the earlier
-step wins: the later app is left uninstalled, its step ends with `installed: false` and `deferred`, setup
-goes on, and the destination hand-off asks the site owner to add it once Wix fixes the conflict. Order
-the install steps by importance (Stores before Bookings). Setup cannot read a Harmony page list, so it records `appPages: "not-read"` and the
+rich-text viewer app, installed first). Every other editor keeps the generic install. If the editor installer refuses an app (a page-path conflict, a missing editor component), setup installs
+that app with the generic installer and reads the list back; its step records `route: app-installer` and
+`reason: editor_refused`, and the owner's "confirm each app's pages" item covers it. An app installed that
+way is, per Wix, finished by the editor when it opens (not yet confirmed here), so never tell anyone to add its
+pages by hand (they would be duplicated); have the owner check, after opening the editor, that the app is still
+on the site's app list, and report pages that are still missing. Only the list read-back, for an app not
+recorded as unproven, passes a step. Setup cannot read a Harmony page list, so it records `appPages: "not-read"` and the
 destination hand-off asks the site owner to confirm each app's pages. The route and the switch are a
 temporary workaround for an eCommerce feature closed on Harmony: re-check both once it reopens.
+
+**An install that Wix has not proven stops setup, and you ask the user.** An install call that times out,
+fails with a server error, drops, or leaves the app off the installed-apps list ends the step with
+`APP_INSTALL_OUTCOME_UNCERTAIN` or `APP_INSTALL_NOT_VERIFIED` (a login that expires mid-call is the exception,
+below). The app may then be missing from
+Business Manager and the editor even though the site's app list shows it on the editor route (the list says
+"on the site", never "installed"). On Harmony, setup writes every app
+down in `setup/harmony-app-pages.json` (`unconfirmed`) before it sends the call and clears it only once proven,
+so any stop leaves it there. Tell the
+user in plain words what happened and ask whether to retry. **Never run setup again on your own.** When
+the user says retry, run setup again: it sends every recorded app to Wix again even if listed, and a
+Wix "installed" answer clears the record. A retry that is refused stops again with Wix's own words. Put
+the blocker's `diagnostic` object on the last line of your question, unchanged, as one line of JSON: the
+service logs your question, and that line is how the failing call is found afterwards. It is in the setup
+result, in `setup/setup-blockers.json`, and on the `DIAGNOSTIC` line the script prints when it stops. A login
+that expires during an install call keeps its own stop (the Import Operator renews it); the app is already
+written down, so the retry sends it again.
 
 **When `WIX_SITE_ID` names a site this run did not create, setup changes posture: verify
 and fill gaps, never provision from scratch.** The site is already in use, so treat
