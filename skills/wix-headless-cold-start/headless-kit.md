@@ -104,9 +104,14 @@ folder under 30K bytes. For a bigger folder, read the files one by one.
 
 A complete site has the whole solution: the apps installed (step 3), the content created (step 4),
 pages that read that content through the modules (step 5), and a visitor's read that returns the
-content (the check in step 5). You can upload a first version before all of this is in place. Then
-tell the user what this version is: which pages read from the site, which pages are static, and
-which steps remain. Do this in every message that gives the user a link.
+content (the check in step 5). A site with the app installed and its content written into the pages
+is not complete. The owner cannot change that content in the dashboard, and the pages do not show
+what the owner adds there.
+
+You can upload a first version before all of this is in place. It is a step, not the end. Continue
+with the steps that remain, and do not wait for the user to ask. In every message that gives the
+user a link, say what this version is: which pages read from the site, which pages are static, and
+which steps remain. Do not say that the site is done before the check in step 5 passes.
 
 Do the six steps in this order. For each step: what you do, the call, and the reference.
 
@@ -215,6 +220,15 @@ exists. First read the site. Its dynamic context names its apps: use `GetSiteCon
 shows a URL and "Published"; the URL answers 404 until the first upload. Then follow
 `{SKILL_ROOT}/guides/existing-site.md`. Seed a site that exists only if the user asks for it.
 
+### Pages that already hold the content
+
+The pages can exist before the solution: pages that you uploaded earlier, or pages that the user
+gave. If they show content that a solution owns (posts, products, services, events, dishes, plans,
+projects), a request for the solution is a request to move that content into Wix. In step 4,
+create it on the site from the text and the pictures of the pages. In step 5, rewrite those pages
+to read it through the modules, and remove the copy from the HTML. Text that no solution owns (a
+hero, an about section) stays in the pages.
+
 ### Step 4: the content
 
 Set the region settings first:
@@ -264,6 +278,14 @@ Put every other picture on a page (a hero, a banner) in the Wix Media of the sit
 Do not link to a picture on another website. If the user gave no pictures, you can suggest to
 generate them. You can generate them yourself and upload them with `UploadImageToWixSite`. Or you
 can use the image generation of Wix (`generateImage` in `images.mjs`).
+
+### Step 5: the tags for search engines
+
+Search engines read the HTML of a page. Give every page a `<title>` and a
+`<meta name="description">` of its own, one `<h1>`, `alt` text on each picture and the Open Graph
+tags. A page that shows one item sets its tags from the item when it loads. Do not upload a
+`robots.txt` or a `sitemap.xml`. Wix serves its own. The full list is in
+`{SKILL_ROOT}/guides/seo.md`.
 
 ### Step 5: the modules
 
@@ -337,7 +359,8 @@ it. A check through `wix.request` reads what the owner sees, not what a visitor 
 The check passes when the read returns the content that step 4 created, by name. An empty 200
 response right after the seed can come from the new-install window, or from the query. Read again.
 Then compare your query with the file of `wix-headless-kit`. Read the site files back with
-`wix.headless.files.list`. The modules must be next to the pages.
+`wix.headless.files.list`. The modules must be next to the pages. No page holds, in its HTML, a
+copy of the content that step 4 created.
 
 ### Step 5: the upload
 

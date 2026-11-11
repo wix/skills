@@ -243,6 +243,7 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
    |---|---|
    | supplies the content in any form: a CSV, JSON or spreadsheet, a list in the prompt, a PDF price list, a folder of photos and a text file, a link to their current catalog, anything that names the content | that IS the plan: map it into `plan.json` per `templates/shared/SUPPLIED-CONTENT.md` and the vertical's `SEED.md` ("Supplied content"), every entry, names and prices verbatim, their images and no others |
    | describes the content without listing it ("a store for hand-poured candles, four of them", "a dozen FAQ questions in three groups") | draft a plan from the description per the vertical's `SEED.md` (read only that for this; save `INSTRUCTIONS.md` for step 4) |
+   | comes with pages that already show the content (a dropped mock, a published static site with its products, posts or services written into the HTML) | the pages are the supplied content: map what they show into `plan.json` the same way, every entry, with their images. Step 4 then makes the pages read it from Wix, and no page keeps the written copy |
    | says nothing about content ("build me a store") | on a site made for this run (create, adopt, config-only) draft a plan per the vertical's `SEED.md` so the site opens with content — demo content the agent decides on, without being asked — and say in the closing message that it is placeholder content and where the owner edits it. On a site that existed before the run: seed nothing; its content is its own |
 
    **An existing site has no plan of its own**: when the brief names a site by its id, or the
@@ -351,7 +352,12 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
    there before it (a dropped mock, an adopted site, a published static site), do the least that
    makes them work: connect each control the pages show to the shipped code, and add only what a
    control can't work without. Anything more the vertical offers is added only when the brief
-   asks for it; name it in the closing message.
+   asks for it; name it in the closing message. The minimum is never a page that still shows a
+   written copy of the vertical's content: every list and item the pages show is read through the
+   shipped code from what step 2 seeded.
+   **Every page carries its SEO tags**: a title and a description of its own, one `h1`, `alt`
+   text, the Open Graph tags; the shipped item pages keep their SEO pieces. The list for each
+   stack is `<SKILL_ROOT>/guides/seo.md`.
    If the brief needs a core operation that shipped code does not cover, read
    `templates/shared/CUSTOM_OPERATIONS.md` before writing it. Use one documented path and
    implement it; do not reverse-engineer SDK internals.
