@@ -1,8 +1,8 @@
 # Vector Art
 
-Use this reference when a component shows an icon or other SVG the site owner
-can replace. Fixed glyphs stay inline per
-CSS-GUIDELINES.md "SVG Icons".
+Use this reference when a component shows an icon tied to its content (a
+subject, feature or per-item icon): the site owner can replace it. Fixed UI
+glyphs (chevron, play/pause, close) stay inline per CSS-GUIDELINES.md "SVG Icons".
 
 ## The Prop
 
@@ -16,6 +16,14 @@ which stays `className` only:
 export type FeatureRowProps = {
   icon?: VectorArt;
   elementProps?: { featureRowIcon?: { className?: string } };
+};
+```
+
+In a list, the icon is a field of each item:
+
+```ts
+export type FeatureListProps = {
+  items?: Array<{ label?: string; icon?: VectorArt }>;
 };
 ```
 
@@ -36,20 +44,22 @@ control with `a11y.ariaLabel` per `ACCESSIBILITY.md`.
 )}
 ```
 
-Declare the controls per CSS-GUIDELINES.md "SVG Icons", plus `--icon-rotation`
+Declare the controls per CSS-GUIDELINES.md "SVG Icons", plus `--*-icon-rotation`
 via `rotate`, on the root when the icon repeats. Add no border, background, or
-padding.
+padding. `--*-icon-color` matches the text color, as its literal or `wst-*-color`
+token, never `currentColor`.
 
 ```css
+
 .icon {
-  --icon-size: 24px;
-  --icon-color: #116dff;
-  --icon-rotation: 0deg;
+  --feature-row-icon-size: 24px;
+  --feature-row-icon-color: #151514;
+  --feature-row-icon-rotation: 0deg;
   display: block;
-  inline-size: var(--icon-size);
-  block-size: var(--icon-size);
-  fill: var(--icon-color);
-  rotate: var(--icon-rotation);
+  inline-size: var(--feature-row-icon-size);
+  block-size: var(--feature-row-icon-size);
+  fill: var(--feature-row-icon-color);
+  rotate: var(--feature-row-icon-rotation);
 }
 
 .icon svg {
@@ -57,16 +67,29 @@ padding.
   inline-size: 100%;
   block-size: 100%;
 }
+
+/* Icon parts that carry their own colors. */
+.icon svg [data-color] {
+  fill: var(--feature-row-icon-color);
+}
 ```
 
 With several icons, give each part its own class and prefixed properties;
-shared names merge into one control. Only the property-free `svg` rule may be
+shared names merge into one control. Only the layout `svg` rule may be
 shared (`.startIcon svg, .endIcon svg`).
 
 ## Defaults
 
 Populate all six fields in `defaultProps`; keep them there, with no second
 fallback in JSX. Never invent a `uri` or use a `data:` URI.
+
+Copy each default from `<SKILL_ROOT>/scripts/default-vector-art.json`, without
+its `subject` and `tags`. Fill slots in order:
+
+1. The icon whose `subject` or `tags` match the item's meaning; an icon the
+   user names wins.
+2. When none match, the `general` icons not used yet.
+3. Then the shapes below, then repeats in the same order.
 
 ```ts
 export const defaultProps = {
@@ -82,7 +105,7 @@ export const defaultProps = {
 } as const satisfies Omit<FeatureRowProps, 'id' | 'className'>;
 ```
 
-For further slots substitute `uri` and the path `d` (same `viewBox` and `contentBox`):
+For a shape slot substitute `uri` and the path `d` (same `viewBox` and `contentBox`):
 
 | `uri` | Shape | path `d` |
 | --- | --- | --- |
@@ -91,6 +114,7 @@ For further slots substitute `uri` and the path `d` (same `viewBox` and `content
 
 ## Checklist
 
-- [ ] A replaceable icon is a `VectorArt` prop, not an inline `<svg>` or URL string.
+- [ ] A content icon is a `VectorArt` prop, not an inline `<svg>` or URL string.
+- [ ] A list icon is an item field, not picked by index from a constant.
 - [ ] Each icon is its own named part injecting `svgContent` unmodified, with prefixed `--icon-*` properties.
-- [ ] `defaultProps` carries all six fields with a `uri` from the pool.
+- [ ] `defaultProps` carries all six fields from `default-vector-art.json` or the shapes.

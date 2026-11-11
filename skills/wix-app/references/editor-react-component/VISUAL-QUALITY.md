@@ -47,7 +47,8 @@ Every component:
 - Themed titles keep their token tracking; custom titles take tight tracking.
   Money and counts use
   `font-variant-numeric: tabular-nums`.
-- Line icons drawn inline as SVG where they carry meaning for the subject; no
+- An icon that carries meaning for the subject (a service, feature or contact
+  icon) is a `VectorArt` prop per `VECTOR-ART.md`, never inline SVG; no
   decorative step numbers.
 - Previous/next arrows are inline SVG in `currentColor`, not text characters.
   Their button keeps its `aria-label` (`ACCESSIBILITY.md`) and also holds a
