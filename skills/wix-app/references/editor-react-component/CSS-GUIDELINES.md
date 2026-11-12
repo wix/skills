@@ -86,10 +86,10 @@ The root must fill the available inline size and use border-box sizing:
 }
 ```
 
-Add `height: 100%` only when the editor extension gives the component a pixel
-height or the requested behavior requires a bounded height. Omit it when the
-extension uses `LAYOUT.SIZING_TYPE.content`; the component's content must then
-establish its block size.
+Content height: omit root `height: 100%`; no viewport-based sizes/spacing
+or height feedback, including descendants. In Editor/design mode, scroll-driven
+panels use normal flow; pinning/scrolling only in Preview/live. Bounded height:
+`LAYOUT.SIZING_TYPE.pixels`, `pixels`, no vertical `contentResizeDirection`.
 
 Set `--display` on the root; do not set root `display` directly. Inner
 elements use `display` normally.
@@ -165,8 +165,7 @@ code reads (a canvas color); theme tokens (`var(wst-…)`) are fine. Each text
 part sets its own `color` and font, even when they match the root, or its text
 panel shows them empty.
 
-Write each spacing value as one `px`, `%`, `vh` or `vw` number (`px` by
-default), not `clamp()`, `calc()`, `min()` or `max()`.
+Use one `px` (default), `%`, `vh` or `vw` spacing value; no CSS math.
 
 ```css
 .root {
