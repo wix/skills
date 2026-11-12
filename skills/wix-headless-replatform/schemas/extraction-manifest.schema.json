@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wix.com/replatform/0083/extraction-manifest.schema.json",
+  "type": "object",
+  "required": ["schemaVersion", "kind", "captureId", "pageKey", "pageResolution", "pageCapture", "observationRefs", "specs", "gaps", "budgets", "status", "manifestHash"],
+  "properties": {
+    "schemaVersion": { "const": "0083.1" },
+    "kind": { "const": "extraction-manifest" },
+    "captureId": { "type": "string", "minLength": 1 },
+    "pageKey": { "const": "home" },
+    "pageResolution": { "type": "object", "required": ["id", "hash"], "additionalProperties": false, "properties": { "id": { "type": "string" }, "hash": { "type": "string" } } },
+    "pageCapture": { "type": "object", "required": ["id", "hash"], "additionalProperties": false, "properties": { "id": { "type": "string" }, "hash": { "type": "string" } } },
+    "observationRefs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["ref", "hash"],
+        "properties": {
+          "ref": { "type": "string", "minLength": 1 },
+          "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+        },
+        "additionalProperties": false
+      },
+      "uniqueItems": true
+    },
+    "specs": { "type": "array", "items": { "type": "object" } },
+    "gaps": { "type": "array", "items": { "type": "object" } },
+    "budgets": { "type": "object" },
+    "status": { "enum": ["accepted", "done_with_gaps"] },
+    "manifestHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "extensions": { "type": "object", "additionalProperties": true }
+  },
+  "additionalProperties": false
+}

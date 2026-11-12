@@ -1,0 +1,122 @@
+{
+  "schemaVersion": 1,
+  "domain": "seo",
+  "entity": "site-seo-tags",
+  "displayName": "Site SEO Tags",
+  "capability": "content.site-seo-tags",
+  "target": {
+    "classification": "native",
+    "nativeEntity": "Site SEO Tags",
+    "verifiedFqdn": null,
+    "idPolicy": "not-applicable",
+    "crosswalkRequired": false
+  },
+  "sourceAliases": [],
+  "dependsOn": [
+    "media/media-file"
+  ],
+  "dependencyModes": {
+    "media/media-file": "per-record"
+  },
+  "dependencyReferenceFields": {
+    "media/media-file": [
+      "shareImage.mediaId"
+    ]
+  },
+  "dependencyFailureActions": {
+    "media/media-file": "omit"
+  },
+  "dependencyFailureCutoverItems": {
+    "media/media-file": "site-share-image-not-written"
+  },
+  "operationContracts": {
+    "setSiteSeoTags": {
+      "endpoint": "PATCH /promote/seo/v1/site-seo-tags",
+      "dependencies": {
+        "media/media-file": {
+          "conditional": true,
+          "guardedPaths": [
+            "shareImage.mediaId"
+          ]
+        }
+      },
+      "evidence": [
+        "setSiteSeoTags reads media only for payload shareImage.mediaId (the site share image); verification tags carry no media reference. A site with no share image writes no media reference."
+      ]
+    }
+  },
+  "preferredWrite": {
+    "surface": "Site SEO Tags V1",
+    "endpoint": "PATCH /promote/seo/v1/site-seo-tags",
+    "writerId": "setSiteSeoTags",
+    "verification": "verified-live",
+    "importSafe": true,
+    "bulk": false
+  },
+  "reliability": {
+    "status": "unknown",
+    "flags": []
+  },
+  "pitfalls": [
+    {
+      "code": "site-noindex-is-writable-here",
+      "severity": "blocker",
+      "summary": "A `robots` tag with `noindex` or `none` at site level stops search engines indexing the WHOLE site. A WordPress source in staging almost always carries site-wide noindex (blog_public = 0; verified live on an anonymized verification environment 2026-08-16, where every yoast_head_json.robots reported index: noindex). Copying the source's site-level robots value across would silently de-index the new Wix site. Never carry noindex; treat indexability as a launch decision, not migrated data. setSiteSeoTags never writes robots (exclusion site-noindex-refused), its builder refuses a new robots tag, and a robots tag the site already has is sent back verbatim - leaving it out of the full-replacement PATCH would make the site indexable, which is equally a launch decision. Every write also emits the operator action site-indexing-launch-decision."
+    },
+    {
+      "code": "only-site-wide-tags-accepted",
+      "severity": "warning",
+      "summary": "Only og:image (default social share image), a site-level robots directive, search-engine verification tags (google-site-verification, msvalidate.01, p:domain_verify, yandex-verification - one per provider) and other site-wide name/content meta are valid here. A title, description or canonical belongs to a page and is rejected with INVALID_TAGS; use seo/item-seo-tags or seo/seo-pattern."
+    },
+    {
+      "code": "embed-tags-are-read-only",
+      "severity": "info",
+      "summary": "`embedTags[]` returns verification tags a Wix user added through the dashboard's SEO settings, which are stored as HTML embeds rather than as site tags. They are never included in `tags` and cannot be written here, so a read-then-write round trip does not preserve them - they simply stay where they are. Empty also when they cannot be retrieved, so an empty array is not proof there are none."
+    },
+    {
+      "code": "full-replacement-no-revision-check",
+      "severity": "warning",
+      "summary": "PATCH with a fieldMask replaces the named field in full and there is no revision check (INVALID_FIELD_MASK when the mask is empty or names an unwritable field). Read the current tags, merge, and send the complete set."
+    },
+    {
+      "code": "needs-an-html-web-site",
+      "severity": "blocker",
+      "summary": "[LIVE 2026-10-27] The SEO services need a site with an HtmlWeb (editor) instance. On a site created by Create Project (type WIX, no template), every SEO surface failed with no typed error: Get/Create SEO Pattern returned an HTML 400, Set Site SEO Tags an HTML 500, Get Item SEO Tags an HTML 428, and Bulk Set returned per-entry BULK_ENTRY_FAILED 'FAILED_PRECONDITION ... Missing HtmlWeb instance in MetaSite'. The same calls succeeded on a site created from the blank Editor template. Headless sites are NEEDS-VERIFICATION. The executors surface these as unknown-outcome errors or failed entries; treat them as a site precondition, not a mapping gap."
+    }
+  ],
+  "mappingGuidance": [
+    "Writer : setSiteSeoTags(wix, { tags, shareImage? }). tags: one verification tag per provider (google-site-verification, msvalidate.01, p:domain_verify, yandex-verification); anything else is refused by the builder. shareImage: the source default share image (og:image) as { mediaId, sourceUrl }: mediaId is resolveReference(\"media/media-file\", <the image's media source key>, \"shareImage.mediaId\"), sourceUrl the source og:image URL. Never put an og:image tag in tags (it is refused as exclusion site-og-image-not-written). The site record waits only for its own image, never for the whole media task, and never for it at all once the media pass is done: an image that did not land resolves to nothing (dependencyFailureActions omit), and the verification tags are still written. The writer writes the verification tags first, then the share image in its own PATCH: it reads the media file by the granted id, uses that file's own Wix URL as the og:image content (never a URL from the mapping), and reads the tags back. The import client admits an og:image only when it is the site's own (read by this record) or the URL of the granted media file this record read. Result: shareImage.outcome verified | already-present | not-written (cause media-not-imported | media-not-ready | media-failed | media-read-failed | write-rejected | read-back-missing) | dry-run. Only not-written becomes exclusion site-og-image-not-written and operator action site-share-image-not-written (seoOperatorActions lists the source image). The site's own og:image is kept unless the source image replaces it (returned in shareImage.replacedTags). Reads, merges by tag identity, PATCHes the full set, reads back.",
+    "Dependencies: media/media-file per record at shareImage.mediaId, and only when the source has a share image. A plan with no share image (or no media task) records the not-referenced proof for setSiteSeoTags -> media/media-file; the mapping preflight hands it over ready to copy on its dependency_unbound diagnostic. Verification tags never wait for media.",
+    "The migratable content here is thin and deliberate: the site's default Open Graph share image and the search-engine VERIFICATION tags. Everything else a WordPress SEO plugin keeps at site level - title/meta templates per post type, breadcrumb settings, social profile URLs, knowledge-graph organisation data - is either a pattern (seo/seo-pattern) or reconfigure-in-wix.",
+    "Verification tags are worth carrying because they preserve an existing Google Search Console / Bing property association across the platform switch. In WordPress they live in plugin OPTIONS (Yoast: wpseo `googleverify`/`msverify`; Rank Math: `rank-math-options-general`), which are NOT exposed over REST - they arrive only from a user-supplied export or by asking the user. Treat them as blocked: user-file, never as absent.",
+    "Site tags are the BOTTOM of the precedence chain, so anything set here is overridden by a pattern, the host page, or the item. Setting a site-wide description is not a way to give every page a description.",
+    "`language` is always empty: site SEO tags are not language specific, one set applies to every language version."
+  ],
+  "setupRequirements": [
+    "SCOPE.PROMOTE.MANAGE-SEO (writes)",
+    "SCOPE.PROMOTE.VIEW-SEO (reads)"
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-management/seo/site-seo-tags-v1/site-seo-tags-object",
+      "note": "object page: supported site-wide tags (og:image, robots noindex/none, verification providers), embedTags read-only, language always empty, origin derived from caller (read 2026-08-16)"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-management/seo/site-seo-tags-v1/set-site-seo-tags",
+      "note": "PATCH https://www.wixapis.com/promote/seo/v1/site-seo-tags; errors INVALID_FIELD_MASK / INVALID_TAGS; scope SCOPE.PROMOTE.MANAGE-SEO (read 2026-08-16)"
+    },
+    {
+      "type": "repo-research",
+      "path": "skills/wix-replatform/resources/rp-source-wordpress/plugins/wordpress-seo.json",
+      "note": "source side: Yoast site-level settings live in wp_options and are not REST-readable"
+    },
+    {
+      "type": "live-run",
+      "path": "anonymized-live-verification",
+      "note": "2026-10-27, throwaway editor site: setSiteSeoTags added a google-site-verification tag; the site's existing tags (description, fb_admins_meta_tag, keywords, all empty) were kept; a source robots noindex was refused; a re-run returned already-present. A site created by Create Project with no template started with site robots noindex already set, which is why an existing robots tag is sent back verbatim."
+    }
+  ],
+  "notes": "Authored 2026-08-16 with the seo domain. No WordPress plugin profile claims content.site-seo-tags today, because the source-side values sit in plugin options that REST does not expose; the entity exists so the Site SEO Tags V1 surface has an owner and so the noindex trap is written down before someone copies it across. 2026-10-27 : reviewed writer setSiteSeoTags with a hard robots guard. 2026-10-27: verified live."
+}

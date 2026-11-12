@@ -1,0 +1,21 @@
+# scopes: read_orders, read_fulfillments
+# Ordinary read (not a bulk query): the line items of each fulfillment. A bulk query cannot hold a connection
+# inside a list field (Order.fulfillments is one), so the orders-fulfillments dataset carries the fulfillment
+# scalars and lib/shopify-nested-reads.js reads these per fulfillment id after the download.
+query RpShopifyReadFulfillmentItems($ids: [ID!]!, $first: Int!, $itemsAfter: String) {
+  nodes(ids: $ids) {
+    __typename
+    ... on Fulfillment {
+      id
+      fulfillmentLineItems(first: $first, after: $itemsAfter) {
+        pageInfo { hasNextPage endCursor }
+        nodes {
+          __typename
+          id
+          quantity
+          lineItem { id }
+        }
+      }
+    }
+  }
+}

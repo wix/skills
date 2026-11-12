@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "plugin": "wordpress-seo-premium",
+  "displayName": "Yoast SEO Premium",
+  "profileVersion": "2026-10",
+  "sourceOfTruth": "https://wordpress.org/plugins/wordpress-seo/",
+  "distribution": "premium-or-unlisted",
+  "capabilities": [
+    "content.url-redirects"
+  ],
+  "detect": {
+    "pluginFileIds": [
+      "wordpress-seo-premium/wp-seo-premium"
+    ],
+    "assetPathSlugs": [
+      "wordpress-seo-premium"
+    ]
+  },
+  "entities": [
+    {
+      "entity": "redirect-rule",
+      "capability": "content.url-redirects",
+      "channel": "export-file",
+      "candidateTargetRefs": [],
+      "redirectSource": {
+        "provider": "yoast-premium",
+        "format": "csv-export",
+        "storedIn": "options"
+      },
+      "pitfalls": [
+        {
+          "code": "applied-at-cutover-not-import",
+          "severity": "info",
+          "summary": "Redirect rules are captured at discovery into state/url-preservation/source-redirects.ndjson with per-provider coverage in source-redirect-coverage.json. Backend import never writes them to Wix: the redirect helpers (url-redirects.js plan/apply/verify) install and check them after the website exists, timed by cutover. The capability stays pending until that path is live-verified."
+        },
+        {
+          "code": "rules-in-options",
+          "severity": "warning",
+          "summary": "Yoast Premium keeps its redirects in the wp_options table, which the bridge always denies. Coverage is unsupported until the operator supplies Yoast's redirect CSV export (SEO > Redirects > Import/Export); per-post SEO meta stays with the wordpress-seo profile."
+        }
+      ]
+    }
+  ]
+}

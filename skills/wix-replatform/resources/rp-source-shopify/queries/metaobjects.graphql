@@ -1,0 +1,30 @@
+# scopes: read_metaobjects
+# Bulk query: metaobjects, listed through their definitions because `metaobjects` itself
+# requires a `type` argument. Connections: metaobjectDefinitions, metaobjects (2).
+{
+  metaobjectDefinitions {
+    edges {
+      node {
+        id
+        type
+        name
+        description
+        displayNameKey
+        fieldDefinitions { key name description required type { name category } validations { name value } }
+        metaobjects {
+          edges {
+            node {
+              __typename
+              id
+              handle
+              type
+              displayName
+              updatedAt
+              fields { key type value }
+            }
+          }
+        }
+      }
+    }
+  }
+}

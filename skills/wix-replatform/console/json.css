@@ -1,0 +1,11 @@
+.structured-json { color: #263947; }
+.structured-json .json-key { color: #175f9f; }
+.structured-json .json-string { color: #8b3d20; }
+.structured-json .json-number { color: #7650a8; }
+.structured-json .json-literal { color: #267052; font-weight: 650; }
+.file-preview .syntax-comment { color: #647487; font-style: italic; }
+.file-preview .syntax-keyword { color: #7650a8; font-weight: 650; }
+.file-preview .syntax-tag { color: #175f9f; font-weight: 650; }
+.file-preview .syntax-heading { color: #175f9f; font-weight: 700; }
+.file-preview .syntax-code { color: #8b3d20; }
+.file-preview .syntax-selector { color: #175f9f; font-weight: 650; }

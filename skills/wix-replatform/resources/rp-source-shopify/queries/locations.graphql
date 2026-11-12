@@ -1,0 +1,21 @@
+# scopes: read_locations
+# Bulk query: locations, including inactive ones.
+{
+  locations(includeInactive: true) {
+    edges {
+      node {
+        id
+        name
+        isActive
+        isPrimary
+        isFulfillmentService
+        fulfillsOnlineOrders
+        shipsInventory
+        hasActiveInventory
+        createdAt
+        updatedAt
+        address { address1 address2 city province provinceCode zip country countryCode phone latitude longitude }
+      }
+    }
+  }
+}

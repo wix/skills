@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "plugin": "wc-coupon-discount-to-specific-products",
+  "displayName": "Woocommerce Coupon Discount for Specific Products",
+  "profileVersion": "2026-10",
+  "sourceOfTruth": "https://wordpress.org/plugins/wc-coupon-discount-to-specific-products/",
+  "distribution": "unknown",
+  "capabilities": [
+    "commerce.coupons"
+  ],
+  "detect": {
+    "pluginFileIds": [
+      "wc-coupon-discount-to-specific-products/wc-coupon-discount-to-specific-products.php"
+    ],
+    "recordProperties": [
+      "custom_apply_to_specific_products_only"
+    ],
+    "assetPathSlugs": [
+      "wc-coupon-discount-to-specific-products"
+    ]
+  },
+  "entities": [
+    {
+      "entity": "coupon-product-limit",
+      "capability": "commerce.coupons",
+      "channel": "core-embedded",
+      "embeddedIn": [
+        "/wc/v3/coupons"
+      ],
+      "propertyPath": "custom_apply_to_specific_products_only",
+      "candidateTargetRefs": [
+        "stores/coupon"
+      ],
+      "pitfalls": [
+        {
+          "code": "flag-behaviour-unverified",
+          "severity": "warning",
+          "summary": "Coupons with this plugin's 'apply only to specific products' setting are imported switched off, with a cutover task to switch each on, change it, or leave it off, until the plugin's exact behaviour is verified. Authoring note: verify first — read the plugin's main PHP file; if the flag only repeats WooCommerce core's product-limited discount (which a Wix product-scoped coupon already does), change the couponRules meaning to no-effect."
+        }
+      ]
+    }
+  ],
+  "couponRules": [
+    {
+      "metaKey": "custom_apply_to_specific_products_only",
+      "meaning": "restriction"
+    }
+  ],
+  "quirks": [
+    "Seen on a real store (2026-10-28): set to 'yes' on 21 of 4,311 coupons, mostly fixed_cart/fixed_product coupons that already list product_ids. Version 1.0; source not reachable in the authoring pass (wordpress.org connection reset)."
+  ]
+}

@@ -1,0 +1,60 @@
+{
+  "vendor": "magento",
+  "profileVersion": "2026-07",
+  "sourceOfTruth": "https://experienceleague.adobe.com/docs/commerce-admin/systems/data-transfer/import/product-import.html",
+  "anchors": {
+    "required": ["sku", "product_type"],
+    "strong": ["attribute_set_code", "categories", "product_websites", "url_key", "base_image"],
+    "negative": ["Handle", "Item Type", "Attribute 1 value(s)"]
+  },
+  "layout": {
+    "pattern": "flat",
+    "parentEntity": "product",
+    "columnGroups": [
+      {
+        "entity": "image",
+        "prefixes": [],
+        "columns": ["base_image", "small_image", "thumbnail_image", "additional_images"]
+      }
+    ]
+  },
+  "derived": [
+    {
+      "entity": "category",
+      "fromColumn": "categories",
+      "hierarchySeparator": "/",
+      "multiValueSeparator": ",",
+      "hierarchical": true,
+      "linkPolicy": "leaf",
+      "relation": { "fromEntity": "product", "field": "categories", "cardinality": "many-to-many" }
+    }
+  ],
+  "fileRoles": [
+    { "role": "product", "filenameHints": ["catalog_product", "products"] },
+    { "role": "customer", "filenameHints": ["customer", "customers"] }
+  ],
+  "columnMap": [
+    { "wixTarget": "product.name", "aliases": ["name"] },
+    { "wixTarget": "product.description", "aliases": ["description"] },
+    { "wixTarget": "product.shortDescription", "aliases": ["short_description"] },
+    { "wixTarget": "product.slug", "aliases": ["url_key"] },
+    { "wixTarget": "product.visible", "aliases": ["product_online", "visibility"] },
+    { "wixTarget": "product.seoTitle", "aliases": ["meta_title"] },
+    { "wixTarget": "product.seoDescription", "aliases": ["meta_description"] },
+    { "wixTarget": "variant.sku", "aliases": ["sku"] },
+    { "wixTarget": "variant.price", "aliases": ["price"] },
+    { "wixTarget": "variant.discountedPrice", "aliases": ["special_price"] },
+    { "wixTarget": "variant.weight", "aliases": ["weight"] },
+    { "wixTarget": "variant.inventoryQuantity", "aliases": ["qty"] },
+    { "wixTarget": "image.url", "aliases": ["base_image", "additional_images"] },
+    { "wixTarget": "image.altText", "aliases": ["base_image_label"] },
+    { "wixTarget": "category.path", "aliases": ["categories"] }
+  ],
+  "quirks": [
+    "The export is flat — one row per SKU. Configurable products and their simple children are separate rows tied together by the configurable_variations column, not by row grouping.",
+    "configurable_variations packs the parent→variant links as 'sku=X,size=M|sku=Y,size=L'. v1 records this column rather than parsing it; the mapper decides how variants are reconstructed.",
+    "additional_attributes packs arbitrary key=value pairs into one cell.",
+    "categories paths are '/'-separated and usually start with the store root ('Default Category/...'), which normally should not become a Wix category.",
+    "Exports are commonly quote-all, so an empty cell is a quoted empty string rather than an absent value — the detected emptyPolicy handles this."
+  ]
+}

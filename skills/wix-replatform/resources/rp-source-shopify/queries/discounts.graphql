@@ -1,0 +1,109 @@
+# scopes: read_discounts, read_customers
+# Bulk query: the core of every code and automatic discount. Connections: discountNodes plus `codes` on each code type (5).
+# Which products, variants and collections an item scope names come from the discounts-gets-* and discounts-buys-* queries, joined by node id.
+{
+  discountNodes {
+    edges {
+      node {
+        id
+        discount {
+          __typename
+          ... on DiscountCodeBasic {
+            title status startsAt endsAt createdAt updatedAt summary usageLimit appliesOncePerCustomer asyncUsageCount recurringCycleLimit discountClasses
+            combinesWith { orderDiscounts productDiscounts shippingDiscounts productDiscountsWithTagsOnSameCartLine }
+            context { __typename ... on DiscountCustomers { customers { id } } ... on DiscountCustomerSegments { segments { id name query } } ... on DiscountMarkets { marketsCount } }
+            customerGets {
+              appliesOnOneTimePurchase appliesOnSubscription
+              items { __typename ... on AllDiscountItems { allItems } }
+              value { __typename ... on DiscountPercentage { percentage } ... on DiscountAmount { amount { amount currencyCode } appliesOnEachItem } }
+            }
+            minimumRequirement { __typename ... on DiscountMinimumQuantity { greaterThanOrEqualToQuantity } ... on DiscountMinimumSubtotal { greaterThanOrEqualToSubtotal { amount currencyCode } } }
+            codes { edges { node { __typename id code asyncUsageCount } } }
+          }
+          ... on DiscountCodeBxgy {
+            title status startsAt endsAt createdAt updatedAt summary usageLimit appliesOncePerCustomer asyncUsageCount usesPerOrderLimit discountClasses
+            combinesWith { orderDiscounts productDiscounts shippingDiscounts productDiscountsWithTagsOnSameCartLine }
+            context { __typename ... on DiscountCustomers { customers { id } } ... on DiscountCustomerSegments { segments { id name query } } ... on DiscountMarkets { marketsCount } }
+            customerBuys {
+              isOneTimePurchase isSubscription
+              items { __typename ... on AllDiscountItems { allItems } }
+              value { __typename ... on DiscountQuantity { quantity } ... on DiscountPurchaseAmount { amount } }
+            }
+            customerGets {
+              appliesOnOneTimePurchase appliesOnSubscription
+              items { __typename ... on AllDiscountItems { allItems } }
+              value {
+                __typename
+                ... on DiscountPercentage { percentage }
+                ... on DiscountAmount { amount { amount currencyCode } appliesOnEachItem }
+                ... on DiscountOnQuantity { quantity { quantity } effect { __typename ... on DiscountPercentage { percentage } ... on DiscountAmount { amount { amount currencyCode } appliesOnEachItem } } }
+              }
+            }
+            codes { edges { node { __typename id code asyncUsageCount } } }
+          }
+          ... on DiscountCodeFreeShipping {
+            title status startsAt endsAt createdAt updatedAt summary usageLimit appliesOncePerCustomer asyncUsageCount recurringCycleLimit appliesOnOneTimePurchase appliesOnSubscription discountClasses
+            maximumShippingPrice { amount currencyCode }
+            combinesWith { orderDiscounts productDiscounts shippingDiscounts productDiscountsWithTagsOnSameCartLine }
+            context { __typename ... on DiscountCustomers { customers { id } } ... on DiscountCustomerSegments { segments { id name query } } ... on DiscountMarkets { marketsCount } }
+            destinationSelection { __typename ... on DiscountCountryAll { allCountries } ... on DiscountCountries { countries } }
+            minimumRequirement { __typename ... on DiscountMinimumQuantity { greaterThanOrEqualToQuantity } ... on DiscountMinimumSubtotal { greaterThanOrEqualToSubtotal { amount currencyCode } } }
+            codes { edges { node { __typename id code asyncUsageCount } } }
+          }
+          ... on DiscountCodeApp {
+            title status startsAt endsAt createdAt updatedAt usageLimit appliesOncePerCustomer asyncUsageCount recurringCycleLimit appliesOnOneTimePurchase appliesOnSubscription discountClasses
+            appDiscountType { appKey functionId title description discountClasses }
+            combinesWith { orderDiscounts productDiscounts shippingDiscounts productDiscountsWithTagsOnSameCartLine }
+            context { __typename ... on DiscountCustomers { customers { id } } ... on DiscountCustomerSegments { segments { id name query } } ... on DiscountMarkets { marketsCount } }
+            codes { edges { node { __typename id code asyncUsageCount } } }
+          }
+          ... on DiscountAutomaticBasic {
+            title status startsAt endsAt createdAt updatedAt summary asyncUsageCount recurringCycleLimit discountClasses
+            combinesWith { orderDiscounts productDiscounts shippingDiscounts productDiscountsWithTagsOnSameCartLine }
+            context { __typename ... on DiscountCustomers { customers { id } } ... on DiscountCustomerSegments { segments { id name query } } ... on DiscountMarkets { marketsCount } }
+            customerGets {
+              appliesOnOneTimePurchase appliesOnSubscription
+              items { __typename ... on AllDiscountItems { allItems } }
+              value { __typename ... on DiscountPercentage { percentage } ... on DiscountAmount { amount { amount currencyCode } appliesOnEachItem } }
+            }
+            minimumRequirement { __typename ... on DiscountMinimumQuantity { greaterThanOrEqualToQuantity } ... on DiscountMinimumSubtotal { greaterThanOrEqualToSubtotal { amount currencyCode } } }
+          }
+          ... on DiscountAutomaticBxgy {
+            title status startsAt endsAt createdAt updatedAt summary asyncUsageCount usesPerOrderLimit discountClasses
+            combinesWith { orderDiscounts productDiscounts shippingDiscounts productDiscountsWithTagsOnSameCartLine }
+            context { __typename ... on DiscountCustomers { customers { id } } ... on DiscountCustomerSegments { segments { id name query } } ... on DiscountMarkets { marketsCount } }
+            customerBuys {
+              isOneTimePurchase isSubscription
+              items { __typename ... on AllDiscountItems { allItems } }
+              value { __typename ... on DiscountQuantity { quantity } ... on DiscountPurchaseAmount { amount } }
+            }
+            customerGets {
+              appliesOnOneTimePurchase appliesOnSubscription
+              items { __typename ... on AllDiscountItems { allItems } }
+              value {
+                __typename
+                ... on DiscountPercentage { percentage }
+                ... on DiscountAmount { amount { amount currencyCode } appliesOnEachItem }
+                ... on DiscountOnQuantity { quantity { quantity } effect { __typename ... on DiscountPercentage { percentage } ... on DiscountAmount { amount { amount currencyCode } appliesOnEachItem } } }
+              }
+            }
+          }
+          ... on DiscountAutomaticFreeShipping {
+            title status startsAt endsAt createdAt updatedAt summary asyncUsageCount recurringCycleLimit appliesOnOneTimePurchase appliesOnSubscription discountClasses
+            maximumShippingPrice { amount currencyCode }
+            combinesWith { orderDiscounts productDiscounts shippingDiscounts productDiscountsWithTagsOnSameCartLine }
+            context { __typename ... on DiscountCustomers { customers { id } } ... on DiscountCustomerSegments { segments { id name query } } ... on DiscountMarkets { marketsCount } }
+            destinationSelection { __typename ... on DiscountCountryAll { allCountries } ... on DiscountCountries { countries } }
+            minimumRequirement { __typename ... on DiscountMinimumQuantity { greaterThanOrEqualToQuantity } ... on DiscountMinimumSubtotal { greaterThanOrEqualToSubtotal { amount currencyCode } } }
+          }
+          ... on DiscountAutomaticApp {
+            title status startsAt endsAt createdAt updatedAt asyncUsageCount recurringCycleLimit appliesOnOneTimePurchase appliesOnSubscription discountClasses
+            appDiscountType { appKey functionId title description discountClasses }
+            combinesWith { orderDiscounts productDiscounts shippingDiscounts productDiscountsWithTagsOnSameCartLine }
+            context { __typename ... on DiscountCustomers { customers { id } } ... on DiscountCustomerSegments { segments { id name query } } ... on DiscountMarkets { marketsCount } }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,13 @@
+# scopes: read_orders
+query RpShopifyProbeOrdersPhone($first: Int!) {
+  orders(first: $first) { edges { node {
+    id phone
+    customer {
+      phone defaultPhoneNumber { phoneNumber }
+      defaultAddress { phone }
+      addresses { phone }
+    }
+    billingAddress { phone }
+    shippingAddress { phone }
+  } } }
+}

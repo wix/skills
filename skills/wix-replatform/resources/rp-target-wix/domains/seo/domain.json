@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "domain": "seo",
+  "dependsOnRequired": true,
+  "docsRoots": [
+    "api-reference/business-management/seo",
+    "api-reference/business-management/marketing/seo",
+    "api-reference/business-management/headless/sitemap",
+    "api-reference/site/viewer/seo-tags"
+  ],
+  "displayName": "Wix SEO",
+  "ownerHint": "SEO (item SEO tags, site SEO tags, SEO patterns, robots.txt/ads.txt/llms.txt) domain owners",
+  "wixAppsRequired": [],
+  "defaultImportOrder": [
+    "site-seo-tags",
+    "seo-pattern",
+    "item-seo-tags"
+  ],
+  "sharedPitfalls": [
+    {
+      "code": "seo-tags-resolve-through-a-precedence-chain",
+      "severity": "warning",
+      "summary": "A rendered tag is not stored in one place. Wix combines, in increasing precedence: site tags -> the Wix default pattern for the page type -> the site's own pattern -> the host page's tags -> the item's own tags. Writing a value at the item level therefore SHADOWS everything below it, and the docs warn explicitly that 'writing the same title onto a thousand items is the same outcome as one pattern, and much harder to undo'. Import at the level that matches the source fact: a WordPress SEO title TEMPLATE belongs in seo/seo-pattern, a per-post override belongs in seo/item-seo-tags."
+    },
+    {
+      "code": "seo-writes-replace-in-full",
+      "severity": "blocker",
+      "summary": "Every SEO write replaces what it targets in full and there is NO revision checking - the last write wins, and a Wix user editing SEO in the dashboard writes the same data. Read immediately before writing, send back the complete tag set (not only the changed tag), and never interleave an import with dashboard editing."
+    },
+    {
+      "code": "coverage-depends-on-installed-business-solutions",
+      "severity": "warning",
+      "summary": "The supported itemType / pageType list is per site: a type provided by a business solution only exists where that solution is installed (UNSUPPORTED_ITEM_TYPE / UNSUPPORTED_PAGE_TYPE list the supported values in the error message, and PAGE_TYPE_NOT_ON_SITE is a distinct 404). Discover the list from a failing call at setup time; never hard-code it."
+    },
+    {
+      "code": "primary-language-only",
+      "severity": "warning",
+      "summary": "Item SEO tags can be written only for the site's primary language: sending `language` fails with LANGUAGE_NOT_SUPPORTED. A multilingual WordPress source cannot carry per-locale SEO meta through this API; ledger the secondary-language tags rather than dropping them silently."
+    },
+    {
+      "code": "url-redirect-api-not-yet-integrated",
+      "severity": "warning",
+      "summary": "Wix publicly documents the SEO Redirects API in Developer Preview for permanent URL rules (seo-redirects-service/v1); the Headless Redirect Sessions API is a different auth/checkout facility. Current method schema: List Redirects is unpaged and takes no filter; Bulk Create accepts 1-100 items and reports each by itemMetadata.originalIndex; writes need Manage SEO Settings through a Wix app or Wix user identity; site-member identity is distinct and is not accepted by the helper. The CLI requires an explicit APP or WIX_USER identity declaration and matching destination site. Single Create resolves a loop by DELETING the loop-closing rule and forceReplace deletes the rule holding the path. Bulk Create fails an item whose path is taken (FROM_URL_EXISTS) or that loops within the same request (REDIRECT_LOOP), but a rule that closes a loop with a rule already on the site is still created and the existing loop-closing rule deleted. The shared helper therefore writes through Bulk Create only, never sends forceReplace, refuses any destination that is an existing rule's source, and stops if an existing rule disappears between batches. An existing rule with the same from/to is reported as success without an id, so outcomes are settled by List Redirects reconciliation, never by HTTP 200. RePlatform's post-build helper (scripts/url-redirects.js plan/apply/verify) applies only exact same-site 301 rules after conflict preflight and verifies old addresses over HTTP. Live API acceptance confirmed site-scoped Wix user List/Bulk Create/read-back, duplicate-create success without an id, and exact-ID cleanup. Bulk maximum remains schema-based, not live stress-tested; frontend serving and full public acceptance remain unverified, so never report a planned or installed rule as a working link and never use the temporary Wix domain as a redirect destination."
+    }
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-management/seo/introduction",
+      "note": "domain root; menu walked 2026-08-16 (Item SEO Tags V1, Site SEO Tags V1, SEO Pattern V1) plus the second SEO tree under Marketing (robots.txt / ads.txt / llms.txt / keyword SPI / SEO user config), Headless > Sitemap, and Site > Viewer > SEO Tags"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-management/marketing/seo/introduction",
+      "note": "second docs root: Wix splits SEO across Business Management > SEO (tags) and Business Management > Marketing > SEO (TXT files, keyword SPI, site URL config) — finding one tree does not mean the other does not exist"
+    },
+    {
+      "type": "domain-kb",
+      "path": "skills/wix-replatform/SKILL.md",
+      "note": "URL preservation and redirect planning remain local; the public API has not yet been integrated into an application and verification workflow"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-management/seo/redirects/redirect-v1/create-redirect",
+      "note": "Public Developer Preview URL-rule API. Documentation establishes the capability, not live verification or integration into this migration workflow."
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-management/seo/redirects/redirect-v1/bulk-create-redirects",
+      "note": "Per-item results and potentially destructive loop/conflict handling; inspect existing rules before creating. Current method documentation says 100 items while the introduction says 500; validate the current schema before selecting a batch limit."
+    }
+  ]
+}

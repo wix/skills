@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "plugin": "woocommerce-gift-cards",
+  "displayName": "WooCommerce Gift Cards",
+  "profileVersion": "2026-08",
+  "sourceOfTruth": "https://woocommerce.com/document/woocommerce-gift-cards/",
+  "distribution": "premium-or-unlisted",
+  "capabilities": [
+    "commerce.gift-cards"
+  ],
+  "detect": {
+    "pluginFileIds": [
+      "woocommerce-gift-cards/woocommerce-gift-cards.php"
+    ],
+    "routes": [
+      "/wc/v3/gift-cards"
+    ],
+    "assetPathSlugs": [
+      "woocommerce-gift-cards"
+    ]
+  },
+  "entities": [
+    {
+      "entity": "gift-card",
+      "channel": "plugin-rest",
+      "route": "/wc/v3/gift-cards",
+      "recordKeyField": "id",
+      "candidateTargetRefs": [
+        "gift-cards/gift-card"
+      ],
+      "pitfalls": [
+        {
+          "code": "outstanding-balance-is-a-liability",
+          "severity": "blocker",
+          "summary": "Unspent gift card balances are money owed to customers. Reconcile the total outstanding value before and after import and show it in the execution plan; a silently dropped card is a lost customer entitlement."
+        },
+        {
+          "code": "code-length-may-not-fit-wix",
+          "severity": "blocker",
+          "summary": "Wix gift card codes must be 8-20 characters. Report any source code outside that range before import instead of rewriting it, because customers already hold the printed or emailed code."
+        },
+        {
+          "code": "partial-balance-policy-required",
+          "severity": "warning",
+          "summary": "Wix derives balance from transactions and only accepts an initial value, so a partly-redeemed card needs an explicit policy: import at remaining balance, or at face value with the spend replayed."
+        }
+      ]
+    }
+  ],
+  "excludeRoutes": [
+    {
+      "route": "/wc/v3/gift-cards/settings",
+      "reason": "plugin configuration, not gift card records"
+    }
+  ],
+  "quirks": [
+    "The plugin exposes gift cards under wc/v3; the route was observed live on a production store (2026-07-30).",
+    "Redemption history is per-card activity on the source but has no public Wix write surface, so it is reportable loss rather than migratable data."
+  ]
+}

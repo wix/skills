@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wix.com/replatform/0083/common.schema.json",
+  "$defs": {
+    "artifactBase": {
+      "type": "object",
+      "required": ["schemaVersion", "kind"],
+      "properties": {
+        "schemaVersion": { "const": "0083.1" },
+        "kind": { "type": "string" },
+        "extensions": {
+          "type": "object",
+          "propertyNames": { "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)+$" },
+          "additionalProperties": true
+        }
+      }
+    },
+    "frozenSpec": {
+      "type": "object",
+      "required": ["schemaVersion", "kind", "id", "status", "gapRefs", "hash"],
+      "properties": {
+        "schemaVersion": { "const": "0083.1" },
+        "kind": { "type": "string" },
+        "id": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["accepted", "provisional"] },
+        "gapRefs": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "dependencyHashes": { "type": "array", "items": { "type": "string", "pattern": "^[a-f0-9]{64}$" }, "uniqueItems": true },
+        "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "extensions": { "type": "object", "additionalProperties": true }
+      }
+    }
+  }
+}

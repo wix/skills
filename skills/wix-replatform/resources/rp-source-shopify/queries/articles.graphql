@@ -1,0 +1,24 @@
+# scopes: read_content
+# Bulk query: blog articles.
+{
+  articles {
+    edges {
+      node {
+        id
+        title
+        handle
+        body
+        summary
+        tags
+        isPublished
+        publishedAt
+        templateSuffix
+        createdAt
+        updatedAt
+        author { name }
+        blog { id }
+        image { url width height altText }
+      }
+    }
+  }
+}

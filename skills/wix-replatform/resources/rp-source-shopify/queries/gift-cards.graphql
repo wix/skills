@@ -1,0 +1,18 @@
+# scopes: read_gift_cards
+# Bulk query: exactly these fields. No customer field, not even a customer id.
+{
+  giftCards {
+    edges {
+      node {
+        id
+        lastCharacters
+        maskedCode
+        balance { amount currencyCode }
+        initialValue { amount currencyCode }
+        enabled
+        expiresOn
+        createdAt
+      }
+    }
+  }
+}

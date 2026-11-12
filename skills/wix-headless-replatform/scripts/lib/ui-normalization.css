@@ -1,0 +1,64 @@
+/* @generated-source wix-headless-replatform */
+/* Identity-neutral layout and motion primitives. Source tokens always win. */
+
+[data-rp-layout="horizontal-card-rail"] [data-rp-track],
+[data-rp-layout="card-grid"] {
+  align-items: stretch;
+}
+
+[data-rp-equal-height="true"] [data-rp-item] {
+  height: var(--rp-item-block-size);
+  min-height: var(--rp-item-block-size);
+  max-height: var(--rp-item-block-size);
+}
+
+[data-rp-item] [data-rp-media] {
+  min-width: 0;
+  overflow: hidden;
+}
+
+[data-rp-item] [data-rp-media] > :is(img, video, iframe) {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+[data-rp-item] [data-rp-body] {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+[data-rp-item] [data-rp-action] {
+  margin-block-start: auto;
+}
+
+[data-rp-motion="micro"] {
+  transition-duration: var(--rp-micro-duration, 180ms);
+  transition-timing-function: var(--rp-motion-easing, cubic-bezier(0.2, 0, 0, 1));
+}
+
+[data-rp-motion="state"] {
+  transition-duration: var(--rp-state-duration, 360ms);
+  transition-timing-function: var(--rp-motion-easing, cubic-bezier(0.2, 0, 0, 1));
+}
+
+[data-rp-layout] :focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-rp-motion],
+  [data-rp-layout] *,
+  [data-rp-layout] *::before,
+  [data-rp-layout] *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

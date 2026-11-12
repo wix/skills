@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wix.com/replatform/0083/decision-request.schema.json",
+  "type": "object",
+  "required": ["schemaVersion", "kind", "id", "decisionType", "allowedChoices", "evidenceRefs", "detectorVersions", "responseSchema"],
+  "properties": {
+    "schemaVersion": { "const": "0083.1" }, "kind": { "const": "decision-request" }, "id": { "type": "string" }, "decisionType": { "enum": ["classification", "ownership", "relevance", "reconstruction"] }, "allowedChoices": { "type": "array", "minItems": 1 }, "evidenceRefs": { "type": "array" }, "detectorVersions": { "type": "object" }, "responseSchema": { "type": "object" }, "cacheKey": { "type": "string" }, "extensions": { "type": "object", "additionalProperties": true }
+  },
+  "additionalProperties": false
+}

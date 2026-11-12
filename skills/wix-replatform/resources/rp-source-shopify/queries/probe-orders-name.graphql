@@ -1,0 +1,13 @@
+# scopes: read_orders
+query RpShopifyProbeOrdersName($first: Int!) {
+  orders(first: $first) { edges { node {
+    id
+    customer {
+      firstName lastName
+      defaultAddress { firstName lastName }
+      addresses { firstName lastName }
+    }
+    billingAddress { firstName lastName }
+    shippingAddress { firstName lastName }
+  } } }
+}

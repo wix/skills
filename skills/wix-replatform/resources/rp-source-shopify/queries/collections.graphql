@@ -1,0 +1,40 @@
+# scopes: read_products
+# Bulk query: every collection with its product ids. Connections: collections, products, metafields.
+{
+  collections {
+    edges {
+      node {
+        id
+        title
+        handle
+        descriptionHtml
+        sortOrder
+        templateSuffix
+        updatedAt
+        image { url width height altText }
+        seo { title description }
+        ruleSet { appliedDisjunctively rules { column relation condition } }
+        products {
+          edges {
+            node {
+              __typename
+              id
+            }
+          }
+        }
+        metafields {
+          edges {
+            node {
+              __typename
+              id
+              namespace
+              key
+              type
+              value
+            }
+          }
+        }
+      }
+    }
+  }
+}

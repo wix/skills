@@ -1,0 +1,21 @@
+# scopes: read_online_store_navigation
+# Bulk query: navigation menus. Menu items are a nested list, returned inline.
+{
+  menus {
+    edges {
+      node {
+        id
+        title
+        handle
+        isDefault
+        items {
+          id title type url resourceId tags
+          items {
+            id title type url resourceId tags
+            items { id title type url resourceId tags }
+          }
+        }
+      }
+    }
+  }
+}

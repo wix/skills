@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wix.com/replatform/0083/final-report.schema.json",
+  "type": "object",
+  "required": ["schemaVersion", "kind", "captureId", "manifestHash", "status", "summary", "gaps", "qa"],
+  "properties": {
+    "schemaVersion": { "const": "0083.1" }, "kind": { "const": "final-report" }, "captureId": { "type": "string" }, "manifestHash": { "type": "string" }, "status": { "enum": ["blocked", "done_with_gaps", "verification_pending", "implementation_pending", "done"] }, "summary": { "type": "object" }, "gaps": { "type": "array" }, "qa": { "type": ["object", "null"] }, "extensions": { "type": "object", "additionalProperties": true }
+  },
+  "additionalProperties": false
+}

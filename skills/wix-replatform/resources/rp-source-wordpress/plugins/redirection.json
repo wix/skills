@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "plugin": "redirection",
+  "displayName": "Redirection",
+  "profileVersion": "2026-10",
+  "sourceOfTruth": "https://wordpress.org/plugins/redirection/",
+  "distribution": "wordpress-org",
+  "capabilities": [
+    "content.url-redirects"
+  ],
+  "detect": {
+    "pluginFileIds": [
+      "redirection/redirection"
+    ],
+    "restNamespaces": [
+      "redirection/v1"
+    ],
+    "assetPathSlugs": [
+      "redirection"
+    ]
+  },
+  "entities": [
+    {
+      "entity": "redirect-rule",
+      "capability": "content.url-redirects",
+      "channel": "db-only",
+      "candidateTargetRefs": [],
+      "redirectSource": {
+        "provider": "redirection",
+        "format": "redirection",
+        "tables": {
+          "rules": "redirection_items",
+          "groups": "redirection_groups"
+        }
+      },
+      "blocked": [
+        {
+          "kind": "structure-bridge-plugin",
+          "resolution": "Discovery reads this plugin's redirect tables through the wix-wp-plugin-v2 bridge automatically. If the bridge is missing or the read fails, Requires Import Operator: re-run discovery with wix-wp-plugin-v2 connected, or export the plugin's redirects as CSV and pass them to url-redirects.js sources --input.",
+          "declined": false
+        }
+      ],
+      "pitfalls": [
+        {
+          "code": "applied-at-cutover-not-import",
+          "severity": "info",
+          "summary": "Redirect rules are captured at discovery into state/url-preservation/source-redirects.ndjson with per-provider coverage in source-redirect-coverage.json. Backend import never writes them to Wix: the redirect helpers (url-redirects.js plan/apply/verify) install and check them after the website exists, timed by cutover. The capability stays pending until that path is live-verified."
+        },
+        {
+          "code": "rest-routes-are-not-the-read-channel",
+          "severity": "info",
+          "summary": "VERIFIED LIVE 2026-10-28 (Redirection 5.9.0): the plugin advertises redirection/v1 routes (/redirect, /group, /export/*) but the route classifier skips them as operational helpers. Rules are read from the redirection_items and redirection_groups tables instead; a group's status disables every rule in it."
+        },
+        {
+          "code": "logs-are-not-rules",
+          "severity": "warning",
+          "summary": "The plugin also keeps redirect logs, 404 logs and hit counters (redirection_logs, redirection_404, last_count). They are never rules and are never captured as rules."
+        }
+      ]
+    }
+  ],
+  "quirks": [
+    "A rule's group can be an Apache or Nginx module group: those are server-config exports, not rules WordPress serves, and are kept with a server_module condition."
+  ]
+}

@@ -1,0 +1,183 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Deterministic map from a WooCommerce payment-gateway family to the source meta keys that may hold its transaction reference and card display details, plus the evidence state that decides whether a populated candidate may be written or only reported.",
+  "principles": [
+    "A populated key is a candidate, never proof. Writing it requires verified field semantics AND a recognized relationship between the field's producer and the order's payment method.",
+    "The payment method slug names the checkout plugin, not necessarily the processor behind it. A method slug alone therefore neither selects nor disqualifies a key.",
+    "Key co-presence across families is not proof that one gateway fronts another. A layered relationship must be independently verified before it unlocks a write.",
+    "A candidate that cannot be written is reported with a reason. It is never truncated, never resolved by guessed precedence, and never promoted into a payment-existence signal."
+  ],
+  "targetLimits": {
+    "providerTransactionId": 100,
+    "paymentMethodName": 150,
+    "lastFourDigits": 4,
+    "cardBrand": 100
+  },
+  "paymentReadKeys": {
+    "purpose": "The complete set of non-gateway source meta keys the payments import reads. A run reads only what an approved outcome needs; anything not listed here or derived from families[] is out of scope for this import.",
+    "core": [
+      "_order_total",
+      "_paid_date",
+      "_date_paid",
+      "_payment_method",
+      "_payment_method_title",
+      "_order_currency"
+    ],
+    "note": "Gateway reference and card display keys are derived from families[]. Raw provider response blobs are never read: the never-read declaration lives in refund-corroboration.json, and the read-key list is checked against it."
+  },
+  "resolutionOrder": [
+    "Use the canonical WooCommerce reference when populated and within the target limit.",
+    "Otherwise use a gateway-specific field only when its semantics are verified and the registry recognizes the order method either directly or through a separately verified layered integration.",
+    "More than one distinct eligible value is ambiguous-transaction-reference; write no reference.",
+    "A populated undocumented, incompatible, or over-length value is reported and never written."
+  ],
+  "evidenceStates": {
+    "verified-source-contract": "Defined by WooCommerce's own documented order contract.",
+    "verified": "The gateway's own schema or documentation defines the field. Eligible to write when the method relationship is also recognized.",
+    "candidate-unverified": "The field is observed in source data but no authoritative schema defines its meaning. Report only.",
+    "unmapped": "No candidate fields are known for this family yet. Enumerate actual keys and report."
+  },
+  "canonicalReference": {
+    "family": "woocommerce-canonical",
+    "displayName": "WooCommerce canonical",
+    "referenceFields": [
+      "_transaction_id"
+    ],
+    "evidence": "verified-source-contract",
+    "methodRelationship": "any",
+    "writePolicy": "write-for-any-method"
+  },
+  "families": [
+    {
+      "family": "payplus",
+      "displayName": "PayPlus",
+      "classification": "online",
+      "evidence": "verified",
+      "writePolicy": "write-when-method-recognized",
+      "referenceFields": [
+        "payplus_transaction_uid"
+      ],
+      "cardDisplayFields": {
+        "lastFourDigits": "payplus_four_digits",
+        "brand": "payplus_brand_name"
+      },
+      "methodRelationships": {
+        "direct": {
+          "slugs": [],
+          "slugPrefixes": [
+            "payplus-payment-gateway"
+          ]
+        },
+        "layered": []
+      },
+      "openVerifications": [
+        "Confirm the field provenance against PayPlus's own schema or documentation before the pilot. The semantics are live-observed rather than vendor-documented."
+      ]
+    },
+    {
+      "family": "tranzila",
+      "displayName": "Tranzila",
+      "classification": "online",
+      "evidence": "candidate-unverified",
+      "writePolicy": "report-only",
+      "referenceFields": [
+        "tranzila_authnr"
+      ],
+      "cardDisplayFields": {},
+      "methodRelationships": {
+        "direct": {
+          "slugs": [
+            "tranzila"
+          ],
+          "slugPrefixes": []
+        },
+        "layered": [
+          {
+            "frontEndFamily": "gobit",
+            "frontEndMethodSlugs": [
+              "gobitpaymentgateway"
+            ],
+            "verified": false,
+            "note": "Orders whose method is the Gobit gateway are observed carrying this key while orders whose method is Tranzila are not. No gateway documentation establishes that Gobit fronts Tranzila, so this relationship does not unlock a write. Verifying the field's semantics alone is insufficient: this flag must also become true."
+          }
+        ]
+      },
+      "openVerifications": [
+        "Establish from Tranzila's own documentation whether this field is a provider transaction identifier or an authorization number; the name suggests the latter.",
+        "Establish independently whether the Gobit gateway fronts Tranzila."
+      ]
+    },
+    {
+      "family": "gobit",
+      "displayName": "Gobit",
+      "classification": "online",
+      "evidence": "candidate-unverified",
+      "writePolicy": "report-only",
+      "referenceFields": [
+        "_gobit_verify"
+      ],
+      "cardDisplayFields": {},
+      "methodRelationships": {
+        "direct": {
+          "slugs": [
+            "gobitpaymentgateway"
+          ],
+          "slugPrefixes": []
+        },
+        "layered": []
+      },
+      "openVerifications": [
+        "Establish from Gobit's own documentation what this field holds before treating it as a provider transaction identifier."
+      ]
+    },
+    {
+      "family": "officeguy",
+      "displayName": "OfficeGuy",
+      "classification": "online",
+      "evidence": "unmapped",
+      "writePolicy": "report-only",
+      "referenceFields": [],
+      "cardDisplayFields": {},
+      "methodRelationships": {
+        "direct": {
+          "slugs": [
+            "officeguy",
+            "officeguybit"
+          ],
+          "slugPrefixes": []
+        },
+        "layered": []
+      },
+      "openVerifications": [
+        "Enumerate the actual keys these orders carry through discovery, then map them from OfficeGuy's own documentation. This family is also an accounting-issuer signal for invoice discovery."
+      ]
+    }
+  ],
+  "methodClassification": {
+    "offlineSlugs": [
+      "cod",
+      "bacs",
+      "cheque",
+      "other_payment"
+    ],
+    "onlineSlugs": [
+      "gobitpaymentgateway",
+      "tranzila",
+      "officeguy",
+      "officeguybit"
+    ],
+    "onlineSlugPrefixes": [
+      "payplus-payment-gateway"
+    ],
+    "unknownPolicy": "Omit offlinePayment from the request and count unclassified-method. Never guess a class."
+  },
+  "findings": [
+    "no-transaction-reference",
+    "ambiguous-transaction-reference",
+    "incompatible-gateway-metadata",
+    "unverified-gateway-key",
+    "unmapped-gateway-family",
+    "unclassified-method",
+    "reference-over-length"
+  ]
+}
