@@ -1,0 +1,45 @@
+# scopes: read_shipping
+# Ordinary read (not a bulk query): one zone, with its rates, of one location group of one delivery profile.
+# A bulk query cannot hold a connection inside a list field (DeliveryProfile.profileLocationGroups is one), so the
+# delivery-profiles dataset carries the profiles and their location-group ids, and lib/shopify-nested-reads.js reads
+# zones one at a time here, paging a zone's rates with `methodsAfter`.
+query RpShopifyReadDeliveryZones($id: ID!, $group: ID!, $first: Int!, $zoneAfter: String, $methodsAfter: String) {
+  deliveryProfile(id: $id) {
+    id
+    profileLocationGroups(locationGroupId: $group) {
+      locationGroup { id }
+      locationGroupZones(first: 1, after: $zoneAfter) {
+        pageInfo { hasNextPage endCursor }
+        nodes {
+          __typename
+          zone { id name countries { code { countryCode restOfWorld } provinces { code } } }
+          methodDefinitions(first: $first, after: $methodsAfter) {
+            pageInfo { hasNextPage endCursor }
+            nodes {
+              __typename
+              id
+              name
+              active
+              description
+              rateProvider {
+                __typename
+                ... on DeliveryRateDefinition { id price { amount currencyCode } }
+                ... on DeliveryParticipant { id fixedFee { amount currencyCode } percentageOfRateFee }
+              }
+              methodConditions {
+                id
+                field
+                operator
+                conditionCriteria {
+                  __typename
+                  ... on MoneyV2 { amount currencyCode }
+                  ... on Weight { unit value }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

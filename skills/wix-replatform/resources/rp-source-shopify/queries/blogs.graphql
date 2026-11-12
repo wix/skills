@@ -1,0 +1,18 @@
+# scopes: read_content
+# Bulk query: blogs (articles are their own query).
+{
+  blogs {
+    edges {
+      node {
+        id
+        title
+        handle
+        commentPolicy
+        tags
+        templateSuffix
+        createdAt
+        updatedAt
+      }
+    }
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "domain": "stores",
+  "entity": "product-variant",
+  "displayName": "Stores Product Variant",
+  "capability": "commerce.products",
+  "target": {
+    "classification": "native",
+    "nativeEntity": "Stores Catalog V3 Product Variant",
+    "verifiedFqdn": null,
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "childOf": "stores/product",
+  "dependsOn": [],
+  "sourceAliases": [],
+  "preferredWrite": {
+    "surface": "Stores Catalog V3 Products",
+    "endpoint": "POST /stores/v3/products",
+    "writerId": null,
+    "verification": "verified-live",
+    "importSafe": true,
+    "bulk": false
+  },
+  "fallbacks": [],
+  "reliability": {
+    "status": "reliable",
+    "flags": []
+  },
+  "pitfalls": [
+    {
+      "code": "created-by-parent-product",
+      "severity": "blocker",
+      "summary": "A Catalog V3 variant is created inside its product's write (product.variantsInfo.variants[]); there is no standalone variant import. Never map a source variation to its own import task: map it into the stores/product row, and let the product task produce the variant identities (createStoresProduct operationContracts.childOutputs)."
+    },
+    {
+      "code": "variant-identity-from-verified-receipt",
+      "severity": "blocker",
+      "summary": "A target variant ID is usable by a dependent (an order line's catalogReference.options.variantId) only from the product's verified write receipt, where product-import.js matched each source variant to exactly one target variant by its source-fixed SKU/choice projection. Response order is never an identity; a missing or ambiguous match stays a gap."
+    },
+    {
+      "code": "stable-variant-source-key",
+      "severity": "blocker",
+      "summary": "A variant expectation's sourceKey must be the source variation's own stable ID (WooCommerce product_variation id, Shopify variant id), so a dependent order line can name it and a catch-up pass finds the same key. A product with no source variations uses <productSourceKey>#default for its single default variant. Never derive the key from an array position."
+    }
+  ],
+  "mappingGuidance": [
+    "Not a write target. Source variations are written through their parent stores/product row; this entity exists so dependents can declare and gate a per-record reference to a variant ID.",
+    "ecom/order line items reference it at lineItems[].catalogReference.options.variantId, beside catalogItemId for the same product (Catalog V3 eCommerce integration: always include the variantId)."
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/product-object",
+      "note": "Variants are product.variantsInfo.variants[] with server-assigned id; created and returned by Create Product."
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/e-commerce-integration",
+      "note": "Read 2026-10-25: catalogReference.options.variantId = variantsInfo.variants.id; 'Always include the variantId.'"
+    }
+  ]
+}

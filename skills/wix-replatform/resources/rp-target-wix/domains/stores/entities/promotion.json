@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "domain": "stores",
+  "entity": "promotion",
+  "displayName": "Stores Promotion (Category Banner)",
+  "capability": "marketing.storefront-banner",
+  "target": {
+    "classification": "native",
+    "nativeEntity": "Stores Promotion",
+    "verifiedFqdn": null,
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "sourceAliases": [],
+  "dependsOn": [
+    "stores/category"
+  ],
+  "dependencyModes": {
+    "stores/category": "per-record"
+  },
+  "dependencyReferenceFields": {
+    "stores/category": [
+      "promotion.categories[].id"
+    ]
+  },
+  "preferredWrite": {
+    "surface": "Stores Catalog V3 Promotions",
+    "endpoint": "POST /stores/v3/promotions",
+    "writerId": "createStoresPromotion",
+    "verification": "verified-live",
+    "importSafe": true,
+    "bulk": true
+  },
+  "reliability": {
+    "status": "partially-reliable",
+    "flags": []
+  },
+  "pitfalls": [
+    {
+      "code": "promotion-is-a-banner-not-a-discount",
+      "severity": "blocker",
+      "summary": "CORRECTED 2026-08-16 (this entity previously claimed the opposite). A Wix Stores promotion is 'a visual banner displayed on store category pages, including their product gallery sections' — it is a MERCHANDISING IMAGE with a name, a required media asset, an optional destinationUrl, and category placements. It carries NO discount, NO percentage, NO scope, NO date window, and NO price effect of any kind; the create schema has no such fields and a body containing them is rejected. Discount-rule plugin campaigns therefore DO NOT map here — route them to stores/coupon, to native discount rules, or to per-product pricing on stores/product. Mapping a source discount campaign to this entity would produce a decorative banner and silently lose the discount."
+    },
+    {
+      "code": "media-is-required-external-url-accepted",
+      "severity": "blocker",
+      "summary": "promotion.media is a REQUIRED create field (verified live 2026-08-16: omitting it → 400 REQUIRED_FIELD on promotion.media). It is a one-of: media.id for an existing Wix Media Manager file, or media.url for an external image that Wix Media Manager imports asynchronously. The external-URL path means NO media pre-import step is needed for this entity (the earlier 'must come from the Media Manager first' claim was wrong) — but see promotion-media-import-fails-silently before relying on it."
+    },
+    {
+      "code": "promotion-media-import-fails-silently",
+      "severity": "blocker",
+      "summary": "The media.url import is asynchronous and its failure mode is destructive and silent. Per the docs, during import the promotion is saved DISABLED regardless of the requested enabled value, and if the import fails 'the promotion's entire media object is cleared and the promotion stays disabled'. VERIFIED LIVE 2026-08-16: of three probe promotions, one imported successfully (media resolved to a static.wixstatic.com id with width/height/filename), one was still pending after 12s (media.url and uploadId still present, no image yet), and one came back with NO media object at all and revision bumped to 2 — a failed import, reported by nothing but the absence of a field. A create returning 200 does NOT mean the banner has an image. Any import of these must poll GET /stores/v3/promotions/{id} until media.image is populated, and treat a cleared media object as a per-record failure needing a retry with new media."
+    },
+    {
+      "code": "category-assignment-needs-explicit-position",
+      "severity": "warning",
+      "summary": "categories[] entries require an explicit position starting from 1 — omitting it fails validation (docs, read 2026-08-16). appliedToSubcategories (default false) controls inheritance, and an inherited placement keeps the same position. A promotion created without categories[] (as the probe was) exists but appears nowhere, so a category crosswalk must be resolved before this write is worth making."
+    },
+    {
+      "code": "media-id-path-is-immediate",
+      "severity": "info",
+      "summary": "VERIFIED LIVE 2026-10-27: a promotion created with media.id of a READY Media Manager file returns media.image at once and keeps enabled:true. A media.url pointing at an unreachable image was saved with enabled:false and only an uploadId (the silent path). The reviewed writer createStoresPromotion imports the image first (media/media-file), waits for READY, then creates with media.id and reads the promotion back; an image that never becomes ready is a per-record failure and nothing is created."
+    },
+    {
+      "code": "query-not-filterable-by-name",
+      "severity": "warning",
+      "summary": "VERIFIED LIVE 2026-10-27: POST /stores/v3/promotions/query refuses a name filter (400 \"Field 'name' is not declared as filterable\"). Use queryAllStoresPromotions and match client-side when reconciling an unknown outcome."
+    }
+  ],
+  "mappingGuidance": [
+    "Dependencies: stores/category (per-record; payload path promotion.categories[].id from the category crosswalk). Write through createStoresPromotion(wix, { promotion: { name, enabled, categories, destinationUrl? }, imageUrl }): the writer imports the image and sends media.id itself; never send media.url. A first attempt never looks for an existing promotion (two source banners may share a name). A create whose reply was lost is looked up once in the same call (outcome reused); if not found, the writer throws with outcomeKnown false, journaled succeeded_unverified. That record's re-run passes { readBackFirst: true } as the third argument, and a promotion is then reused before any image import or create only when every non-media field sent matches (name, enabled, destinationUrl, categories by id and position).",
+    "Only author this from source data that is genuinely a storefront BANNER — a category-page hero/promo image from a theme or a banner plugin. Never from discount data.",
+    "Explicit non-targets, to stop the same source record importing twice: per-product sale prices belong to stores/product pricing; coupon codes belong to stores/coupon; discount-rule plugin campaigns (bulk/tiered/BOGO) have no import path as rules and are reconfigure-in-wix (see ecom/order-applied-discount, which carries only the historical applied-discount RECORDS on past orders).",
+    "Create promotions after categories exist and resolve placements through the category crosswalk, supplying categories[].position from the source ordering (1-based).",
+    "Set enabled from the source banner's active state; with media.id it takes effect at create."
+  ],
+  "setupRequirements": [
+    "Wix Stores app",
+    "SCOPE.STORES.CATALOG_WRITE"
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/promotions-v3/promotion-object",
+      "note": "object page: id/revision/name/media + category placements"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/promotions-v3/create-promotion",
+      "note": "full request schema read 2026-08-16: required promotion.name + promotion.media; media one-of id|url with async import semantics; destinationUrl, categories[].position, enabled (default false), tags; errors MEDIA_NOT_FOUND, DUPLICATE_CATEGORY_ASSIGNMENT, PROMOTIONS_LIMIT_EXCEEDED. No discount, scope, or date fields exist on this entity."
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/promotions-v3/bulk-create-promotions"
+    },
+    {
+      "type": "live-run",
+      "path": "anonymized-live-verification",
+      "note": "Verified live: a first create modelled on this entity's old discount-campaign framing ({ discount: { percentage }, scope, status }) was rejected — 400 REQUIRED_FIELD promotion.media — which is what exposed the model error. Corrected creates with { name, media: { url, altText, displayName }, destinationUrl, enabled: false } → 200 on three probe promotions; readback showed one media import succeeding (image id/url/width/height/filename populated on static.wixstatic.com), one still pending, and one with the media object cleared entirely after a failed import. All three deleted via DELETE /stores/v3/promotions/{id} → 200. Not exercised: media.id (Media Manager) attachment, categories[] placement, bulk create."
+    }
+  ],
+  "notes": "Authored 2026-08-11 from the docs-survey gap (Promotions V3). SUBSTANTIALLY CORRECTED 2026-08-16 by a live probe: the previous version modelled this as a catalog-level DISCOUNT campaign entity (capability commerce.promotions, pitfall 'promotion-model-mismatch', mappingGuidance 'author from discount-rule campaign data'). That was wrong — Promotions V3 is a category-page banner surface with no discount semantics whatsoever, so the capability was renamed to marketing.storefront-banner and the discount-campaign guidance replaced with explicit non-targets. Now verified-live for the create/readback/delete path; reliability is partially-reliable because the async media import failed on one of three probes with no error surfaced, and category placement was never exercised. There is still no profiled source-side population for this entity."
+}

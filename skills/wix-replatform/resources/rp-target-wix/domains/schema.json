@@ -1,0 +1,232 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wix.com/replatform/domain-knowledge.schema.json",
+  "title": "RePlatform Wix Domain Knowledge Entity",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schemaVersion",
+    "domain",
+    "entity",
+    "displayName",
+    "target",
+    "sourceAliases",
+    "preferredWrite",
+    "reliability",
+    "pitfalls",
+    "mappingGuidance",
+    "evidence"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "mappingRules": {
+      "type": "array",
+      "description": "Reviewed reusable mapping templates; apply only when all source, schema and semantic predicates match.",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "applicability",
+          "sourcePaths",
+          "disposition",
+          "outputs",
+          "transform",
+          "valuePolicy",
+          "evidence",
+          "reason",
+          "examples"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "applicability": {
+            "type": "object",
+            "required": [
+              "sourceSystem",
+              "sourceEntity",
+              "predicates"
+            ],
+            "properties": {
+              "sourceSystem": {
+                "type": "string"
+              },
+              "sourceEntity": {
+                "type": "string"
+              },
+              "predicates": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "path",
+                    "semantic",
+                    "type"
+                  ]
+                }
+              }
+            }
+          },
+          "sourcePaths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "disposition": {
+            "enum": [
+              "native",
+              "extended-field",
+              "cms",
+              "excluded",
+              "unresolved"
+            ]
+          },
+          "outputs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "sourcePaths",
+                "targetRef",
+                "writeOperation",
+                "writeInput",
+                "targetPath"
+              ]
+            }
+          },
+          "transform": {
+            "type": "object"
+          },
+          "valuePolicy": {
+            "type": "object"
+          },
+          "evidence": {
+            "type": "array"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "examples": {
+            "type": "array"
+          }
+        }
+      }
+    },
+    "domain": { "type": "string", "minLength": 1 },
+    "entity": { "type": "string", "minLength": 1 },
+    "displayName": { "type": "string", "minLength": 1 },
+    "capability": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Business capability this target serves, e.g. \"commerce.catalog-product\". Source adapters (including WordPress plugin profiles) resolve capabilities to target refs through this field, so one vocabulary serves every source platform."
+    },
+    "target": {
+      "type": "object",
+      "required": ["classification", "idPolicy", "crosswalkRequired"],
+      "properties": {
+        "classification": {
+          "enum": [
+            "native",
+            "cms",
+            "native-plus-cms",
+            "setup-config",
+            "skip-by-default",
+            "unsupported-native-gap",
+            "manual-mapping"
+          ]
+        },
+        "nativeEntity": { "type": ["string", "null"] },
+        "verifiedFqdn": { "type": ["string", "null"] },
+        "idPolicy": {
+          "enum": ["client-assigned", "server-assigned", "natural-key", "not-applicable"]
+        },
+        "crosswalkRequired": { "type": "boolean" }
+      }
+    },
+    "preferredWrite": {
+      "type": "object",
+      "required": ["surface", "endpoint", "writerId", "verification", "importSafe", "bulk"],
+      "properties": {
+        "surface": { "type": "string" },
+        "endpoint": { "type": ["string", "null"] },
+        "writerId": { "type": ["string", "null"] },
+        "verification": {
+          "enum": ["verified-live", "docs", "source-review", "internal-only", "unverified", "none"]
+        },
+        "importSafe": { "type": ["boolean", "null"], "description": "True unless the writer has a non-notification side effect site mute cannot cover (e.g. moving stock or money); notifications are never a reason. null only for manual-mapping. false requires importSafeReason." },
+        "importSafeReason": {
+          "type": "object",
+          "required": ["pitfall", "summary"],
+          "properties": { "pitfall": { "type": "string" }, "summary": { "type": "string" } }
+        },
+        "bulk": { "type": "boolean" }
+      }
+    },
+    "alternateWrites": {
+      "type": "array",
+      "description": "Other writers for the same entity. One with a string writerId counts as the entity's writer only when it is exported, importSafe is true and verification is verified-live.",
+      "items": {
+        "type": "object",
+        "required": ["surface", "endpoint"],
+        "properties": {
+          "surface": { "type": "string" },
+          "endpoint": { "type": ["string", "null"] },
+          "writerId": { "type": ["string", "null"] },
+          "verification": { "enum": ["verified-live", "docs", "source-review", "internal-only", "unverified", "none"] },
+          "importSafe": { "type": "boolean" },
+          "bulk": { "type": "boolean" },
+          "when": { "type": "string" }
+        },
+        "if": { "properties": { "writerId": { "type": "string" } }, "required": ["writerId"] },
+        "then": { "required": ["writerId", "verification", "importSafe"] }
+      }
+    },
+    "reliability": {
+      "type": "object",
+      "required": ["status", "flags"],
+      "properties": {
+        "status": { "enum": ["reliable", "partially-reliable", "unreliable", "unknown"] },
+        "flags": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "manualSteps": {
+      "type": "object",
+      "description": "Required when target.classification is manual-mapping: a runbook to render to the merchant instead of a write.",
+      "properties": {
+        "prerequisite": { "type": ["string", "null"] },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["actor", "text"],
+            "properties": {
+              "actor": { "enum": ["merchant", "external", "wix-automatable"] },
+              "text": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "mechanism": { "type": "string" },
+        "evidence": { "type": "array" }
+      }
+    },
+    "contactFields": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "targetPath", "source"],
+        "properties": {
+          "kind": { "enum": ["email", "phone"] },
+          "targetPath": { "type": "string", "minLength": 1 },
+          "source": { "type": "string", "minLength": 1 },
+          "notes": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    }
+  }
+}

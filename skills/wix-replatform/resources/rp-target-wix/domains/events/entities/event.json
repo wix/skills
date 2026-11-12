@@ -1,0 +1,138 @@
+{
+  "schemaVersion": 1,
+  "domain": "events",
+  "entity": "event",
+  "displayName": "Event",
+  "capability": "content.events",
+  "target": {
+    "classification": "native",
+    "nativeEntity": "Event",
+    "verifiedFqdn": null,
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "dependsOn": [
+    "events/category",
+    "media/media-file"
+  ],
+  "dependencyModes": {
+    "media/media-file": "per-record"
+  },
+  "dependencyReferenceFields": {
+    "media/media-file": [
+      "event.mainImage.id"
+    ]
+  },
+  "legacyTaskCompleteEdges": [
+    "media/media-file"
+  ],
+  "sourceAliases": [
+    {
+      "sourceSystem": "wordpress",
+      "sourceEntity": "event",
+      "sourcePlugin": "the-events-calendar",
+      "routes": [
+        "/tribe/events/v1/events",
+        "/wp/v2/tribe_events"
+      ],
+      "confidence": "high"
+    },
+    {
+      "sourceSystem": "wix",
+      "sourceEntity": "event",
+      "routes": [
+        "Events V3"
+      ],
+      "confidence": "high"
+    }
+  ],
+  "preferredWrite": {
+    "surface": "Events V3",
+    "endpoint": "POST /events/v3/events",
+    "writerId": "createEvent",
+    "verification": "verified-live",
+    "importSafe": true,
+    "bulk": false
+  },
+  "fallbacks": [
+    {
+      "classification": "cms",
+      "when": "Only for source-only event metadata, or for recurring-series rules the Wix schedule cannot express."
+    }
+  ],
+  "reliability": {
+    "status": "partially-reliable",
+    "flags": []
+  },
+  "pitfalls": [
+    {
+      "code": "past-dates-unverified",
+      "severity": "warning",
+      "summary": "VERIFIED LIVE 2026-10-27: a past startDate is accepted on create, as a draft and as a published event (status ENDED, registration CLOSED_AUTOMATICALLY). Historical events import natively."
+    },
+    {
+      "code": "daily-guest-summary-on-create",
+      "severity": "info",
+      "summary": "A created event emails the Wix User (site owner) guest alerts, daily or per RSVP, for the RSVPs imported into it. The switch is per event in the dashboard only (event Settings > Emails you receive > Receive email alerts: Daily / Per RSVP / No emails); Events V3 has no API field for it, so the import cannot turn it off and restore it. Owner email is acceptable: import anyway, never block."
+    },
+    {
+      "code": "required-location-and-schedule",
+      "severity": "warning",
+      "summary": "title, location.name, dateAndTimeSettings and registration.initialType are all required. A source event with no venue needs an explicit placeholder rather than an omitted field."
+    },
+    {
+      "code": "rsvp-and-tickets-are-separate-work",
+      "severity": "blocker",
+      "summary": "Creating the event does not carry its attendees. RSVPs need a separate import with disableNotifications set; ticketed orders have no import path at all."
+    },
+    {
+      "code": "category-assignment-is-a-separate-write",
+      "severity": "warning",
+      "summary": "VERIFIED LIVE 2026-10-27: `event.categories` on Create Event is accepted and silently dropped (read-back empty). Assign with assignEventToCategories (POST /events/v1/bulk/categories/events, one event, all its categories) after both exist; the event task resolves the category ids from the completed category task (resolveTaskReference). Assigning twice is a no-op 200. Read back with listEventCategories."
+    },
+    {
+      "code": "drafts-not-queryable",
+      "severity": "warning",
+      "summary": "VERIFIED LIVE 2026-10-27: Query Events never returns DRAFT events, even with a status filter. A draft whose create response was lost cannot be found again; hold it (failed_ambiguous) instead of resending. A published event is matched by title and startDate and read by id (adoptPublishedEvent), so the record can assign its categories."
+    },
+    {
+      "code": "status-from-source",
+      "severity": "warning",
+      "summary": "Owner decision (2026-10-27): the Wix event keeps the source status (published → draft:false, draft → draft:true). A source draft that has RSVPs is created published, because RSVPs need a published event; the mapping ledgers it and cutover lists it (events_published_for_rsvps)."
+    }
+  ],
+  "mappingGuidance": [
+    "Set draft from the source status ; publish a source draft only when it has RSVPs. registration.initialType is RSVP for an attendee list, TICKETING for ticket types; it is immutable.",
+    "Fold source venue and organizer records into the event's location and organizer fields — Wix does not model them as separate importable entities.",
+    "Deduplicate recurring-series expansions by parent event before writing, or one source series becomes many Wix events.",
+    "Event image: an imported image goes in event.mainImage.id, resolved per record through the dependency gate (resolveReference(\"media/media-file\", ...)), so an event waits only for its own image, never for the whole media task. Send the id only: the builder sends mainImage as { id, altText? } and refuses a mainImage with a url and no id before sending (event_main_image_id_required, not sent; a dry run catches it), because the per-record check reads only mainImage.id. An event with no image carries no media reference and does not wait for media at all."
+  ],
+  "setupRequirements": [
+    "Wix Events app",
+    "SCOPE.DC-EVENTS.MANAGE-EVENTS"
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/events-v3/event-object"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/events-v3/create-event"
+    },
+    {
+      "type": "wix-docs-search",
+      "path": "searched: event, calendar, RSVP, ticketing across business-solutions/events (2026-08-02)"
+    },
+    {
+      "type": "live-run",
+      "path": "anonymized-live-verification",
+      "note": "Verified live: create + query-back readback, safe mode on — events created as drafts and read back by crosswalk ID (initial payload-shape 400s fixed in-run)"
+    },
+    {
+      "type": "live-run",
+      "path": "anonymized-live-verification",
+      "note": "Verified live 2026-10-27 on a throwaway site created for the probe (notifications muted): create, read back, query, past dates, category assignment."
+    }
+  ]
+}

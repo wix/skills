@@ -1,0 +1,18 @@
+# scopes: read_shipping
+# Bulk query: shipping profiles and their location groups. Connections: deliveryProfiles (1).
+# A bulk query cannot hold a connection inside a list field (profileLocationGroups), so each location group's
+# zones and rates are read one zone at a time after the download (read-delivery-zones.graphql).
+{
+  deliveryProfiles {
+    edges {
+      node {
+        id
+        name
+        default
+        profileLocationGroups {
+          locationGroup { id }
+        }
+      }
+    }
+  }
+}

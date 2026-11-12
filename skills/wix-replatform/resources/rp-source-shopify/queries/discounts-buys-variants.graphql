@@ -1,0 +1,17 @@
+# scopes: read_discounts
+# Bulk query: the variants named by a customerBuys item scope, joined to the discounts core by node id.
+# Connections: discountNodes plus `productVariants` on each customerBuys item scope (3).
+{
+  discountNodes {
+    edges {
+      node {
+        id
+        discount {
+          __typename
+          ... on DiscountCodeBxgy { customerBuys { items { __typename ... on DiscountProducts { productVariants { edges { node { __typename id product { id } } } } } } } }
+          ... on DiscountAutomaticBxgy { customerBuys { items { __typename ... on DiscountProducts { productVariants { edges { node { __typename id product { id } } } } } } } }
+        }
+      }
+    }
+  }
+}

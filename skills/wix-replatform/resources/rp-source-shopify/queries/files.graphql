@@ -1,0 +1,20 @@
+# scopes: read_files
+# Bulk query: Files in the Media library.
+{
+  files {
+    edges {
+      node {
+        __typename
+        id
+        alt
+        fileStatus
+        createdAt
+        updatedAt
+        ... on MediaImage { mimeType image { url width height altText } originalSource { fileSize url } }
+        ... on GenericFile { mimeType originalFileSize url }
+        ... on Video { filename duration originalSource { url fileSize mimeType } }
+        ... on ExternalVideo { embedUrl host }
+      }
+    }
+  }
+}

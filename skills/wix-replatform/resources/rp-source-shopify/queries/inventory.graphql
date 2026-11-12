@@ -1,0 +1,31 @@
+# scopes: read_inventory, read_locations
+# Bulk query: inventory items and their levels per location. Connections: inventoryItems, inventoryLevels (2).
+{
+  inventoryItems {
+    edges {
+      node {
+        id
+        sku
+        tracked
+        requiresShipping
+        countryCodeOfOrigin
+        harmonizedSystemCode
+        createdAt
+        updatedAt
+        unitCost { amount currencyCode }
+        variant { id }
+        inventoryLevels {
+          edges {
+            node {
+              __typename
+              id
+              isActive
+              location { id }
+              quantities(names: ["available", "on_hand", "committed", "incoming", "reserved"]) { name quantity }
+            }
+          }
+        }
+      }
+    }
+  }
+}

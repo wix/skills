@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "plugin": "min-and-max-quantity-for-woocommerce",
+  "displayName": "Minimum and Maximum Quantity for WooCommerce",
+  "profileVersion": "2026-10",
+  "sourceOfTruth": "https://wordpress.org/plugins/min-and-max-quantity-for-woocommerce/",
+  "distribution": "wordpress-org",
+  "capabilities": [
+    "commerce.quantity-limits"
+  ],
+  "detect": {
+    "pluginFileIds": [
+      "min-and-max-quantity-for-woocommerce/min-and-max-quantity-for-woocommerce"
+    ],
+    "assetPathSlugs": [
+      "min-and-max-quantity-for-woocommerce"
+    ]
+  },
+  "dataLocation": {
+    "where": "wordpress",
+    "evidence": "Plugin source: rules are posts of the wc_mmqw custom post type with their settings in post meta; no remote calls or vendor account."
+  },
+  "dataPresence": {
+    "require": "any",
+    "checks": [
+      {
+        "kind": "postType",
+        "type": "wc_mmqw",
+        "statuses": [
+          "publish"
+        ]
+      }
+    ]
+  },
+  "entities": [
+    {
+      "entity": "quantity-rule",
+      "capability": "commerce.quantity-limits",
+      "channel": "db-only",
+      "candidateTargetRefs": [],
+      "pitfalls": [
+        {
+          "code": "no-quantity-limit-target",
+          "severity": "warning",
+          "summary": "Per-product and per-category min/max quantity rules have no native Wix target chosen yet, so they are pending. VERIFIED IN PLUGIN SOURCE 2.1.1 (admin/class-min-max-quantity-for-woocommerce-admin.php): rules are `wc_mmqw` posts with meta mmqw_rule_groups/mmqw_total_groups; store-wide limits are wp_options rows the bridge cannot read."
+        }
+      ]
+    }
+  ],
+  "quirks": [
+    "Seen on a live store: plugin inactive, one published wc_mmqw rule left behind."
+  ]
+}

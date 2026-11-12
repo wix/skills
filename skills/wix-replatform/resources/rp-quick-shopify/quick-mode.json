@@ -1,0 +1,124 @@
+{
+  "schemaVersion": 1,
+  "id": "quick-shopify",
+  "version": "2.0.0",
+  "platform": "shopify",
+  "minimumProbeConfidence": "high",
+  "requiredProbeStrategies": [
+    "shopify.products"
+  ],
+  "publicAuth": "none",
+  "sourceApi": "storefront-graphql-tokenless",
+  "storefrontApiVersion": "2026-10",
+  "entities": [
+    {
+      "id": "collection",
+      "route": "POST /api/{storefrontApiVersion}/graphql.json collections(first:250, after)",
+      "target": "stores/category",
+      "dependsOn": []
+    },
+    {
+      "id": "product",
+      "route": "POST /api/{storefrontApiVersion}/graphql.json products(first:250, after) { variants images collections }",
+      "target": "stores/product",
+      "dependsOn": [],
+      "auxiliaryTargets": [
+        "stores/product-tag",
+        "stores/inventory-item"
+      ]
+    },
+    {
+      "id": "collection_product",
+      "route": "products(...).collections in the product query; no per-collection requests",
+      "target": "stores/category-membership",
+      "dependsOn": [
+        "collection",
+        "product"
+      ]
+    }
+  ],
+  "requiredWixCapabilities": [
+    "stores"
+  ],
+  "fieldMatrix": {
+    "product": [
+      "id",
+      "handle",
+      "title",
+      "body_html",
+      "vendor",
+      "product_type",
+      "tags",
+      "published_at",
+      "images",
+      "options",
+      "variants.id",
+      "variants.title",
+      "variants.sku",
+      "variants.price",
+      "variants.compare_at_price",
+      "variants.available",
+      "variants.option1",
+      "variants.option2",
+      "variants.option3"
+    ],
+    "collection": [
+      "id",
+      "handle",
+      "title",
+      "body_html"
+    ]
+  },
+  "excluded": [
+    "customers",
+    "members",
+    "orders",
+    "abandoned-checkouts",
+    "discounts",
+    "gift-cards",
+    "subscriptions",
+    "inventory-locations-and-quantities",
+    "shipping",
+    "taxes",
+    "payments",
+    "markets",
+    "metafields",
+    "metaobjects",
+    "files",
+    "themes",
+    "navigation",
+    "pages",
+    "blogs",
+    "reviews",
+    "search-configuration",
+    "apps",
+    "private-content",
+    "collection-ordering"
+  ],
+  "excludedCapabilities": {
+    "customers": "crm.contact",
+    "members": "identity.member",
+    "orders": "commerce.orders",
+    "abandoned-checkouts": "source-scope.abandoned-checkouts",
+    "discounts": "commerce.coupons",
+    "gift-cards": "commerce.gift-cards",
+    "subscriptions": "commerce.subscription-contracts",
+    "inventory-locations-and-quantities": "commerce.inventory",
+    "shipping": "commerce.shipping-rate",
+    "taxes": "commerce.tax-settings",
+    "payments": "commerce.order-payments",
+    "markets": "source-scope.markets",
+    "metafields": "source-scope.metafields",
+    "metaobjects": "source-scope.metaobjects",
+    "files": "media.file",
+    "themes": "source-scope.themes",
+    "navigation": "source-scope.navigation",
+    "pages": "source-scope.pages",
+    "blogs": "content.blog-post",
+    "reviews": "commerce.product-reviews",
+    "search-configuration": "source-scope.search-configuration",
+    "apps": "source-scope.apps",
+    "private-content": "source-scope.private-content",
+    "collection-ordering": "source-scope.collection-ordering"
+  }
+}

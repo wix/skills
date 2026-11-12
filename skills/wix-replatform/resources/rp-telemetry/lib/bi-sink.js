@@ -1,0 +1,341 @@
+'use strict';
+
+// Wix BI sink for the telemetry recorder — the one transport path.
+//
+// Wire format (proven end-to-end 2026-07-26):
+// POST https://frog.wix.com/migration-data-validator with a JSON batch envelope
+//   {"dt":0,"g":{"src":10,"evid":<evid>},"e":[{"dt":0,"f":{...fields}}]}
+// capped at 100 events / ~240KB per request. No transport auth — identity is the
+// claim-based `logged_user_id` field, routing every row to events.dbo.users_10.
+//
+// Three hard rules, each a silent-drop trap (2xx with no row, or NULL columns):
+//   1. Schema fields go up in camelCase (`runId`, `errorType`, ...) — the catcher
+//      matches registered param names, not the snake_case Trino column names.
+//      Standard identity fields stay snake_case (`logged_user_id`).
+//   2. Every GUID-typed field must be a real GUID; a non-hex value fails
+//      validation before routing and drops the whole event.
+//   3. Every row carries `logged_user_id`, a GUID. BI checks that it is present and
+//      well-formed, not that it belongs to a Wix account: a random GUID that no account
+//      owns is ingested (measured live). The all-zeros GUID was not ingested when tried and
+//      is never used. The recorder sends a run under the operator's id once known and under
+//      a random per-run placeholder before that.
+//
+// frog's HTTP status is not an ingestion receipt — only a Trino read-back proves
+// arrival. The recorder treats any non-2xx or network error as a push failure
+// (journaled into telemetry_health); a 2xx merely means "handed to frog".
+//
+// Env switches (tests / offline dev only — production runs always emit):
+//   RP_TELEMETRY_BI_ENDPOINT   override the frog endpoint (contract-test mock)
+//   RP_TELEMETRY_BI_DISABLED=1 skip all pushes entirely
+//
+// Egress proxy: when HTTPS_PROXY (or HTTP_PROXY for an http endpoint) is set, the push goes
+// through the proxy with an HTTP CONNECT tunnel (egressFetch in lib/egress-proxy.js) because Node's `fetch`
+// ignores those variables on most supported Node versions. A failed push carries an error
+// code (`network_error:ENOTFOUND`, `proxy_connect_407`), never an error message, so a proxy
+// address with a password cannot reach the journal.
+
+const { egressFetch } = require('../../../lib/egress-proxy.js');
+
+const SRC = 10;
+const EVID_RUN = 5012; // replatform_run — run-grain lifecycle, phase started|finalized
+const EVID_RUN_EVENT = 5013; // replatform_run_event — one row per observation class
+const DEFAULT_ENDPOINT = 'https://frog.wix.com/migration-data-validator';
+const MAX_EVENTS_PER_REQUEST = 100;
+const MAX_BODY_BYTES = 240 * 1024;
+const PUSH_TIMEOUT_MS = 8000;
+
+const GUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isGuid(value) {
+  return typeof value === 'string' && GUID_RE.test(value);
+}
+
+function disabled() {
+  return process.env.RP_TELEMETRY_BI_DISABLED === '1';
+}
+
+function endpoint() {
+  return process.env.RP_TELEMETRY_BI_ENDPOINT || DEFAULT_ENDPOINT;
+}
+
+// Empty-value convention: unknown fields are omitted, never sent as null/"".
+// JSON-typed schema fields (arrays/objects) are JSON-serialized into their value.
+// GUID-typed fields are dropped unless they hold a real GUID (hard rule 2 —
+// sending a non-GUID would silently drop the whole event, not just the field).
+function put(fields, key, value, { json = false, guid = false } = {}) {
+  if (value === undefined || value === null) return;
+  if (guid && !isGuid(value)) return;
+  fields[key] = json ? JSON.stringify(value) : value;
+}
+
+// `replatform_run` phase:started — built from the journal's run_start record, so
+// its content is a pure function of run start and re-pushes are byte-identical
+// (dedup key: (run_id, phase), latest row wins). `wixUserId` is the one late
+// addition: identity may arrive via a later dims call, and the row is only
+// sendable once it has (rule 3), so it rides along when known.
+function startedRunRow(runStart, wixUserId) {
+  const dims = runStart.dims || {};
+  const f = { phase: 'started' };
+  put(f, 'runId', runStart.run_id, { guid: true });
+  // Withheld while no operator id is known (see `sourceSiteUrl` below): the project name often
+  // names the customer.
+  if (isGuid(wixUserId)) put(f, 'projectId', runStart.project_id);
+  put(f, 'attempt', runStart.attempt);
+  put(f, 'sessionCount', 1);
+  put(f, 'schemaVersions', runStart.schema_version);
+  put(f, 'skillsVersion', runStart.skills_version);
+  put(f, 'runtimeEnv', runStart.runtime_env, { json: true });
+  put(f, 'wixUserId', wixUserId, { guid: true });
+  put(f, 'sourcePlatform', dims.source_platform);
+  put(f, 'sourcePlatformVersion', dims.source_platform_version);
+  put(f, 'sourceExtensions', dims.source_extensions, { json: true });
+  // Withheld while no operator id is known: a row sent under a run's placeholder says as little
+  // as it can (no project name, site address or destination site id); they return with the
+  // operator's id.
+  if (isGuid(wixUserId)) put(f, 'sourceSiteUrl', dims.source_site_url);
+  put(f, 'sourceAcquisition', dims.source_acquisition);
+  put(f, 'deliveryMode', dims.delivery_mode);
+  put(f, 'destinationStrategy', dims.destination_strategy);
+  put(f, 'runStarted', runStart.ts);
+  return { evid: EVID_RUN, fields: f };
+}
+
+// `replatform_run` phase:finalized — the complete rollup. Local names map to the
+// as-registered BI names here and nowhere else (see the Registration notes):
+// schema_version→schemaVersions, verification→verificationType. skills_commit and
+// discovered_entity_types are local-only (not registered BI columns) and
+// deliberately not sent — the entity-class demand signal reaches BI through the
+// `volumes` column; the dim exists for the finalize cross-check, whose flags
+// travel in telemetryHealth.
+function finalizedRunRow(rollup) {
+  const f = { phase: 'finalized' };
+  put(f, 'runId', rollup.run_id, { guid: true });
+  if (isGuid(rollup.wix_user_id)) put(f, 'projectId', rollup.project_id);
+  put(f, 'attempt', rollup.attempt);
+  put(f, 'sessionCount', rollup.session_count);
+  put(f, 'schemaVersions', rollup.schema_version);
+  put(f, 'skillsVersion', rollup.skills_version);
+  put(f, 'runtimeEnv', rollup.runtime_env, { json: true });
+  put(f, 'wixUserId', rollup.wix_user_id, { guid: true });
+  if (isGuid(rollup.wix_user_id)) put(f, 'siteId', rollup.site_id, { guid: true });
+  put(f, 'sourcePlatform', rollup.source_platform);
+  put(f, 'sourcePlatformVersion', rollup.source_platform_version);
+  put(f, 'sourceExtensions', rollup.source_extensions, { json: true });
+  if (isGuid(rollup.wix_user_id)) put(f, 'sourceSiteUrl', rollup.source_site_url);
+  put(f, 'sourceAcquisition', rollup.source_acquisition);
+  put(f, 'deliveryMode', rollup.delivery_mode);
+  put(f, 'destinationStrategy', rollup.destination_strategy);
+  put(f, 'terminalState', rollup.terminal_state);
+  put(f, 'stoppedAtStage', rollup.stopped_at_stage);
+  put(f, 'stages', rollup.stages, { json: true });
+  put(f, 'volumes', rollup.volumes, { json: true });
+  put(f, 'verificationType', rollup.verification, { json: true });
+  put(f, 'operatorAcceptance', rollup.operator_acceptance);
+  put(f, 'telemetryHealth', rollup.telemetry_health, { json: true });
+  put(f, 'eventCountByType', rollup.event_count_by_type, { json: true });
+  put(f, 'activeMs', rollup.active_ms);
+  put(f, 'waitingMs', rollup.waiting_ms);
+  put(f, 'runStarted', rollup.run_started);
+  put(f, 'runEnded', rollup.run_ended);
+  put(f, 'bundleManifest', rollup.bundle_manifest, { json: true });
+  // The transcript_digest is a run-grain fact, so it rides the
+  // existing finalized row rather than opening a new BI call — one JSON field,
+  // matching how `stages`/`volumes` already travel, rather than one registered
+  // column per sub-field. A run with no digest (offline recompute skipped, or
+  // a run that predates 1.5.0) simply omits the field, same as any unknown.
+  //
+  // Known limitation (verified live): as of 2026-08-17, `bi_events_raw`
+  // shows evid 5012 rows with an EMPTY dimensions/measures map for every one of them —
+  // this field will land alongside `terminalState`/`volumes`/every other field already
+  // on this row and be equally unqueryable until whoever owns the BI schema resolves
+  // why 5012/5013 aren't materializing their payload. Nothing to fix here: this `put()`
+  // call matches the pattern every other field on the row already uses correctly.
+  put(f, 'transcriptDigest', rollup.transcript_digest, { json: true });
+  // The run's key/value source-read counts. Rides the finalized row as one
+  // JSON field, exactly like transcript_digest above and for the same reason -- it is a
+  // run-grain fact, not a new grain.
+  //
+  // This has to leave the machine to be worth anything. `redacted_values` is explicitly a
+  // CROSS-RUN signal: one run's non-zero count says little, while a rate across runs says
+  // some sites keep credentials where nobody expects them, and that is a fleet-level fact no
+  // single run can see. Computing it into a local file and stopping there would satisfy the
+  // letter of "record it" and none of the point.
+  //
+  // Same known 5012/5013 materialization limitation the comment above documents applies.
+  put(f, 'sourceReads', rollup.source_reads, { json: true });
+  return { evid: EVID_RUN, fields: f };
+}
+
+// `replatform_run_event` — one row per folded observation class. Re-pushing a
+// class after more occurrences folded in is by design: the dedup key is
+// (run_id, seq) and the latest row carries the cumulative count. Renames:
+// event_type→eventTypeName, error_code→errorType, expected/actual→
+// expectedSkill/actualSkill.
+function eventRow(folded) {
+  const f = {};
+  put(f, 'runId', folded.run_id, { guid: true });
+  put(f, 'seq', folded.seq);
+  put(f, 'count', folded.count);
+  put(f, 'stage', folded.stage);
+  put(f, 'skill', folded.skill);
+  put(f, 'eventTypeName', folded.event_type);
+  put(f, 'subtype', folded.subtype);
+  put(f, 'entityType', folded.entity_type);
+  put(f, 'severity', folded.severity);
+  put(f, 'wixApiSurface', folded.wix_api_surface);
+  put(f, 'sourceApiSurface', folded.source_api_surface);
+  put(f, 'wixAppId', folded.wix_app_id, { guid: true });
+  put(f, 'errorType', folded.error_code);
+  put(f, 'decisionPoint', folded.decision_point);
+  put(f, 'retryCount', folded.retry_count);
+  put(f, 'recovered', folded.recovered);
+  put(f, 'whatHappened', folded.what_happened);
+  put(f, 'expectedSkill', folded.expected);
+  put(f, 'actualSkill', folded.actual);
+  put(f, 'observedShapes', folded.observed_shapes, { json: true });
+  put(f, 'shapesSeen', folded.shapes_seen);
+  put(f, 'evidenceRefs', folded.evidence_refs, { json: true });
+  return { evid: EVID_RUN_EVENT, fields: f };
+}
+
+function envelopeBody(evid, events) {
+  return JSON.stringify({ dt: 0, g: { src: SRC, evid }, e: events });
+}
+
+// A single event over the body cap sheds its unbounded-ish JSON fields before
+// being declared unsendable. Truncation is surfaced (telemetry_health flag),
+// never silent.
+const SHEDDABLE_FIELDS = ['observedShapes', 'evidenceRefs', 'bundleManifest', 'stages', 'volumes'];
+
+function shedOversize(event) {
+  const f = { ...event.f };
+  let shed = false;
+  for (const key of SHEDDABLE_FIELDS) {
+    if (f[key] === undefined) continue;
+    delete f[key];
+    shed = true;
+  }
+  return shed ? { ...event, f } : null;
+}
+
+// A short error code (ENOTFOUND, ECONNREFUSED, ...) or null. Never the message.
+function errorCode(error) {
+  const code = (error && error.cause && error.cause.code) || (error && error.code);
+  return typeof code === 'string' && /^[A-Z0-9_]{2,64}$/.test(code) ? code : null;
+}
+
+// `signal` (optional) is the caller's cancellation. The request is aborted when either the
+// per-request PUSH_TIMEOUT_MS expires or the caller aborts; the combined signal is built with a
+// local controller (listener + cleared timer) so nothing outlives the call and no Node API newer
+// than the supported runtime is needed. A caller abort maps to `aborted`; the timeout stays
+// `timeout`.
+async function sendBatch(evid, events, signal) {
+  const body = envelopeBody(evid, events);
+  if (signal && signal.aborted) return 'aborted';
+  const controller = new AbortController();
+  let timedOut = false;
+  const timer = setTimeout(() => { timedOut = true; controller.abort(); }, PUSH_TIMEOUT_MS);
+  const onAbort = () => controller.abort();
+  if (signal) signal.addEventListener('abort', onAbort, { once: true });
+  try {
+    // egressFetch is `fetch` when no proxy applies, and a CONNECT tunnel when one does.
+    const res = await egressFetch(endpoint(), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body,
+      signal: controller.signal,
+    });
+    if (!res.ok) return `http_${res.status}`;
+    return null;
+  } catch (error) {
+    if (signal && signal.aborted) return 'aborted';
+    if (timedOut) return 'timeout';
+    if (error && error.cause && error.cause.proxyStatus) return `proxy_connect_${error.cause.proxyStatus}`;
+    const code = errorCode(error);
+    return code ? `network_error:${code}` : 'network_error';
+  } finally {
+    clearTimeout(timer);
+    if (signal) signal.removeEventListener('abort', onAbort);
+  }
+}
+
+// Push rows (from the builders above) as the given operator. Never throws:
+// returns { sent, failures: [{evid, rows, detail}], truncated, skipped } and
+// the caller journals the failures — telemetry must never block a migration.
+// A disabled sink reports the rows it swallowed in `skipped` instead of
+// masquerading as a successful push — the caller journals those too, so a
+// kill-switch leaking into a production session is visible, never silent.
+//
+// `signal` (optional): once it aborts, nothing more is sent and every row not yet sent is
+// reported as ONE failure `{ detail: 'aborted' }` — the caller journals a single marker and the
+// rows stay backlog for the next heal. Without a signal, behavior is unchanged.
+async function pushRows(rows, loggedUserId, { signal } = {}) {
+  const out = { sent: 0, failures: [], truncated: 0, skipped: 0 };
+  if (rows.length === 0) return out;
+  if (disabled()) {
+    out.skipped = rows.length;
+    return out;
+  }
+  if (!isGuid(loggedUserId)) {
+    out.failures.push({ evid: null, rows: rows.length, detail: 'no_operator_identity' });
+    return out;
+  }
+  const byEvid = new Map();
+  for (const row of rows) {
+    if (!byEvid.has(row.evid)) byEvid.set(row.evid, []);
+    byEvid.get(row.evid).push({ dt: 0, f: { ...row.fields, logged_user_id: loggedUserId } });
+  }
+  let accounted = 0;
+  const abortRest = () => {
+    out.failures.push({ evid: null, rows: rows.length - accounted, detail: 'aborted' });
+    return out;
+  };
+  for (const [evid, events] of byEvid) {
+    const queue = [events];
+    while (queue.length > 0) {
+      if (signal && signal.aborted) return abortRest();
+      let chunk = queue.shift();
+      if (chunk.length > MAX_EVENTS_PER_REQUEST) {
+        const mid = Math.ceil(chunk.length / 2);
+        queue.unshift(chunk.slice(0, mid), chunk.slice(mid));
+        continue;
+      }
+      if (Buffer.byteLength(envelopeBody(evid, chunk)) > MAX_BODY_BYTES) {
+        if (chunk.length > 1) {
+          const mid = Math.ceil(chunk.length / 2);
+          queue.unshift(chunk.slice(0, mid), chunk.slice(mid));
+          continue;
+        }
+        const slimmed = shedOversize(chunk[0]);
+        if (!slimmed || Buffer.byteLength(envelopeBody(evid, [slimmed])) > MAX_BODY_BYTES) {
+          out.failures.push({ evid, rows: 1, detail: 'oversized_event' });
+          accounted += 1;
+          continue;
+        }
+        out.truncated += 1;
+        chunk = [slimmed];
+      }
+      const failureDetail = await sendBatch(evid, chunk, signal);
+      if (failureDetail === 'aborted') return abortRest();
+      if (failureDetail) out.failures.push({ evid, rows: chunk.length, detail: failureDetail });
+      else out.sent += chunk.length;
+      accounted += chunk.length;
+    }
+  }
+  return out;
+}
+
+module.exports = {
+  SRC,
+  EVID_RUN,
+  EVID_RUN_EVENT,
+  MAX_EVENTS_PER_REQUEST,
+  MAX_BODY_BYTES,
+  PUSH_TIMEOUT_MS,
+  isGuid,
+  disabled,
+  startedRunRow,
+  finalizedRunRow,
+  eventRow,
+  pushRows,
+};

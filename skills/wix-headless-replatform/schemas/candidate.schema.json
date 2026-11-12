@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wix.com/replatform/0083/candidate.schema.json",
+  "type": "object",
+  "required": ["schemaVersion", "detectorId", "detectorVersion", "unitKind", "evidenceRefs", "variant", "score", "signals", "kind"],
+  "properties": {
+    "schemaVersion": { "const": "0083.1" },
+    "detectorId": { "type": "string", "minLength": 1 },
+    "detectorVersion": { "type": "string", "minLength": 1 },
+    "unitKind": { "enum": ["section", "component"] },
+    "evidenceRefs": { "type": "array", "items": { "type": "string" } },
+    "variant": { "type": "string", "minLength": 1 },
+    "score": { "type": "number", "minimum": 0, "maximum": 1 },
+    "signals": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+    "kind": { "type": "string", "minLength": 1 },
+    "extensions": { "type": "object", "additionalProperties": true }
+  },
+  "additionalProperties": false
+}

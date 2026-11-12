@@ -1,0 +1,147 @@
+{
+  "schemaVersion": 1,
+  "domain": "stores",
+  "entity": "product-bundle",
+  "displayName": "Stores Product Bundle (app setup)",
+  "capability": "commerce.product-bundles",
+  "target": {
+    "classification": "manual-mapping",
+    "nativeEntity": null,
+    "verifiedFqdn": null,
+    "idPolicy": "not-applicable",
+    "crosswalkRequired": false
+  },
+  "sourceAliases": [
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "bundle-definition",
+      "confidence": "high",
+      "note": "A fixed bundle (a set list of parts at set quantities). The source adapter emits canonical product.bundle with kind fixed."
+    },
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "composite-definition",
+      "confidence": "high",
+      "note": "A kit the buyer assembles from component groups. The source adapter emits canonical product.bundle with kind configurable."
+    },
+    {
+      "sourceSystem": "shopify",
+      "sourceEntity": "bundle-variant",
+      "confidence": "medium",
+      "note": "A product variant with requiresComponents true and productVariantComponents. The source adapter emits canonical product.bundle with kind fixed."
+    }
+  ],
+  "dependsOn": [
+    "stores/product"
+  ],
+  "carries": [
+    "product.bundle"
+  ],
+  "preferredWrite": {
+    "surface": "Manual -- no API; the merchant installs a bundle app from the Wix App Market and links the parts in it",
+    "endpoint": null,
+    "writerId": null,
+    "verification": "none",
+    "importSafe": null,
+    "bulk": false
+  },
+  "reliability": {
+    "status": "partially-reliable",
+    "flags": [
+      "not-independently-verified-live"
+    ]
+  },
+  "candidateApps": [
+    {
+      "name": "Product Bundles by PurpleBear",
+      "supportsKinds": [
+        "fixed"
+      ],
+      "evidence": "https://support.wix.com/en/article/wix-stores-selling-fixed-product-bundles-with-the-product-bundles-app",
+      "note": "Documented fixed bundles with part stock tracking. Not live-tested with a migration."
+    },
+    {
+      "name": "Bundles & Connected Inventory by Presto-Changeo",
+      "supportsKinds": [
+        "fixed",
+        "configurable"
+      ],
+      "evidence": "https://www.wix.com/app-market/bundles-connected-inventory",
+      "note": "The listing advertises part stock updates, variant mapping and connected inventory. Configurable support is the vendor's claim; check it before recommending it for a kit. Not live-tested with a migration."
+    }
+  ],
+  "pitfalls": [
+    {
+      "code": "no-bundle-product-type",
+      "severity": "warning",
+      "summary": "Wix Stores has no bundle product type: Catalog V3 productType is PHYSICAL | DIGITAL only, with no composed-product entity, child-product reference or component-group field (product-object docs checked 2026-08-16). The bundle imports as a normal product with its own price and stock; the links to its parts are set up in a bundle app by the merchant."
+    },
+    {
+      "code": "mix-and-match-is-not-a-bundle",
+      "severity": "warning",
+      "summary": "Wix's mix-and-match is a category plus an automatic discount on separately purchased products (support docs evaluated 2026-08-16). It has no bundle product and no API. Never replace a bundle with a category discount: it changes what the buyer orders."
+    },
+    {
+      "code": "frozen-derived-price",
+      "severity": "warning",
+      "summary": "A bundle whose source price is derived from its parts imports with the source's current price, frozen. Later price changes of the parts do not change it unless the chosen app re-derives it."
+    },
+    {
+      "code": "never-install-or-buy",
+      "severity": "blocker",
+      "summary": "Never install, buy or configure a bundle app from the migration. The merchant chooses and installs it; the operator checks it like any manual setup."
+    }
+  ],
+  "mappingGuidance": [
+    "A product with canonical product.bundle maps through the normal stores/product route at its source price and its own stock. Never hold, defer or gap it because its parts cannot be linked.",
+    "Never map bundle components or kit groups onto product options, modifiers or variants.",
+    "The bundle's source fields take disposition excluded with policyRef carried-to-cutover, canonicalField product.bundle and carriedBy stores/product-bundle: the contents are carried to the operator, not lost.",
+    "lib/stores-bundle-cutover.js turns the imported bundles into one bundle-app-setup operator action per bundle and the ledger execution/stores/bundle-setup.json. This runbook creates no operator task of its own."
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://support.wix.com/en/article/wix-stores-selling-fixed-product-bundles-with-the-product-bundles-app"
+    },
+    {
+      "type": "wix-app-market",
+      "url": "https://www.wix.com/app-market/bundles-connected-inventory"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://support.wix.com/en/article/wix-stores-selling-mix-and-match-product-bundles"
+    }
+  ],
+  "manualSteps": {
+    "prerequisite": "The bundle and its parts are imported.",
+    "steps": [
+      {
+        "actor": "merchant",
+        "text": "Choose a bundle app that supports the bundle's kind: Product Bundles by PurpleBear (fixed bundles) or Bundles & Connected Inventory by Presto-Changeo (fixed bundles; kits per the vendor)."
+      },
+      {
+        "actor": "merchant",
+        "text": "Install the app from the Wix App Market."
+      },
+      {
+        "actor": "merchant",
+        "text": "For each bundle in the migration's bundle list, link the listed parts and quantities to the bundle product in the app."
+      },
+      {
+        "actor": "merchant",
+        "text": "Check each bundle in the app and on the product page."
+      }
+    ],
+    "mechanism": "Configuration inside a third-party app; there is no Wix API to write bundle links.",
+    "evidence": [
+      {
+        "type": "wix-docs",
+        "url": "https://support.wix.com/en/article/wix-stores-selling-fixed-product-bundles-with-the-product-bundles-app"
+      },
+      {
+        "type": "wix-app-market",
+        "url": "https://www.wix.com/app-market/bundles-connected-inventory"
+      }
+    ]
+  }
+}

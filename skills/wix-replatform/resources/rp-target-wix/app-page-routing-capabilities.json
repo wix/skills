@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "capabilities": [
+    {
+      "family": "store-product",
+      "frontendType": "headless",
+      "supported": true,
+      "key": "wix.stores.sub_pages.product",
+      "pageIdentifier": "product_page",
+      "pageIdentifierType": "tpaPageId",
+      "variable": "slug",
+      "readMethod": "url-mapper-writer-get",
+      "writeMethod": "url-mapper-writer-create",
+      "evidence": "Stores product URL Mapper pattern write and separate writer-side read-back verified; served routing remains unverified",
+      "request": {
+        "key": "wix.stores.sub_pages.product",
+        "urlMapping": {
+          "key": "wix.stores.sub_pages.product",
+          "pageIdentifier": "product_page",
+          "pageIdentifierType": "tpaPageId",
+          "mapping": "product/{{slug}}"
+        }
+      },
+      "readBackFixture": {
+        "key": "wix.stores.sub_pages.product",
+        "pageIdentifier": "product_page",
+        "pageIdentifierType": "tpaPageId",
+        "mapping": "product/{{slug}}"
+      }
+    }
+  ],
+  "unverifiedFamilies": [
+    "store-category", "blog-post", "blog-category", "blog-list", "bookings-service",
+    "bookings-list", "cart", "checkout", "other-app-pages", "portfolio", "builder-blog"
+  ]
+}

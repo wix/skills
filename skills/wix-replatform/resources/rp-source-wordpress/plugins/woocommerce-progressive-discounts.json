@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "plugin": "woocommerce-progressive-discounts",
+  "displayName": "Progressive Discounts for WooCommerce",
+  "profileVersion": "2026-08",
+  "sourceOfTruth": "https://woocommerce.com/products/progressive-discounts/",
+  "distribution": "premium-or-unlisted",
+  "capabilities": [
+    "commerce.discount-rules"
+  ],
+  "detect": {
+    "pluginFileIds": [
+      "progressive-discounts/progressive-discounts.php"
+    ]
+  },
+  "entities": [
+    {
+      "entity": "discount-rule-definition",
+      "channel": "admin-page-only",
+      "candidateTargetRefs": ["ecom/discount-rule"],
+      "pitfalls": [
+        {
+          "code": "slug-does-not-match-any-known-distributable-plugin",
+          "severity": "warning",
+          "summary": "The literal slug `woocommerce-progressive-discounts` was checked against wordpress.org, the WordPressPluginDirectory GitHub mirror, and legacy wp-plugins mirrors — none carry it, and an org-scoped repo search for 'progressive-discounts' returned zero results. The nearest real product matching the described use case (quantity-tiered, buy-more-pay-less discounts) is 'Progressive Discounts' by Kestrel (ex-SkyVerge), a paid extension sold exclusively on the WooCommerce.com Marketplace — closed-source, no public mirror, so nothing here is source-verified. `detect.pluginFileIds` is a conventional dir/dir.php guess (`progressive-discounts/progressive-discounts.php`), NOT observed against a real `/wp/v2/plugins` response — treat detection as unreliable until confirmed live. If the actual installed plugin turns out to be a different vendor entirely, re-author this profile against its real identity instead of patching this one.",
+          "unverified": true
+        },
+        {
+          "code": "applied-discount-mechanism-inferred-not-verified",
+          "severity": "warning",
+          "summary": "Vendor documentation states the plugin requires WooCommerce's native coupon system to be enabled, and that the discount appears 'as a specific line item in the cart' reflected in the order summary — read together, this suggests the plugin auto-generates a real WooCommerce coupon under the hood rather than a proprietary meta key, which would mean applied-discount history already rides on the generic, already-covered WooCommerce coupon path (`coupon_lines[]` on `/wc/v3/orders`, via ecom/order-applied-discount's `coupon` one-of variant and stores/coupon) with nothing plugin-specific to profile. This is inferred from marketing/doc language only — no source code was reachable to confirm the actual hook or meta key. Deliberately NOT declared as a second entity or a distinct capability here until verified; if a live run finds a plugin-specific marker instead, add a core-meta entity for it.",
+          "unverified": true
+        },
+        {
+          "code": "admin-page-not-reachable-with-application-password",
+          "severity": "blocker",
+          "summary": "No REST route, CSV export, or other automated read path was found in any reachable documentation for the tier/rule definitions themselves (percent/fixed amount per quantity or subtotal breakpoint, storewide or scoped to products/categories) — per vendor docs they are configured only under a WooCommerce > Progressive Discounts admin screen. Absent contrary evidence, treat this the same as every other admin-page-only settings screen: Application Passwords do not authenticate wp-admin page renders.",
+          "blocked": [
+            {
+              "kind": "user-file",
+              "resolution": "Ask the site owner to open the plugin's settings screen in wp-admin and transcribe or screenshot each discount step (quantity/subtotal breakpoint and its percent or fixed discount), plus whether it is storewide or scoped to specific products/categories.",
+              "declined": false
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "quirks": [
+    "Authored 2026-08 from WebSearch-summarized vendor documentation only (woocommerce.com/products/progressive-discounts/, woocommerce.com/document/progressive-discounts/) — every field on this profile should be treated as lower-confidence than a source-verified profile (e.g. woo-discount-rules, pricing-deals-for-woocommerce) until a live site or a downloaded copy of the actual plugin is available to check against.",
+    "Same rule-model family as woo-discount-rules and pricing-deals-for-woocommerce (a conditional-pricing engine) but scoped specifically to quantity/subtotal tiers rather than general trigger/effect combinations — worth flagging for consolidation at the mapping review if a site runs more than one of these three.",
+    "Combined with the slug-does-not-match-any-known-distributable-plugin pitfall above, this profile has not been verified against a running installation and should be corrected as soon as one is available."
+  ]
+}

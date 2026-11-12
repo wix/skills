@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "plugin": "woo-free-shipping-per-product",
+  "displayName": "Free Shipping Per Product for WooCommerce",
+  "profileVersion": "2026-10",
+  "sourceOfTruth": "https://wordpress.org/plugins/woo-free-shipping-per-product/",
+  "distribution": "wordpress-org",
+  "capabilities": [
+    "commerce.shipping-free-per-product"
+  ],
+  "detect": {
+    "pluginFileIds": [
+      "woo-free-shipping-per-product/free-shippging-pre-product"
+    ],
+    "assetPathSlugs": [
+      "woo-free-shipping-per-product"
+    ]
+  },
+  "dataLocation": {
+    "where": "wordpress",
+    "evidence": "Plugin source 1.3.5 (class-free-shipping-per-product.php): configuration is the WooCommerce shipping class slug and a shipping-zone method instance in wp_options; no remote calls or vendor account."
+  },
+  "dataPresence": {
+    "require": "all",
+    "note": "The plugin does something only when products sit in the `free-shipping` shipping class AND a zone has its `free_shipping_per_product` method enabled. Either missing means no live data.",
+    "checks": [
+      {
+        "kind": "shippingClassProducts",
+        "slug": "free-shipping"
+      },
+      {
+        "kind": "shippingMethod",
+        "methodId": "free_shipping_per_product"
+      }
+    ]
+  },
+  "entities": [
+    {
+      "entity": "free-shipping-product",
+      "capability": "commerce.shipping-free-per-product",
+      "channel": "core-embedded",
+      "embeddedIn": [
+        "/wc/v3/products"
+      ],
+      "propertyPath": "shipping_class",
+      "candidateTargetRefs": [],
+      "pitfalls": [
+        {
+          "code": "no-per-product-shipping-target",
+          "severity": "warning",
+          "summary": "Products in the `free-shipping` shipping class ship free when every cart item is in that class. Wix delivery rates are set per region, not per product, so this is pending until a target is chosen. VERIFIED IN PLUGIN SOURCE 1.3.5 (class-free-shipping-per-product.php, 2026-10-31): no product meta; the class slug and the zone method instance (wp_options) are the whole configuration."
+        }
+      ]
+    }
+  ],
+  "quirks": [
+    "Seen on a live store: class defined with 0 products and the zone method disabled; 18 historical orders used it and keep their shipping line with the orders."
+  ]
+}

@@ -1,0 +1,38 @@
+# scopes: read_orders
+# Ordinary read (not a bulk query): the connections under each refund. A bulk query cannot hold a connection
+# inside a list field (Order.refunds is one), so the orders-refunds dataset carries the refund scalars and
+# lib/shopify-nested-reads.js reads these per refund id after the download, paging any connection that overflows.
+query RpShopifyReadRefundItems($ids: [ID!]!, $first: Int!, $itemsAfter: String, $transactionsAfter: String) {
+  nodes(ids: $ids) {
+    __typename
+    ... on Refund {
+      id
+      refundLineItems(first: $first, after: $itemsAfter) {
+        pageInfo { hasNextPage endCursor }
+        nodes {
+          __typename
+          id
+          quantity
+          restockType
+          restocked
+          lineItem { id }
+          priceSet { shopMoney { amount currencyCode } presentmentMoney { amount currencyCode } }
+          subtotalSet { shopMoney { amount currencyCode } presentmentMoney { amount currencyCode } }
+          totalTaxSet { shopMoney { amount currencyCode } presentmentMoney { amount currencyCode } }
+        }
+      }
+      transactions(first: $first, after: $transactionsAfter) {
+        pageInfo { hasNextPage endCursor }
+        nodes {
+          __typename
+          id
+          kind
+          status
+          gateway
+          processedAt
+          amountSet { shopMoney { amount currencyCode } presentmentMoney { amount currencyCode } }
+        }
+      }
+    }
+  }
+}
