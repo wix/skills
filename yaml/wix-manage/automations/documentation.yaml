@@ -1,5 +1,5 @@
 # Wix Automations recipes.
-# Published content SHA-256: f432a6db940f9d47496ca87cea967a6de19918f65ad59ab6f80152a7c58e1921
+# Published content SHA-256: 9ac3f9b99d0a7e48bff40f1bf7e37185f295dfcb7a648e69ac0b688c8e7d7649
 apiDoc:
   title: Wix Automations Recipes
 
@@ -22,6 +22,10 @@ apiDoc:
       tags: [automations]
     - file: ../../../skills/wix-manage/references/automations/actions.md
       title: "Automations Action Configuration"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/automations
+      tags: [automations]
+    - file: ../../../skills/wix-manage/references/automations/entity-ids-and-providers.md
+      title: "Automations Entity and Provider Configuration"
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/automations
       tags: [automations]
     - file: ../../../skills/wix-manage/references/automations/email-actions.md
