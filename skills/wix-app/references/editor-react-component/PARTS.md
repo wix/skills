@@ -68,8 +68,19 @@ Apply this filter to every candidate:
   equivalent semantic controls) is a named part because it has an independent
   interaction and styling surface.
 - Positional duplicates such as previous/next buttons are one part when they
-  share the same semantic editor surface. Distinguish position with data or a
-  module-only helper class, not separate part names.
+  share the same semantic editor surface and the same nearest containing part
+  (the root counts). Distinguish position with data or a module-only helper
+  class, not separate part names.
+- A part name belongs to one place in the part tree. The manifest nests each
+  part under the nearest part that contains it, and manifest generation or the
+  save fails (see `MANIFEST-ERRORS.md`) when one global class
+  lands in two places: beside a parent part and inside it, at two depths, or
+  inside two different parents. Give a copy inside another part its own name,
+  prefixed with that part (`tour-card-summary` inside `tour-card`, not a second
+  `tour-summary`), and give it its own `elementProps` key and state classes. A
+  helper or sub-component that builds the class from a fixed name does not
+  change this; pass the prefixed name in. Repeated list items are one place,
+  so every item reuses the same part names.
 
 ## Keep Every Part Mounted
 
@@ -108,8 +119,9 @@ const item = current ?? placeholderItem; // placeholder shows only while hidden
 ```
 
 After generating the manifest, confirm that its `elements` include every
-intended named part and that each `elementProps.<key>` read in code equals the
-camelCase of that part's global class.
+intended named part, that no `selector` appears at more than one path in the
+tree (the root's included), and that each `elementProps.<key>` read in code
+equals the camelCase of that part's global class.
 
 ## Sanity Check
 
@@ -126,6 +138,8 @@ and no independent surface, remove the wrapper and promote the child.
 - [ ] The root has no `elementProps` entry or duplicate prefixed part class.
 - [ ] Each inner part offers independent data or styling control.
 - [ ] Every named inner part has global/module classes and `elementProps` wiring.
+- [ ] Each part name sits in one place in the part tree; a copy inside another
+      part has its own name.
 - [ ] States and positional variants are not extra parts. A wrapper is a part
       only if it has its own surface or carries a state class; a decoration
       with visible styling may be one.
