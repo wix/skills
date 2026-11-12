@@ -114,9 +114,9 @@ containing an identical `=== FILE: … ===` delimiter line. Binary images are
 not text input.
 
 Replace example IDs with response values: `metaSiteId` is the site ID, not
-`appId` or `uploadId`. `$AGENT` / `AGENT_SLUG` is your short lowercase
-attribution slug, or `unknown-agent`. Raw uploads use
-`?campaign=mcp&agent=$AGENT`. Never leave a `$NAME` placeholder inside a
+`appId` or `uploadId`. `$AGENT` / `AGENT_SLUG` is the `agent` value of the
+provision call, the same three parts: `claude-code/cli/opus-5.5`. Raw uploads
+use `?campaign=mcp&agent=$AGENT`. Never leave a `$NAME` placeholder inside a
 JavaScript URL.
 
 Read linked skills from disk when installed; otherwise use `ReadFullDocsArticle`
@@ -605,7 +605,7 @@ photos): import it as above, or leave it out.
 
 ## The drop page
 
-`https://www.wix.com/headless/drop?utm_campaign=mcp&agent=<your-agent-id>`
+`https://www.wix.com/headless/drop?utm_campaign=mcp&agent=$AGENT`
 
 When no upload route works, the user can drag in files without login; the site
 goes live and a banner offers to keep it. Explain the limits below and what
