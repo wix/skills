@@ -25,7 +25,7 @@ curl -sS -X POST "https://www.wixapis.com/headless-business-setup/v1/headless-bu
 
 # 2. Upload the complete file set: returns { uploadId }; not live yet
 curl -sS -X POST \
-  "https://www.wixapis.com/headless-business-setup/v1/headless-business/anonymous/$ANONYMOUS_ID/$META_SITE_ID/upload?campaign=mcp&agent=$AGENT" \
+  "https://www.wixapis.com/headless-business-setup/v1/headless-business/anonymous/$ANONYMOUS_ID/$META_SITE_ID/upload?campaign=api&agent=$AGENT" \
   -F "files=@index.html;filename=index.html" -F "files=@assets/styles.css;filename=assets/styles.css"
 
 # 3. Release: returns { siteUrl }
@@ -36,6 +36,12 @@ curl -sS -X POST \
 
 Keep `anonymousId`, `metaSiteId` and `projectId`, and put their values in every
 later URL, not placeholders. Open `siteUrl` and check the pages.
+
+`$AGENT` names what is publishing the site, three parts joined by `/`: the
+client product as its vendor writes it, lowercase; the surface, one of `chat`,
+`work`, `web`, `cli`, `desktop`, `ide`, `app`; the model as the client's
+selector shows it. `claude-code/cli/opus-5.5`, `chatgpt/work/gpt-6.1`. A part
+you cannot tell is `unknown`.
 
 ## Hand it to the user
 
