@@ -545,7 +545,11 @@ Start here for existing Catalog V3 product updates, including digital products t
 Create, update, activate or deactivate Wix Automations with app actions, trigger filters, conditions, delays, variables, branches and schedules, and check their current status, using the public Wix Automations APIs.
 
 <details>
-<summary>Internal skills (loaded on demand by Build and Manage Wix Automations — do NOT use directly)</summary>
+<summary>Supporting references for Build and Manage Wix Automations — prerequisites and topic guides, not standalone workflows</summary>
+
+After reading the entry point, load the matching supporting reference using the descriptions below.
+
+For entity IDs/keys or provider-owned configuration, load [Automations Entity and Provider Configuration](references/automations/entity-ids-and-providers.md) before selecting or preserving values.
 
 - [Automations API Catalog](references/automations/api-catalog.md)
   Discover site-specific triggers and actions, authenticate public Automation API calls, and choose the API for validation, persistence or catalog lookups.
@@ -558,6 +562,9 @@ Create, update, activate or deactivate Wix Automations with app actions, trigger
 
 - [Automations Action Configuration](references/automations/actions.md)
   Configure app-defined automation actions from their input schemas and preserve supported existing action mappings.
+
+- [Automations Entity and Provider Configuration](references/automations/entity-ids-and-providers.md)
+  Resolve entity identifiers through verified vertical read APIs and find provider-owned automation configuration workflows.
 
 - [Automations Email Actions](references/automations/email-actions.md)
   Initialize new automation email actions, including additions during updates, then configure content and verify recipients while preserving existing emails.
