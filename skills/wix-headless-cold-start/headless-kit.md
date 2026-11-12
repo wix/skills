@@ -35,6 +35,10 @@ the skills that this page names. You do not install anything.
    skills as "Where the skills are" says. Then the build is the same.
 5. **If the machine has no plugin and no connector, but the Wix CLI runs on it and reaches Wix,**
    use "The Wix CLI route" at the end of this page.
+6. **If you have none of these,** publish the pages with
+   `https://www.wix.com/skills/wix-manage/references/sites/publish-without-a-wix-account.md`. It
+   needs no Wix login, and it gives the user a link to keep the site. When a plugin, a connector
+   or the CLI is available, continue the build on that site.
 
 ## 2. Choose how to make the pages
 
