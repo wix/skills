@@ -124,7 +124,7 @@ are leaves.
 | Disabled or invalid state | [`DISABLED-INVALID.md`](editor-react-component/DISABLED-INVALID.md) |
 | Browser APIs, effects, or time-dependent output | [`SSR.md`](editor-react-component/SSR.md) |
 | Non-established CSS feature or DOM API, or user asks for one by name | [`BROWSER-SUPPORT.md`](editor-react-component/BROWSER-SUPPORT.md) |
-| `npx wix build` or manifest generation errors or warns | [`MANIFEST-ERRORS.md`](editor-react-component/MANIFEST-ERRORS.md) |
+| `npx wix build`, manifest generation or save errors or warns | [`MANIFEST-ERRORS.md`](editor-react-component/MANIFEST-ERRORS.md) |
 | Animation, video, carousel, or other playable/looped/autoplaying content | [`ANIMATED-COMPONENTS.md`](editor-react-component/ANIMATED-COMPONENTS.md), [`COMPONENT-PREVIEW.md`](editor-react-component/COMPONENT-PREVIEW.md), [`DEFAULT-VIDEOS.md`](editor-react-component/DEFAULT-VIDEOS.md) |
 | Site/runtime/editor context hooks needed | [`SITE-CONTEXT-HOOKS.md`](editor-react-component/SITE-CONTEXT-HOOKS.md) (+ [`COMPONENT-PREVIEW.md`](editor-react-component/COMPONENT-PREVIEW.md) when design-mode behavior differs) |
 | Editing themed styling, or a requested own look | [`BRANDED-COMPONENTS.md`](editor-react-component/BRANDED-COMPONENTS.md) |

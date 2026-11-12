@@ -1,8 +1,9 @@
 # Manifest Build Errors
 
 Use this reference only when `npx wix build` or `npx wix generate manifest`
-exits with an error or prints a warning. For an error, read the error name from the first token before the colon
-(`IoError:`, `ParseError:`, or `NotFoundError:`), then apply the matching fix.
+exits with an error or prints a warning, or when saving or releasing rejects the
+manifest. For a build or generation error, read the error name from the first token before the colon
+(`IoError:`, `ParseError:`, `NotFoundError:`, or `ValidationError:`); for a save error, match its message. Then apply the matching fix.
 
 | Error | Fix |
 | --- | --- |
@@ -17,6 +18,7 @@ exits with an error or prints a warning. For an error, read the error name from 
 | `ParseError: Failed to extract component types from "X"` | TypeScript error in the component — run `npx tsc --noEmit` and fix |
 | `ParseError: Failed to compile "<file.scss>"` | SCSS syntax error — line/column is in the error message |
 | `ParseError: Failed to parse CSS file for component "X"` | CSS syntax error in `.module.css` — line/column is in the error message |
+| `ValidationError: Component "X" produced an invalid editorElement` with `selector ".x" is already used by <path>` or `part name "x" is already used by an ancestor element`; on save or release, `Selector ".x" is used by more than one element: <paths>` | One part name sits in two places in the part tree. In component source, rename the copy inside the other part, prefixed with that part's name (each copy, when they sit in two different parts), with its own `elementProps` key and state classes per `PARTS.md`, then rebuild and regenerate. Never edit `*.generated.ts` |
 
 After each fix, re-run `npx wix build && npx wix generate manifest` to confirm.
 
