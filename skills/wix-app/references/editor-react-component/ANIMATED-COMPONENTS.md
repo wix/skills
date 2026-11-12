@@ -157,8 +157,9 @@ Position the button absolutely so it overlays the content without pushing other 
 }
 
 .playButton {
-  --icon-size: 24px;
+  --icon-size: 12px;
   --icon-color: #ffffff;
+  padding: 6px;
   position: absolute;
   inset-inline-end: 5px;
   inset-block-start: 5px;
