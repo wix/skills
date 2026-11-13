@@ -52,15 +52,14 @@ checks are commands; their output decides, not what the environment says about i
 ```bash
 node -v
 timeout 25 npm ping
-git -C "$HOME/wix-skills" pull -q --ff-only 2>/dev/null || ls {SKILL_ROOT}/install/setup.mjs 2>/dev/null || git clone --depth 1 https://github.com/wix/skills "$HOME/wix-skills"
+ls {SKILL_ROOT}/install/setup.mjs 2>/dev/null || CI=1 npx -y skills@latest add wix/skills --skill wix-headless-kit --skill wix-docs --skill wix-manage --yes
 ```
 
 The check passes when `node -v` prints 22.12 or higher (the requirement of Astro and of the hosting
 adapter; this route does not run the Wix CLI), `npm ping` prints `PONG`, and `setup.mjs` is on the
-disk, found in the plugin folder, or updated or cloned in `$HOME/wix-skills`. `timeout` is a Linux
-command; elsewhere run `npm ping` and give it 25 seconds. The clone brings the kit and the templates together; `{SKILL_ROOT}` is then
-`$HOME/wix-skills/skills/wix-headless-kit`. Clone it there, not into the project folder: the
-project's type-check and its repository would take in the clone. Without `git`, install the kit as
+disk: in the plugin folder, or installed into the project folder. The installer puts the skills in
+`.agents/skills/`, and `{SKILL_ROOT}` is then `.agents/skills/wix-headless-kit`. `timeout` is a
+Linux command; elsewhere run `npm ping` and give it 25 seconds. Without `npx`, get the kit as
 "Where the skills are" says.
 
 **The upload check: a build can reach the upload tool.** One of these must be true:
@@ -458,22 +457,22 @@ There are three ways to get them:
    `{SKILL_ROOT}` is its `wix-headless-kit` folder. There is nothing to install. A chat client that
    shows the skill text without a folder can read the skills, but cannot run them.
 2. **Installed on the disk.** Use this on a machine with no plugin folder where `wix-headless-kit` must run
-   (the Astro build, the CLI route). A shallow clone of the repository brings every skill and the
-   templates:
+   (the Astro build, the CLI route). Install the skills into the project folder; repeat `--skill`
+   for each skill, and `CI=1` keeps the output plain:
+
+   ```bash
+   CI=1 npx -y skills@latest add wix/skills --skill wix-headless-kit --skill wix-docs --skill wix-manage --yes
+   ```
+
+   The skills then go under `.agents/skills/`, and `{SKILL_ROOT}` is `.agents/skills/wix-headless-kit`.
+   They stay with the project, and the upload leaves them out. Without `npx`, clone the repository
+   outside the project folder; a clone from an earlier run is updated:
 
    ```bash
    git -C "$HOME/wix-skills" pull -q --ff-only 2>/dev/null || git clone --depth 1 https://github.com/wix/skills "$HOME/wix-skills"
    ```
 
-   A clone from an earlier run is updated, not cloned again. `{SKILL_ROOT}` is then
-   `$HOME/wix-skills/skills/wix-headless-kit`. Keep the clone out of the project folder. Without
-   `git`, the skills installer does it; repeat `--skill` for each skill, and `CI=1` keeps the output plain:
-
-   ```bash
-   CI=1 npx skills@latest add wix/skills --skill wix-headless-kit --skill wix-docs --skill wix-manage --yes
-   ```
-
-   The skills then go under `.agents/skills/`, and `{SKILL_ROOT}` is `.agents/skills/wix-headless-kit`.
+   `{SKILL_ROOT}` is then `$HOME/wix-skills/skills/wix-headless-kit`.
 3. **Read online.** Use `https://www.wix.com/skills/<skill>/<path>` (`headless-templates` for
    `wix-headless-templates`), through `ReadFullDocsArticle` of the Wix MCP, or the fetch tool of
    your client. A folder URL lists its files. Read the listing, then the files by the names it
