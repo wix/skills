@@ -52,14 +52,16 @@ checks are commands; their output decides, not what the environment says about i
 ```bash
 node -v
 timeout 25 npm ping
-ls {SKILL_ROOT}/install/setup.mjs 2>/dev/null || git clone --depth 1 https://github.com/wix/skills wix-skills
+ls {SKILL_ROOT}/install/setup.mjs 2>/dev/null || git -C "$HOME/wix-skills" pull -q --ff-only 2>/dev/null || git clone --depth 1 https://github.com/wix/skills "$HOME/wix-skills"
 ```
 
 The check passes when `node -v` prints 22.12 or higher (the requirement of Astro and of the hosting
 adapter; this route does not run the Wix CLI), `npm ping` prints `PONG`, and `setup.mjs` is on the
-disk, found in the plugin folder or cloned. `timeout` is a Linux command; elsewhere run `npm ping`
-and give it 25 seconds. The clone brings the kit and the templates together; `{SKILL_ROOT}` is then
-`wix-skills/skills/wix-headless-kit`. Without `git`, install the kit as "Where the skills are" says.
+disk, found in the plugin folder, or updated or cloned in `$HOME/wix-skills`. `timeout` is a Linux
+command; elsewhere run `npm ping` and give it 25 seconds. The clone brings the kit and the templates together; `{SKILL_ROOT}` is then
+`$HOME/wix-skills/skills/wix-headless-kit`. Clone it there, not into the project folder: the
+project's type-check and its repository would take in the clone. Without `git`, install the kit as
+"Where the skills are" says.
 
 **The upload check: a build can reach the upload tool.** One of these must be true:
 
@@ -460,11 +462,12 @@ There are three ways to get them:
    templates:
 
    ```bash
-   git clone --depth 1 https://github.com/wix/skills wix-skills
+   git -C "$HOME/wix-skills" pull -q --ff-only 2>/dev/null || git clone --depth 1 https://github.com/wix/skills "$HOME/wix-skills"
    ```
 
-   `{SKILL_ROOT}` is then `wix-skills/skills/wix-headless-kit`. Without `git`, the skills installer
-   does it; repeat `--skill` for each skill, and `CI=1` keeps the output plain:
+   A clone from an earlier run is updated, not cloned again. `{SKILL_ROOT}` is then
+   `$HOME/wix-skills/skills/wix-headless-kit`. Keep the clone out of the project folder. Without
+   `git`, the skills installer does it; repeat `--skill` for each skill, and `CI=1` keeps the output plain:
 
    ```bash
    CI=1 npx skills@latest add wix/skills --skill wix-headless-kit --skill wix-docs --skill wix-manage --yes

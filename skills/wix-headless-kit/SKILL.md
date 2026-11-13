@@ -369,7 +369,9 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
    marker is waited on). When you ran `seed-storefront.mjs`
    yourself (adopt, iterate and published-static runs, reference mode), there is no marker to wait for: the process's
    exit code is the result and its stdout is the JSON — wait on the process (a foreground run,
-   or `wait` on its pid), not on a file. Then
+   or `wait` on its pid), not on a file. The build below is the check: it fails on what would
+   break the release. It does not check types. Do not run `astro check`: the project does not have
+   it, and it stops to ask to install it. Then
    **build & release once** (managed), as the `next` of the `ready_for_brand_layer` event says
    for the stack and the publisher: Astro on the CLI route → `npx @wix/cli@latest build` then
    `npx @wix/cli@latest release`; Astro on the plugin route → `npx astro build` from the project
