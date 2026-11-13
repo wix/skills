@@ -52,7 +52,7 @@ checks are commands; their output decides, not what the environment says about i
 ```bash
 node -v
 timeout 25 npm ping
-ls {SKILL_ROOT}/install/setup.mjs 2>/dev/null || git -C "$HOME/wix-skills" pull -q --ff-only 2>/dev/null || git clone --depth 1 https://github.com/wix/skills "$HOME/wix-skills"
+git -C "$HOME/wix-skills" pull -q --ff-only 2>/dev/null || ls {SKILL_ROOT}/install/setup.mjs 2>/dev/null || git clone --depth 1 https://github.com/wix/skills "$HOME/wix-skills"
 ```
 
 The check passes when `node -v` prints 22.12 or higher (the requirement of Astro and of the hosting
