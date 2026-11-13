@@ -6,9 +6,10 @@
 //                                              (falling back to npm install); --ignore-scripts, output
 //                                              inherited (the install log); the exit code to .install-exit
 //   node background.mjs seed <seed.mjs> <plan>  the seed's stdout to seed-result.json, its stderr to
-//                                              seed.log, then its exit code to .seed-exit
+//                                              seed.log, then its exit code to .seed-exit (1 when it
+//                                              exited 0 with no result)
 import { spawnSync } from "node:child_process";
-import { closeSync, openSync, writeFileSync } from "node:fs";
+import { closeSync, openSync, readFileSync, writeFileSync } from "node:fs";
 import { runInstall } from "./install.mjs";
 
 const [job, ...args] = process.argv.slice(2);
@@ -25,7 +26,9 @@ if (job === "install") {
   closeSync(out);
   closeSync(err);
   if (r.error) writeFileSync("seed.log", `the seed could not start: ${r.error.message}\n`, { flag: "a" });
-  writeFileSync(".seed-exit", `${r.status ?? 1}\n`);
+  const empty = r.status === 0 && !readFileSync("seed-result.json", "utf8").trim();
+  if (empty) writeFileSync("seed.log", `${seedFile} exited 0 and printed no result\n`, { flag: "a" });
+  writeFileSync(".seed-exit", `${empty ? 1 : r.status ?? 1}\n`);
 } else {
   console.error("usage: background.mjs install <ci|install> | seed <seed.mjs> <plan.json>");
   process.exit(2);

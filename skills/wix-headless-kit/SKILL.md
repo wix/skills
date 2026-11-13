@@ -124,7 +124,7 @@ vertical needs, in the order that works.
 | `check.mjs` | Compares this installed skill and its templates with the repository they came from; read-only, prints the commands that would update. |
 | `agents-md.mjs`, `env-ignore.mjs` | Write a new project's `AGENTS.md`, `CLAUDE.md` and `.gemini/settings.json`; keep `.env.local` out of git. |
 | `proc.mjs`, `background.mjs`, `pins.json` | npm and npx started the same way on every OS; the detached install and seed; the pinned CLI and template versions. |
-| `templates/<vertical>/seed/seed-*.mjs`, `read-site.mjs` | The vertical's seed from a plan, and a read of what the site already holds. `SEED.md` beside them is the plan's contract. |
+| `templates/<vertical>/seed/seed-<vertical>.mjs`, `read-site.mjs` | The vertical's seed from a plan, and a read of what the site already holds. `SEED.md` beside them is the plan's contract. |
 
 ## The run
 
