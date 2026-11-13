@@ -47,7 +47,7 @@
 // ready_for_brand_layer, or error). Requires a logged-in Wix CLI (`npx @wix/cli@<pinned> whoami`, the version in pins.json)
 // whose account owns or co-manages the site.
 import { spawnSync } from "node:child_process";
-import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { writeAgentsMd } from "./agents-md.mjs";
@@ -346,10 +346,9 @@ if (existsSync(join(projectDir, "package.json"))) {
 // Seeds are additive and idempotent by name; what the site already held is reported, never touched.
 let seed = null;
 if (planPath) {
-  const seedDir = join(TEMPLATES, verticals[0], "seed");
-  const seedName = existsSync(seedDir) ? readdirSync(seedDir).find((f) => f.startsWith("seed-") && f.endsWith(".mjs")) : undefined;
-  if (!seedName) fail("seed", `no seed module found under ${seedDir}`);
-  startBackground("seed", [join(seedDir, seedName), resolve(planPath)], { cwd: projectDir });
+  const seedFile = join(TEMPLATES, verticals[0], "seed", `seed-${verticals[0]}.mjs`);
+  if (!existsSync(seedFile)) fail("seed", `no seed module at ${seedFile}`);
+  startBackground("seed", [seedFile, resolve(planPath)], { cwd: projectDir });
   seed = { resultFile: "seed-result.json", log: "seed.log", doneMarker: ".seed-exit", success: "file contains 0" };
   emit("seeding_started", { vertical: verticals[0], ...seed, ...(verticals.length > 1 ? { note: `the plan seeds ${verticals[0]}; the other verticals' seeds run afterwards, each with its own plan` } : {}) });
 } else {
