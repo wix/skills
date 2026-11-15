@@ -1,9 +1,13 @@
 ---
 name: "Assign Domain"
-description: Connect a domain the user already owns to one of their Wix sites, as its primary domain or as a redirect — the starting point for every "connect my domain to my site" request, whether or not a domain is named; change which of a site's domains is primary; move a domain from one site to another; or take a domain off its site.
+description: Connect a domain the user says they already own, or one already in their Wix account, to one of their Wix sites, as its primary domain or as a redirect — including when they haven't said which domain yet; change which of a site's domains is primary; move a domain from one site to another; or take a domain off its site.
 ---
 
 # Assign Domain
+
+> **No domain named** (*"connect a domain I own to my site"*)? The whole reply is: *"What domain would
+> you like to connect?"* Stop there: make no call, read no further and read no other skill. Step 1 of
+> the Flow below takes the answer.
 
 Changes **which site a domain in the account serves, and in which role**. A site has one **primary
 domain** (the address visitors land on) and up to 300 **redirects** (domains that send visitors to the
@@ -11,7 +15,7 @@ primary domain). A domain is on one site at a time, or on none.
 
 | Does | Does not |
 |---|---|
-| Connect (assign) a domain to a site, as primary or as a redirect. A domain that isn't in the account yet is handed back (gate 1) | Buy a domain: [Domain Search, Purchase and Connect](domain-search-purchase-and-connect.md). Bring in a domain registered elsewhere, or a subdomain, that isn't in the account yet: [Connect External Domain or Sub Domain](connect-external-domain-or-sub-domain.md) |
+| Connect (assign) a domain to a site, as primary or as a redirect. A domain that isn't in the account yet is handed back (gate 1) | Buy a domain: [Purchase Domain](purchase-domain.md). Bring in a domain registered elsewhere, or a subdomain, that isn't in the account yet: [Connect External Domain or Sub Domain](connect-external-domain-or-sub-domain.md) |
 | Make a redirect the site's primary domain, or swap the primary for another of the site's domains | Report a domain's expiry or renewal: [Analyse Domain](analyse-domain.md) |
 | Move a domain from one site to another | Change DNS records, or explain DNS, nameservers or propagation |
 | Take a domain off its site | Check whether a name can be registered: [Check Domain Availability](check-domain-availability.md) |
@@ -46,6 +50,9 @@ requests at once. Do not split it into separate requests. Never name an endpoint
 error code or tool to the user, and never narrate the calls ("let me check", "running the update").
 
 ## Read the state
+
+**Run this read as written, in one call**: no doc search, no schema lookup, and no
+rewriting it. It already covers a site created moments ago that the site list doesn't show yet.
 
 One read-only call. Put the domain in `domain`, the target site's ID in `targetSiteId`, or `null`
 when no site was named (taking the domain off its site, or a role change on the site it is on), and
@@ -197,7 +204,7 @@ What comes back, verified live:
 |---|---|
 | `assignment` | `null`: the domain is on no site. Otherwise `siteId` (the site it is on) and `role`, `PRIMARY` or `REDIRECT`. |
 | `owned` | `true`: the domain is in the account. `false`: the account doesn't hold this exact domain. |
-| `sites[id]` | For the target site and the site the domain is on now: `name`, `premium`, `editorType`, `primary` (its primary domain, or `null` when it has no domains), `redirects` (its other domains). A target site without a Premium plan has its domains left unread (`primary: null`, `redirects: []`): gate 3 answers for it before they matter. A site created moments ago may not be in the site list yet; the call waits for it, then reads its plan from the account's Premium purchases, and then `name` can be `null` (say *your site*) and `editorType` is `null` (use the non-Studio upgrade URL). Every site ID passed in comes back here: never look a site up again in a separate call. |
+| `sites[id]` | **A site ID the user gave is never "not found"**: don't list sites, don't ask for another ID. `name: null` → say *your site*; `premium: false` → gate 3's upgrade block. For the target site and the site the domain is on now: `name`, `premium`, `editorType`, `primary` (its primary domain, or `null` when it has no domains), `redirects` (its other domains). A target site without a Premium plan has its domains left unread (`primary: null`, `redirects: []`): gate 3 answers for it before they matter. A site created moments ago may not be in the site list yet; the call waits for it, then reads its plan from the account's Premium purchases, and then `name` can be `null` (say *your site*) and `editorType` is `null` (use the non-Studio upgrade URL). Every site ID passed in comes back here: never look a site up again in a separate call. |
 | `failed: true` | The read itself failed. Run it once more, silently. If it fails again, and the request takes a domain off its site or the calling skill passed ownership **confirmed**, send the dashboard link and stop: {domain settings link} when the site is known, otherwise {My Domains link} (URLs: see Offer copy). Otherwise hand back exactly as gate 1 does (read both skills it names and run the availability check once), with ownership **unknown** instead of "not in the account". A failed read is never answered with an error message of its own, and never tells the user the domain is not in their account. |
 
 A domain on no site and a domain that is not in the account both answer "not found" to the assignment
@@ -215,7 +222,7 @@ All four must hold before any write. Check them in this order:
 
 | # | Condition | When it fails, answer with |
 |---|---|---|
-| 1 | The user is signed in, and the domain is in the account: `owned` is `true` for **this exact domain**, or the calling skill passed ownership **confirmed** for it (that counts even when this read does not show it). A root domain in the account does not confirm its subdomain, and the user saying it is theirs confirms nothing | **Taking a domain off its site:** "{domain} isn't in your Wix account, so there's nothing to take off." Stop. **Putting a domain on a site:** hand back, saying nothing first. A subdomain (`shop.example.com`) goes to [Connect External Domain or Sub Domain](connect-external-domain-or-sub-domain.md) §2, with no availability check. Any other domain: **read [Domain Search, Purchase and Connect](domain-search-purchase-and-connect.md) and [Check Domain Availability](check-domain-availability.md), run the availability check once, as that skill describes (never call availability any other way), and follow Domain Search, Purchase and Connect §A4 for the result**, with intent *CONNECT → a site*, the domain, the target site if known, and "not in the account", or ownership **unknown** when the user is signed out or the read failed twice (its §A4b then skips its own lookup). §A4 then answers: a taken domain goes on to [Connect External Domain or Sub Domain](connect-external-domain-or-sub-domain.md) for the connect link, an available one gets the offer to buy. Never say who owns a domain. |
+| 1 | The user is signed in, and the domain is in the account: `owned` is `true` for **this exact domain**, or the calling skill passed ownership **confirmed** for it (that counts even when this read does not show it). A root domain in the account does not confirm its subdomain, and the user saying it is theirs confirms nothing | **Taking a domain off its site:** "{domain} isn't in your Wix account, so there's nothing to take off." Stop. **Putting a domain on a site:** hand back, saying nothing first. A subdomain (`shop.example.com`) goes to [Connect External Domain or Sub Domain](connect-external-domain-or-sub-domain.md) §2, with no availability check. Any other domain: **read [Connect Domain](connect-domain.md) and [Check Domain Availability](check-domain-availability.md), run the availability check once, as that skill describes (never call availability any other way), and follow Connect Domain §A4 for the result**, with intent *CONNECT → a site*, the domain, the target site if known, and "not in the account", or ownership **unknown** when the user is signed out or the read failed twice (its §A4b then skips its own lookup). §A4 then answers: a taken domain goes on to [Connect External Domain or Sub Domain](connect-external-domain-or-sub-domain.md) for the connect link, an available one gets the offer to buy. Never say who owns a domain. |
 | 2 | The target site is known (not needed to take a domain off its site) | Ask which site, listing the account's sites by name. |
 | 3 | Only when the writes assign a domain to `T`: `T` has `premium: true`. When the calling skill already checked the plan, take its answer. Taking a domain off a site, or promoting one already on it, needs no plan check | The Free-site answer below. No offer, no question about roles. |
 | 4 | The user said yes to an offer that named every live change: the primary domain it replaces, the site a domain leaves, the redirect promoted in its place, the role it takes on the target | Send the offer from the decision table and end your turn. |
@@ -448,7 +455,7 @@ user asks.
 
 ## Next steps
 
-- Buying a domain: [Domain Search, Purchase and Connect](domain-search-purchase-and-connect.md).
+- Buying a domain: [Purchase Domain](purchase-domain.md).
 - Bringing in a domain registered with another provider, or a subdomain: [Connect External Domain or Sub Domain](connect-external-domain-or-sub-domain.md).
 - Expiry or renewal of a domain: [Analyse Domain](analyse-domain.md).
 - Official reference: [Domain Assignments](https://dev.wix.com/docs/api-reference/account-level/domains/domain-assignments),

@@ -8,7 +8,7 @@ description: Check whether a domain name, or several at once, can be registered 
 Answers one question: **can this domain be registered?** and ends with an offer for the next step. It
 never buys, connects, searches for alternatives or prices a domain itself: the offer is only a question.
 Every availability lookup goes through this skill, including the ones inside
-[Domain Search, Purchase and Connect](domain-search-purchase-and-connect.md),
+[Connect Domain](connect-domain.md), [Purchase Domain](purchase-domain.md),
 [Assign Domain](assign-domain.md) and
 [Connect External Domain or Sub Domain](connect-external-domain-or-sub-domain.md): those skills run the
 check and read the results as written here, and add their own next steps and wording.
@@ -23,7 +23,7 @@ names. Both endpoints are public: send the request without auth headers or token
 1. **Normalize each domain**: lowercase, trim whitespace, strip `http://`, `https://`, `www.` and any
    path. Keep the extension the user typed.
    - **No extension** (`mybakery`), asked about on its own: ask which extension they want, or offer
-     suggestions through [Domain Search, Purchase and Connect](domain-search-purchase-and-connect.md).
+     suggestions through [Purchase Domain](purchase-domain.md).
      Do not guess one. Inside a list, keep it in the bulk call: the item comes back as `INVALID_DOMAIN`.
    - **Subdomain** (`shop.example.com`): do not check it — a subdomain is not registered separately.
      Check the root domain (`example.com`) only if the user asks about that.
@@ -134,6 +134,7 @@ a purchase or a connection to make it, and do not ask "do you own it?" beyond th
 
 ## Next step
 
-Only after the user answers the offer: buy a domain, connect one they own, or look for similar names →
-[Domain Search, Purchase and Connect](domain-search-purchase-and-connect.md) (it also holds the suggestions
-step). Inside that flow it decides the reply and the table above does not apply.
+Only after the user answers the offer: buy a domain, or look for similar names →
+[Purchase Domain](purchase-domain.md) (it also holds the suggestions
+step); connect one they own → [Connect Domain](connect-domain.md). Inside those flows they decide the reply and the
+table above does not apply.

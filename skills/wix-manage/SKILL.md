@@ -188,19 +188,22 @@ Report on the domains in the user's own Wix account — what kind a domain is, w
 Answer questions about the DNS settings of a domain already in the user's Wix account, whether it is set up correctly, and why its site isn't showing — where the settings are kept, whether they have propagated, the records in its Wix DNS zone and what they should be, which records are wrong or block SSL, and the email records. Read-only. Not for connecting a domain bought elsewhere: that is Connect External Domain or Sub Domain.
 
 ### [Assign Domain](references/domains/assign-domain.md)
-Connect a domain the user already owns to one of their Wix sites, as its primary domain or as a redirect — the starting point for every "connect my domain to my site" request, whether or not a domain is named; change which of a site's domains is primary; move a domain from one site to another; or take a domain off its site.
+Connect a domain the user says they already own, or one already in their Wix account, to one of their Wix sites, as its primary domain or as a redirect — including when they haven't said which domain yet; change which of a site's domains is primary; move a domain from one site to another; or take a domain off its site.
 
 ### [Check Domain Availability](references/domains/check-domain-availability.md)
 Check whether a domain name, or several at once, can be registered through Wix, and answer it — with a domain-availability tool when one is there, otherwise the availability endpoints. The availability check every domain flow uses, and the answer to a stand-alone "is example.com available?" question with no request to buy or connect.
 
+### [Connect Domain](references/domains/connect-domain.md)
+Get a custom domain onto a user's Wix site when the request doesn't say whether the domain is a new one or one they already have — "set up a custom domain", "put a domain on my site", or a domain name with no word about buying or connecting it.
+
 ### [Connect External Domain or Sub Domain](references/domains/connect-external-domain-or-sub-domain.md)
-Connect a domain registered with another provider (not bought through Wix), or a subdomain, to a Wix site by handing over the dashboard connect link. Never buys a domain, and never assigns one the account already holds.
+Connect a domain the user says is registered with another provider or was not bought through Wix, or a subdomain, to a Wix site by handing over the dashboard connect link; a domain the user only says they own starts at Assign Domain. Never buys a domain, and never assigns one the account already holds.
 
 ### [Update Domain DNS](references/domains/update-domain-dns.md)
 Change the records in the Wix DNS zone of a domain already in the user's Wix account — add a domain-verification code (Google, Microsoft) as a text record, point the site or the bare domain at another host, make a name an alias, set up email, change or remove a record, or switch DNSSEC. Only for domains whose DNS Wix serves; the change is shown and confirmed first. Not for a site's SEO settings, and not for a domain bought elsewhere that isn't connected yet: that is Connect External Domain or Sub Domain.
 
-### [Domain Search, Purchase and Connect](references/domains/domain-search-purchase-and-connect.md)
-Buy a domain through Wix — intent, suggestions, site resolution, registration, privacy, cart and checkout. A request to connect a domain the user owns to their site starts at Assign Domain; connecting a domain registered with another provider, or a subdomain, is Connect External Domain or Sub Domain. Availability checks are not done here: they all use Check Domain Availability.
+### [Purchase Domain](references/domains/purchase-domain.md)
+Buy a domain through Wix — domain ideas and suggestions, site and plan, registration period, contacts, privacy, cart and checkout. Availability checks are not done here: they all use Check Domain Availability.
 
 ### [Domains Dashboard Navigation](references/domains/domains-dashboard-navigation.md)
 "Builds direct links to the domain-management pages on manage.wix.com — the site-level domain settings page and the account-level My Domains page. Pairs domain search/purchase with its read APIs. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."

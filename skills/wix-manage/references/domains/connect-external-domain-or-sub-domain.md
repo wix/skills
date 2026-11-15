@@ -1,6 +1,6 @@
 ---
 name: "Connect External Domain or Sub Domain"
-description: "Connect a domain registered with another provider (not bought through Wix), or a subdomain, to a Wix site by handing over the dashboard connect link. Never buys a domain, and never assigns one the account already holds."
+description: "Connect a domain the user says is registered with another provider or was not bought through Wix, or a subdomain, to a Wix site by handing over the dashboard connect link; a domain the user only says they own starts at Assign Domain. Never buys a domain, and never assigns one the account already holds."
 ---
 
 # Connect External Domain or Sub Domain
@@ -12,7 +12,7 @@ between sites are [Assign Domain](assign-domain.md)'s, with its own gate and con
 
 | Does | Does not |
 |---|---|
-| Hand over the dashboard connect link for a domain registered with another provider | Buy a domain, or check whether one can be bought: [Domain Search, Purchase and Connect](domain-search-purchase-and-connect.md), [Check Domain Availability](check-domain-availability.md) |
+| Hand over the dashboard connect link for a domain registered with another provider | Buy a domain, or check whether one can be bought: [Purchase Domain](purchase-domain.md), [Check Domain Availability](check-domain-availability.md) |
 | Connect a subdomain, after checking whether its root domain is in the account | Put a domain the account already holds on a site, change its role, or move it: [Assign Domain](assign-domain.md) |
 | Resolve the target site and check its Premium plan; answer a Free site with the upgrade block | Report a domain's expiry or renewal: [Analyse Domain](analyse-domain.md) |
 | Answer a user with no Wix site with the sign-up entry point | Change DNS records, or explain DNS, nameservers, pointing or propagation |
@@ -27,18 +27,22 @@ Covers **US-17, US-33 – US-36, US-48 – US-50**.
 ## 1. Entry
 
 You arrive here with a single domain, normalized as
-[Domain Search, Purchase and Connect](domain-search-purchase-and-connect.md) §R1 describes, and one
-of these:
+[Purchase Domain](purchase-domain.md) §R1 describes (or, directly from the user, with none
+named yet: step 0 below), and one of these:
 
 | Arriving from | What is already known | Start at |
 |---|---|---|
-| Domain Search, Purchase and Connect §A4b-C, including every domain [Assign Domain](assign-domain.md) handed back through §A4 (not a subdomain: a subdomain always starts at §2) | The domain is registered (`available: false`), and the account lookup found no exact match, or could not run | §3, ownership **asserted** |
-| A subdomain from Domain Search, Purchase and Connect §A3 | Nothing: no availability check runs for a subdomain | §2 |
+| Connect Domain §A4b-C, including every domain [Assign Domain](assign-domain.md) handed back through its §A4 (not a subdomain: a subdomain always starts at §2) | The domain is registered (`available: false`), and the account lookup found no exact match, or could not run | §3, ownership **asserted** |
+| A subdomain from Connect Domain §A3, or from Purchase Domain §S1 | Nothing: no availability check runs for a subdomain | §2 |
 | A subdomain from Assign Domain's gate 1 | When Assign Domain's read ran, the subdomain itself is not in the account; no availability check runs for a subdomain | §2, and §2a runs only the root-domain pair when that read ran |
-| The user, directly — they name a domain and say it is registered with another provider, or was not bought through Wix | Nothing | Below |
+| The user, directly — a domain they say is registered with another provider, or was not bought through Wix, named or not yet named | Nothing | Below |
 
 **Directly from the user.** Settle the domain before any site work, silently:
 
+0. **No domain named** (*"connect a domain I own to my site"*) → the whole reply is: *"What domain
+   would you like to connect?"* No call first: the account lookup and the availability check both
+   need the domain. Don't ask for the site, don't send a link, and don't say that nothing was
+   changed. Take the answer through the steps below.
 1. A subdomain (§2) → §2a.
 2. Run the account lookup (§9) on the domain. An exact match → **hand over** (below).
 3. Not in the account → check availability once, with
@@ -49,7 +53,7 @@ of these:
    |---|---|
    | Available, or premium (whatever `available` says) | §8: the user doesn't own it |
    | Already registered (`available: false`, not premium) | §3, ownership **asserted** |
-   | Extension not supported | Domain Search, Purchase and Connect §A6b |
+   | Extension not supported | Connect Domain §A6b |
 
 ### Already in the account — hand over
 
@@ -67,7 +71,7 @@ Everything below assumes the domain is **not** confirmed in the account.
 | Ownership state | Set by | Consequence here |
 |---|---|---|
 | **Confirmed via root** | The subdomain's *root domain* is in the account — §2b | The subdomain *is* theirs. Use the unconditional opening naming the root, but **never hand it to Assign Domain** — its ownership check asks for a match on the domain being connected (§5). |
-| **Asserted** | The user said so, or the intent was to connect — Domain Search, Purchase and Connect §A4b-C | Ownership is an inference. Keep the *"If it's yours"* hedge, and **never hand it to Assign Domain** (§5). |
+| **Asserted** | The user said so, or the intent was to connect — Connect Domain §A4b-C | Ownership is an inference. Keep the *"If it's yours"* hedge, and **never hand it to Assign Domain** (§5). |
 
 If you arrive without one, ownership is **asserted** — the cautious reading. Never upgrade an
 asserted state to confirmed on the strength of the user repeating themselves; only the lookup in §9
@@ -143,11 +147,11 @@ call. §2c may end the turn before any site work.
 
 | Exact match at | State | Next |
 |----------------|-------|------|
-| Subdomain in `sites[].primary` or `sites[].redirects[]` | Already connected | Domain Search, Purchase and Connect **§A4b-A**, unchanged |
+| Subdomain in `sites[].primary` or `sites[].redirects[]` | Already connected | Connect Domain **§A4b-A**, unchanged |
 | Subdomain in `domains[]` (unassigned) | **Confirmed** | **Go to [Assign Domain](assign-domain.md) and follow it** — ownership **confirmed** |
 | Root domain in either array | **Confirmed via root** | §2b |
 | Neither | Root is not in the account | §2c |
-| User is logged out, or `assigned` **and** `unassigned` both fail for the same name after the silent retry. An `unassigned` answer, even an empty one, rules this row out | Unknown | §3 with ownership **asserted** — the same answer as Domain Search, Purchase and Connect §A4b-C |
+| User is logged out, or `assigned` **and** `unassigned` both fail for the same name after the silent retry. An `unassigned` answer, even an empty one, rules this row out | Unknown | §3 with ownership **asserted** — the same answer as Connect Domain §A4b-C |
 
 One request failing is no match from that request (§9): when `unassigned` answered and `assigned`
 failed, read that lookup from `unassigned` alone. The `assigned` request failing on both the
@@ -185,7 +189,7 @@ Say, verbatim:
 > Wix account. Would you like to connect {root displayName} first?
 
 - **Yes** → treat the **root domain** as the domain in hand and go to
-  [Domain Search, Purchase and Connect](domain-search-purchase-and-connect.md) §A4, from the
+  [Connect Domain](connect-domain.md) §A4, from the
   availability check onward. The subdomain comes after, once the root is in the account.
 - **No**, or any question about why → §2d.
 
@@ -309,7 +313,7 @@ inside a My Domains response — within this skill, `premiumStatus` is the only 
 ## 5. Premium Site — Hand Over the Link (US-33)
 
 The site is Premium, so a domain can go on it. Two routes exist, and they answer the two things
-*connect* can mean (Domain Search, Purchase and Connect §A2). The **link** brings a domain into the
+*connect* can mean (Connect Domain §A2). The **link** brings a domain into the
 Wix account — *connect it to Wix*, *add it to Wix* — and is the only route available for a domain the
 account does not already hold. **Assigning** puts a domain the account already holds on a particular
 site — *connect it to my site*, *assign it*, *bind it* — and is [Assign Domain](assign-domain.md)'s
@@ -426,8 +430,8 @@ so say so plainly and offer the way out:
   widget; in a plain-markdown channel, link to `https://www.wix.com/`.
   **Terminal state. Stop here** — do not continue into any other flow afterwards.
 - **No** → offer the alternative once: *"No problem. Would you like to look for a domain to purchase
-  instead?"* If yes → [Domain Search, Purchase and Connect](domain-search-purchase-and-connect.md)
-  §A5. If no, end.
+  instead?"* If yes → [Purchase Domain](purchase-domain.md)
+  §S3. If no, end.
 
 Do not pitch Premium plans here — there is no site to upgrade yet.
 
@@ -439,10 +443,10 @@ If a check ever shows the domain is available, the user does not own it. Say:
 
 > {displayName} isn't registered yet — did you mean you'd like to purchase it?
 
-- Yes → **go to [Domain Search, Purchase and Connect](domain-search-purchase-and-connect.md) §P1 and
+- Yes → **go to [Purchase Domain](purchase-domain.md) §P1 and
   follow it.**
-- No → *"Do you own a different domain you'd like to connect?"* → back to Domain Search, Purchase and
-  Connect §A4 with the new domain.
+- No → *"Do you own a different domain you'd like to connect?"* → back to Connect Domain §A4 with the new
+  domain.
 
 ---
 
@@ -450,8 +454,8 @@ If a check ever shows the domain is available, the user does not own it. Say:
 
 Answers a question the availability check cannot: the domain is registered, but is it registered
 **to this user**? Without it, "taken by a stranger" and "sitting in your own account" look identical.
-[Domain Search, Purchase and Connect](domain-search-purchase-and-connect.md) §A4b runs this same
-lookup for a taken domain.
+[Connect Domain](connect-domain.md) §A4b answers the same
+question for a taken domain, with Assign Domain's read.
 
 ```
 GET https://manage.wix.com/_api/my-domains/v1/domains/assigned?filter.searchTerm={domain}
@@ -722,7 +726,7 @@ endpoint or tool name in any of it.
 
 ## Next steps
 
-- Buying a domain, suggestions, or a domain that turns out to be available: [Domain Search, Purchase and Connect](domain-search-purchase-and-connect.md).
+- Buying a domain, suggestions, or a domain that turns out to be available: [Purchase Domain](purchase-domain.md).
 - A domain the account already holds — putting it on a site, changing its role, moving it: [Assign Domain](assign-domain.md).
 - Whether a name is available, as a question on its own: [Check Domain Availability](check-domain-availability.md).
 - Expiry or renewal of a domain in the account: [Analyse Domain](analyse-domain.md).

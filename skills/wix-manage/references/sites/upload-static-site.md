@@ -559,7 +559,7 @@ Give the user two links, each on its own line and named for what it is: the
 live site, `{siteUrl}`, and the site's dashboard,
 `https://manage.wix.com/dashboard/{metaSiteId}`. Every publish and every edit
 closes with both. Then what changed, what was verified, any missing assets, and
-[domain connection](../domains/domain-search-purchase-and-connect.md) options:
+[domain connection](../domains/connect-domain.md) options:
 a domain bought through Wix, or one the user already owns. For an unclaimed
 anonymous site, give the live URL and the private
 [claim link](publish-without-a-wix-account.md#hand-it-to-the-user) instead, not a
