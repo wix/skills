@@ -159,6 +159,7 @@ Opening a listed record, and any create or edit form for one (even a single fiel
 | Business Manager tokens — `--wds-*` replacements, the rebased spacing unit, per-component adjustments | [BUSINESS_MANAGER_TOKENS.md](references/BUSINESS_MANAGER_TOKENS.md) |
 | Business Manager theme for `@wix/patterns` — the second wrapper that turns on the patterns shell's Harmony layout | [BUSINESS_MANAGER_PATTERNS.md](references/BUSINESS_MANAGER_PATTERNS.md) |
 | Dashboard UX Success Model (what a good dashboard contains) | [UX_SUCCESS_MODEL.md](references/dashboard-page/UX_SUCCESS_MODEL.md) |
+| Dashboard page checks — grep checks for the finished page files | [DASHBOARD_PAGE_CHECKS.md](references/dashboard-page/DASHBOARD_PAGE_CHECKS.md) |
 | Draft template — start here for any dashboard page: finding, copying and adapting the package's page templates | [DRAFT_TEMPLATE.md](references/dashboard-page/DRAFT_TEMPLATE.md) |
 | The state object `useTableCollection()` returns | [TABLE_STATE.md](references/dashboard-page/TABLE_STATE.md) |
 | Finding the SDK method and field names behind a page | [DATA_SOURCES.md](references/dashboard-page/DATA_SOURCES.md) |
@@ -323,10 +324,7 @@ Use the Extension Types Reference Table and decision content above. State extens
 | "Store data in collection"           | WIX_DATA.md ✅ Found                 | ❌ Skip discovery (covered by reference)             |
 | "Create CMS collections for my app"  | Data Collection reference            | ❌ Skip discovery (covered by dedicated reference)   |
 | "Show dashboard toast"               | DASHBOARD_API.md ✅ Found            | ❌ Skip discovery                                   |
-| "Show toast / navigate"              | DASHBOARD_API.md ✅ Found            | ❌ Skip discovery                                   |
-| "UI only (forms, inputs)"            | N/A (no external API)                | ❌ Skip discovery                                   |
-| "Settings page with form inputs"     | N/A (UI only, no external API)       | ❌ Skip discovery                                   |
-| "Dashboard page with local state"    | N/A (no external API)                | ❌ Skip discovery                                   |
+| "UI only (forms, inputs, local state, settings page)" | N/A (no external API)       | ❌ Skip discovery                                   |
 
 #### SDK lookup: one call for every vertical entity
 
@@ -378,25 +376,15 @@ Open every path returned in `newFiles` and replace stubbed handler bodies / UI /
 
 ### Step 4c: UX Completeness Self-Audit
 
-**Dashboard page UI only.** `tsc`, `wix build`, and `wix preview` all check that the code compiles and runs — none of them check that it's the dashboard the [UX Success Model](references/dashboard-page/UX_SUCCESS_MODEL.md) describes. A page with a bare, un-summarized, un-openable table compiles cleanly and still fails the requirement — that gap is exactly how a generated dashboard passes every technical check and still disappoints. Measured runs confirm it: a page can compile clean and still ship with none of the three items below, because the earlier checklist entries were a stated intention rather than something re-checked against the code that actually landed.
+**Dashboard page UI only.** `tsc`, `wix build` and `wix preview` check that the code runs, not that it is the dashboard the [UX Success Model](references/dashboard-page/UX_SUCCESS_MODEL.md) describes. Before Step 5, re-open every page file you wrote and check the code that landed, not what you intended; the full checklist is [DASHBOARD_PAGE_CHECKS.md](references/dashboard-page/DASHBOARD_PAGE_CHECKS.md). These checks fail silently, so grep for each:
 
-Before moving to Step 5, re-open every page file you just wrote and check the actual code — not what you intended to include:
+- A `SummaryBar` only if the request asked for one; its headline comes from a `fetchTotal` that resolves a number, never `undefined`.
+- Every row opens an editable `EntityPage` by default (`onRowClick` calls `navigateToEntityPage`); `grep -n "<SidePanel"` on the collection page file returns nothing.
+- Every toolbar filter appears in `fetchData`'s query, and the table wires `errorState`.
+- Routed templates: the entry file passes **and** guards `location` (`location={location}` plus `location ? … : null`).
+- Every `@wix/*` vertical the page's api module imports is a declared dependency with its scope under Manual Steps, and secondary-vertical calls degrade instead of failing the page.
 
-- [ ] **The page has a `SummaryBar` only if the request asked for one.** Grep for it: an uninvited bar is a defect, not a bonus, and deleting it is the fix. If the request *did* ask, every metric earns its place and the headline counts what **matches the filters** (`state.collection.total`, fed by `fetchTotal`), not what has been paged in — any metric derived from `keyedItems` is labelled as such.
-- [ ] **If a `SummaryBar` number is fed by `fetchTotal`, follow that function to the call it makes and confirm the call counts.** A `fetchTotal` that resolves `undefined` — the usual cause being `pagingMetadata.total`, which a cursor-paged response does not carry — makes the bar report `0` beside a table full of rows, and it compiles, runs and passes every other check on this list. It must resolve a number from a count endpoint (`items.query(id)…count()`, a vertical's own count, or offset paging with `returnTotalCount: true`); if the API has none, delete `fetchTotal` and label the metric as loaded rows. See [TABLE_STATE.md](references/dashboard-page/TABLE_STATE.md#a-fetchtotal-that-resolves-undefined-shows-0-not-the-rows).
-- [ ] **Every row opens an editable entity page by default**: `onRowClick` calls `navigateToEntityPage`, and the destination has an `EntityPage`, a working form, and a real save operation. A read-only route is justified by one of the three cases in [DRAFT_TEMPLATE.md](references/dashboard-page/DRAFT_TEMPLATE.md#2-choose-then-read-the-chosen-templates-page), and the final response names which one; report-only/export-only requests need no drill-in. The save calls the source's real update method and lets a failed call throw, so the page shows its error — no no-op, local-state-only save, or `catch` that swallows the failure. If Preview is available, change one field, reload to confirm it saved, and change it back; otherwise report the save as unverified. A `SidePanel` in a collection page file is the defect this replaces. `grep -n "<SidePanel" <page files>` should return nothing — match the JSX tag, not the bare word, or the templates' own "never a SidePanel" comments fail the check and invite someone to "fix" correct code.
-- [ ] Every filter name declared in the toolbar also appears inside `fetchData`'s query construction — grep for the name in both places if unsure.
-- [ ] The table wires `errorState` — without it a failed query is indistinguishable from a slow one, and the page you just shipped cannot tell you which it is.
-- [ ] **Routed templates only (all but the settings one) — the entry file both passes and guards `location`.** `PatternsReactRouter` throws at open when `location` is missing *or* still `undefined` on the first render, and `tsc`, `wix build` and even a green build all pass regardless. Both halves are required — the `location={location}` prop **and** the `location ? … : null` guard around it, since `observeState` has not fired yet on the first render. Grep the entry file rather than trusting recall:
-
-  ```bash
-  grep -n "observeState\|location={location}\|location ?" src/extensions/dashboard/pages/<page>/<page>.tsx  # the file the builder's `component` points at
-  ```
-
-  Three hits is correct. A missing guard is the failure mode that has actually shipped: a measured run produced a page whose plumbing looked present and still crashed on open, while a re-run of the same prompt produced a working one — so this is intermittent, and re-running is not a check.
-- [ ] Every `@wix/*` vertical imported by the page's api module is a declared dependency, and each one's scope is listed under Manual Steps. Any call to a **secondary** vertical (an enrichment lookup, a filter's options, a search term resolved to ids) is wrapped so its failure degrades that feature instead of failing the page.
-
-If a box fails and no exception applies, add the missing piece now. Do not let "it compiles" stand in for "it satisfies the checklist" — Step 5 checks the former, this step checks the latter, and they are independent.
+If a box fails, add the missing piece now. "It compiles" does not stand in for "it satisfies the checklist".
 
 ### Step 5: Run Validation
 
