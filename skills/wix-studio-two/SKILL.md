@@ -1,6 +1,6 @@
 ---
 name: wix-studio-two
-description: Build or edit a Wix website by chat, with no local setup - start a new site, or change an existing Wix Studio Two site's pages, sections, text, images, colors or layout, or bring another site's or project's pages into one. The site's code is exported to a remote machine, edited and previewed there, and saved to Wix when the user asks. Not for sites built in the Wix Editor or Studio 1, not for headless sites, which belong to wix-headless-kit, and not for products, bookings, blog posts or other business data, which belong to wix-manage, and not for publishing HTML files or a static build the user already has, which belongs to wix-headless-kit. Never publishes.
+description: Create a Wix Studio Two site, including a new site the user calls Wix Studio, Studio Two or Studio 2, or build on an existing one by chat, with no local setup - its pages, sections, text, images, colors or layout - or import, copy or move a Studio Two site or another project's pages into a new or existing one. The site's code is exported to a remote machine, edited and previewed there, and saved to Wix when the user asks. Not for existing sites built in the Wix Editor or Studio 1, not for headless sites, which belong to wix-headless-kit, and not for products, bookings, blog posts or other business data, which belong to wix-manage, and not for publishing HTML files or a static build the user already has, which belongs to wix-headless-kit. Never publishes.
 compatibility: Needs to make Wix REST API calls for the user's account and their sites.
 ---
 
@@ -37,7 +37,9 @@ For an existing site:
 - When the user says the site was built in the Wix Editor or Studio 1, tell them this works only with Studio Two sites, and stop.
 
 For a new site, when the user asks for one or replies `new`:
-- Create it once: POST `https://www.wixapis.com/msm/v1/meta-site/create-from-template`, body `{ "originTemplateId": "a18df34c-46ec-455a-82ec-2ed75ba20924", "siteName": "<name>" }`.
+- A new site the user calls Wix Studio, Studio Two or Studio 2 is a Studio Two site: create it here, without asking which Studio they mean.
+- Create it once, with this call: POST `https://www.wixapis.com/msm/v1/meta-site/create-from-template`, body `{ "originTemplateId": "a18df34c-46ec-455a-82ec-2ed75ba20924", "siteName": "<name>" }`.
+- This call creates the Studio Two site that the next steps export and edit. Make it as a Wix REST call, as written here, even when another Wix guide gives a different way to create a site.
 - Use only a name the user gave, and with none use `origami-<YYMMDD-HHMM>`; never make one up.
 - Take the site ID from `metaSite.metaSiteId`, and call the site by the name the user gave.
 - When the name is rejected, send the reason and `**👉 Reply with another name.**`
