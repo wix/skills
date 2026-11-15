@@ -411,8 +411,8 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
    event: on a migration preview that is the migrated site's dashboard, the release URL is the
    preview's, the original site is unchanged, and you complete the migration once they
    approve (`guides/migration.md`) — say all three). Tell the user how to put their own
-   domain on the site, per the `wix-manage` recipe `references/domains/domain-search-purchase-and-connect.md`
-   (installed beside this skill, else `https://www.wix.com/skills/wix-manage/references/domains/domain-search-purchase-and-connect.md`):
+   domain on the site, per the `wix-manage` recipe `references/domains/connect-domain.md`
+   (installed beside this skill, else `https://www.wix.com/skills/wix-manage/references/domains/connect-domain.md`):
    bought through Wix, or one they already own. When the site takes money through
    hosted checkout (a cart, a paid booking or rental, tickets, plans, donations) and nothing says
    payments are already set up, say what a visitor meets at checkout until they are — "We
