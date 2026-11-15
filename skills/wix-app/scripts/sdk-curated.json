@@ -27,7 +27,7 @@
       "entities": ["location", "locations"],
       "namespaces": ["locations"],
       "note": "queryLocations is admin-only although its scope is SCOPE.DC-MULTILOCATION.READ-LOCATIONS: route it to a backend endpoint and elevate it there.",
-      "source": "moved from SKILL.md (Identity and Elevation Requirement), which links here"
+      "source": "SKILL.md (Identity and Elevation Requirement)"
     },
     {
       "entities": ["member", "members"],
@@ -39,7 +39,7 @@
       "entities": ["cart", "currentcart"],
       "namespaces": ["currentCartV2", "cartV2"],
       "note": "currentCartV2.addLineItemsToCurrentCart is visitor-callable although its scope is SCOPE.ECOM.MANAGE-ADMIN. Never elevate it.",
-      "source": "moved from SKILL.md (Identity and Elevation Requirement), which links here"
+      "source": "SKILL.md (Identity and Elevation Requirement)"
     }
   ]
 }
