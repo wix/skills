@@ -37,7 +37,6 @@ Data owned by an existing Wix business app is read and written through that app'
 | automations | `@wix/automations` |
 | SEO tags / redirects | `@wix/seo` |
 | site search | `@wix/search` |
-| secrets | `@wix/secrets` |
 | locations / site properties | `@wix/business-tools` |
 | app instances | `@wix/app-management` |
 
