@@ -110,7 +110,7 @@ root domain's zone instead and work on the subdomain's host names inside it (`sh
 | **A verification code** (Google, Microsoft, …) | When the provider asks for a text record, or the code looks like `google-site-verification=…` or `MS=…`, add a `TXT` record on the host the provider names (the bare domain when it names none). If a `TXT` record already exists on that host, keep its values and add the new one. Do not put it in the site's SEO or marketing settings. A code the provider says goes in a page's HTML (a meta tag or a file) is not a domain setting: say so, and make no change here. |
 | **Make a name an alias of another** | The bare domain can't be an alias, so change nothing yet. Say so in plain words, and offer one of two things: ask for that host's IPv4 address and use it for the bare domain's `A` record, or make `www` the alias of the name and leave the bare domain as it is. Send nothing and touch no record (`www` included) until the user picks; then show the before/after table and ask for a yes. For any other host (`shop.example.com`), set the host's `CNAME` to the name, first checking that no other record sits on that host. |
 | **Email setup** | Add the `MX` records the mail provider gave, on the apex. Get the values from the user or the provider's setup page, never from memory. For SPF, merge into the existing `v=spf1` `TXT` value instead of adding a second one. |
-| **Apply the fix [Analyse Domain DNS](analyse-domain-dns.md) proposed** | Replace the records it named with the values it gave; the preview below gives what Wix expects for the apex `A` and the `www` `CNAME`. Change nothing else. This skill does not diagnose: when the user asks to fix a site that isn't loading and no fix was proposed yet, hand over to Analyse Domain DNS first. |
+| **Apply the fix [Analyse Domain DNS](analyse-domain-dns.md) proposed** | Replace the records it named with the values it gave. In a zone Wix serves those are the apex `A` set `185.230.63.107`, `185.230.63.186`, `185.230.63.171` and the `www` `CNAME` `initial.wixdns.net`, not the preview's. Change nothing else. Never replace an apex `A` or a `www` `CNAME` that holds a current or older [Wix value](analyse-domain-dns.md#find-out-why-the-site-isnt-live) (such as `cdn3.wixdns.net`) unless the user said yes to that exact change: it already sends visitors to Wix. This skill does not diagnose: when the user asks to fix a site that isn't loading and no fix was proposed yet, hand over to Analyse Domain DNS first. |
 | **Change or remove a record** | Delete it exactly as read; add the new one if it is a change. |
 | **Switch DNSSEC** | Send the flag alone, and show it in the table. |
 | **Start the zone over, or delete it** | Only when the user asks. See [Create or delete the whole zone](#create-or-delete-the-whole-zone). |
@@ -121,8 +121,10 @@ Read what Wix expects (the zone preview):
 GET https://www.wixapis.com/domains/v1/dns-zones/example.com/preview
 ```
 
-It returns the same `dnsZone` shape, with the records Wix needs for the domain. Use these values, never ones
-from memory.
+It returns the same `dnsZone` shape, with the records Wix needs for the domain, as set at an outside provider.
+For any other record, use its values, never ones from memory. In a zone Wix serves, the apex `A` is the set
+`185.230.63.107`, `185.230.63.186`, `185.230.63.171` (the preview holds one address) and the `www` `CNAME` is
+`initial.wixdns.net` (the preview holds `pointing.wixdns.net`).
 
 **Rules for any change:**
 
@@ -166,7 +168,9 @@ Content-Type: application/json
 { "dnssecEnabled": true }
 ```
 
-The response is `{ "dnsZone": { ... } }`: the zone after the change. Show it as a table of `type`, `hostName`,
+The response is `{ "dnsZone": { ... } }`: the zone after the change. In a zone Wix serves, Wix stores a
+`CNAME` value of `pointing.wixdns.net` as `initial.wixdns.net`. When the response shows that, the change
+succeeded: it is not a mismatch, so report the change as applied. Show it as a table of `type`, `hostName`,
 `values`. `additions` and `deletions` take up to 50 records each.
 
 **Rules that decide the body**

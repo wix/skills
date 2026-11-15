@@ -132,7 +132,7 @@ GET https://www.wixapis.com/premium/domains/v1/dns-propagations/example.com
 | Result | Say |
 |---|---|
 | `status` `SUCCEEDED` | "The domain's settings are correct." |
-| `status` `IN_PROGRESS` | "Changes to the domain's settings are still spreading. This can take up to 3 days." When Wix serves the settings (`dnsResolverIncludesWixNs` `true`), still read the zone: a question about the settings is answered from it, and a why-isn't-it-live question compares it with the preview. Records that differ are wrong and waiting won't fix them: report them, and say "wait" only when the zone matches. Do not list failing-record details from this result. |
+| `status` `IN_PROGRESS` | "Changes to the domain's settings are still spreading. This can take up to 3 days." When Wix serves the settings (`dnsResolverIncludesWixNs` `true`), still read the zone: a question about the settings is answered from it, and a why-isn't-it-live question checks it as in step 3 of [Find out why the site isn't live](#find-out-why-the-site-isnt-live). Records that step finds wrong won't be fixed by waiting: report them, and say "wait" only when it finds nothing. Do not list failing-record details from this result. |
 | `status` `FAILED` | Name the failing record types and what they must be (table below). |
 | `status` absent or unknown | "There's no information about this domain's settings yet." |
 | `403` `DOMAINS_PERMISSION_DENIED` | "{domain} isn't in your Wix account." Nothing more. |
@@ -182,20 +182,40 @@ Steps 3 to 6 read the Wix zone, so they apply only when Wix serves the settings 
 use the zone ([Show the settings](#show-the-settings)) and the zone preview ([Records to set](#records-to-set))
 the call returned.
 For a subdomain, step 3 compares only the records the preview returns for that host.
-Decide step 1 after steps 3 to 6: with `IN_PROGRESS`, a zone that differs from the preview is a cause of its
+Decide step 1 after steps 3 to 6: with `IN_PROGRESS`, a zone that step 3 finds wrong is a cause of its
 own (waiting won't fix it), and "wait" is the answer only when those steps find nothing.
+
+**Wix's own values.** A zone Wix serves holds Wix's values, and they are not the preview's: the preview
+lists what to set at an outside provider (a single apex address and `pointing.wixdns.net`). When Wix serves
+the settings, a value is in one of three groups (a trailing dot doesn't matter):
+
+- **Current:** apex `A` is the set `185.230.63.107`, `185.230.63.186`, `185.230.63.171`; `www` `CNAME` is
+  `initial.wixdns.net`. Never report these as wrong.
+- **Older, still send visitors to Wix:** apex `A` is `185.230.63.107` alone; `www` `CNAME` is
+  `cdn<N>.wixdns.net`, `gcdn<N>.wixdns.net`, `balancer.wixdns.net` or `pointing.wixdns.net`. They are not
+  wrong, and they differ from the preview only because the preview is for outside providers: don't report
+  them as wrong, and don't replace them just because they differ from the preview. A `www` value of
+  `cdn<N>` or `pointing` is also the one Wix itself later replaces with `initial.wixdns.net` when a
+  certificate check fails, so for a "not secure" report see step 9.
+- **Legacy:** `www<N>.wixdns.net`, see step 6.
+
+Anything else, or a missing record, is wrong. A record that must be restored or replaced in a zone Wix
+serves gets the current value: the three-address set for the apex, `initial.wixdns.net` for `www`, never the
+preview's. Wix stores a `www` `CNAME` of `pointing.wixdns.net` as `initial.wixdns.net` when it is written, so a
+zone can read `pointing` only if the record was written before that rewrite existed: such a record keeps its old
+value until it is changed or Wix replaces it after a failed certificate check.
 
 | # | Check | Cause when it matches | Who fixes it |
 |---|---|---|---|
 | 1 | Propagation `IN_PROGRESS`, and steps 3 to 6 found nothing (or Wix doesn't serve the zone) | Changes are still spreading. | Nobody: wait, up to 3 days. |
 | 2 | Propagation `FAILED` and `dnsResolverIncludesWixNs: false` | The settings at the provider are wrong. | The user, at the provider: give the expected values. |
-| 3 | Wix serves the settings (`true`) and the zone's apex A record is missing or differs from the [preview](#records-to-set) while the apex holds no CNAME (step 4), or its `www` CNAME (unless it is the legacy `www#.wixdns.net` format, step 6) is missing or differs | The records that send visitors to Wix are wrong. | [Update Domain DNS](update-domain-dns.md) restores them. |
-| 4 | The zone has a CNAME on the apex (`example.com` itself) | An apex can't be an alias; it needs an A record. | Update Domain DNS replaces it with the preview's A record. |
+| 3 | Wix serves the settings (`true`) and the zone's apex A record is missing or isn't a current or older [Wix value](#find-out-why-the-site-isnt-live) while the apex holds no CNAME (step 4), or its `www` CNAME is missing or isn't a current or older Wix value | The records that send visitors to Wix are wrong. | [Update Domain DNS](update-domain-dns.md) restores them: the apex `A` to the three-address set, the `www` `CNAME` to `initial.wixdns.net`. |
+| 4 | The zone has a CNAME on the apex (`example.com` itself) | An apex can't be an alias; it needs an A record. | Update Domain DNS replaces it with the three-address `A` record. |
 | 5 | The zone's NS record holds nameservers that aren't Wix's, or from two different clusters (such as `ns12.wixdns.net` with `ns2.wixdns.net`; see the cluster table below) | The domain isn't fully pointing at Wix. | Explain only. A nameserver change is made at the registrar; [Update Domain DNS](update-domain-dns.md) edits the zone's NS record only if the user names that record. |
-| 6 | A CNAME uses the old `www#.wixdns.net` format | Still works on an old domain, but isn't allowed for a new connection. | Update Domain DNS swaps in the preview's value, if the user wants it. |
+| 6 | A CNAME uses the old `www#.wixdns.net` format | Still works on an old domain, but isn't allowed for a new connection. | Update Domain DNS swaps in `initial.wixdns.net`, if the user wants it. |
 | 7 | The site isn't published | Visitors see nothing even with correct settings. | The user publishes the site. |
 | 8 | The domain is on no site | Nothing to show. | [Assign Domain](assign-domain.md) puts it on a site; for a domain registered elsewhere that isn't connected yet, [Connect External Domain or Sub Domain](connect-external-domain-or-sub-domain.md). |
-| 9 | The site is live but the browser says "not secure" | The certificate may not be issued yet. When the settings are at an outside provider, a CAA record there may block it: Wix can't see CAA records. | Wait. If the settings are at a provider, also ask the user to check there that any CAA record includes `pki.goog` or `letsencrypt.org`, or remove it. |
+| 9 | The site is live but the browser says "not secure" | The certificate may not be issued yet. When the settings are at an outside provider, a CAA record there may block it: Wix can't see CAA records. When Wix serves the settings and the `www` `CNAME` is an older value (`cdn<N>`, `gcdn<N>`, `balancer` or `pointing`), that value is a possible cause: Wix can't confirm it. | Wait. If the settings are at a provider, also ask the user to check there that any CAA record includes `pki.goog` or `letsencrypt.org`, or remove it. When `www` holds an older value, offer to set it to `initial.wixdns.net` and change it only on a yes; never call it the confirmed cause. |
 
 For steps 7 and 8, find the site the domain is on. Ask for it as a connected domain (registered elsewhere)
 first:
@@ -243,9 +263,10 @@ Domain](connect-external-domain-or-sub-domain.md).
 GET https://www.wixapis.com/domains/v1/dns-zones/example.com/preview
 ```
 
-Same `dnsZone` shape as above. It is also the reference for domains Wix serves, in the checks above: a
-zone record matches when its `values` equal the preview's for that host, compared as sets, ignoring order
-and `ttl`. It holds the records Wix needs
+Same `dnsZone` shape as above. Its apex `A` (one address) and `www` `CNAME` (`pointing.wixdns.net`) are the
+values for an outside provider. Don't compare a zone Wix serves with them: check that zone against [Wix's own
+values](#find-out-why-the-site-isnt-live), and for any other host compare its `values` with the
+preview's, as sets, ignoring order and `ttl`. It holds the records Wix needs
 **for the host you asked about**. For a root
 domain, give every address record the response holds for the apex and for `www`; for a subdomain, give only
 the records returned for that host (typically one `CNAME`) and never an apex A record or a `www` record
