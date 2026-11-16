@@ -387,6 +387,13 @@ Import Google Business Profile locations into the authenticated Wix site, list a
 
 ---
 
+## Groups
+
+### [Create a Group](references/groups/create-a-group.md)
+Creates a Wix Groups group on a site step by step, suggesting a name and a description, letting the user choose the privacy (public, private or hidden), and setting a site member as the group's creator and admin. Use when the user wants to create a group, start a community group, or set up a new group on their site.
+
+---
+
 ## Marketing
 
 ### [Create and Publish a Social Media Post](references/marketing/create-and-publish-social-post.md)

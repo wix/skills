@@ -1,0 +1,8 @@
+apiDoc:
+  title: Wix Groups Management Recipes
+
+  docs:
+    - file: ../../../skills/wix-manage/references/groups/create-a-group.md
+      title: Create a Group
+      docsEntry: https://dev.wix.com/docs/api-reference/crm/community/groups
+      tags: [groups]
