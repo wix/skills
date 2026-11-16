@@ -25,15 +25,17 @@ implementation detail.
 
 1. **Props** — for a new component, use `autoPlay` when it can start
    automatically, `loop` only when repeat behavior is supported, and
-   `pauseButtonVisibility` for the on-stage control. When editing, preserve
-   existing playback prop names and add only the missing safety contract.
+   `pauseButtonVisibility` (default `'showOnHover'`) for the on-stage control.
+   When editing, preserve existing playback prop names and add only the
+   missing safety contract.
    Carousels, sliders, slideshows, and galleries **must** define `autoPlay`
    (default `true`).
 2. **Playback state** — play/pause toggle state, derived `isPlaying`, and
    `handlePause` / `handleResume`
-3. **Play/pause button** — overlay `<button>` with inline SVG icon and CSS
-   positioning; it must be a named part with `elementProps` wiring, a hover
-   design state, and a standalone `:focus-visible` keyboard indicator
+3. **Play/pause button** — icon-only `<button>` over the playing content, apart
+   from other controls; SVG using `--icon-size`/`--icon-color`; it must be a
+   named part with `elementProps` wiring, a hover design state, and a
+   standalone `:focus-visible` keyboard indicator
 4. **Modify `component.preview.tsx`** — suppress autoplay in editor design mode
 5. **Respect `prefers-reduced-motion`** — start paused when the OS requests reduced motion
 
@@ -147,7 +149,7 @@ never in `animationPlayState`. The button uses `isPlayOn` and toggles between
 
 Use inline SVG icons: a triangle for play and two bars for pause. Follow SVG Icons in `CSS-GUIDELINES.md` for `--icon-size` and `--icon-color`.
 
-Position the button absolutely so it overlays the content without pushing other elements out of place:
+Position it absolutely inside the playing content, not a controls row:
 
 ```css
 .animationContainer {
@@ -158,7 +160,7 @@ Position the button absolutely so it overlays the content without pushing other 
 
 .playButton {
   --icon-size: 12px;
-  --icon-color: #ffffff;
+  --icon-color: #ffffff; /* readable */
   padding: 6px;
   position: absolute;
   inset-inline-end: 5px;
@@ -174,7 +176,7 @@ Position the button absolutely so it overlays the content without pushing other 
 /* Design-state selectors: pair native pseudo-class with editor-injected modifier class. */
 .playButton:global(.my-animation-play-button--hover),
 .playButton:hover {
-  /* e.g. background: rgba(255, 255, 255, 1); */
+  /* hover appearance */
 }
 
 /* Keyboard indicator only: focus is not an editor design state on a non-input
@@ -279,7 +281,7 @@ Design mode stops autoplay and exposes the control; preview uses the user's valu
       present only when repeat behavior is supported.
 - [ ] Reduced motion starts paused and never restarts playback automatically.
 - [ ] Hover and focus pause rotation; manual navigation stops it.
-- [ ] The play/pause button is a fully wired named part with a stable accessible name.
+- [ ] The play/pause button is a fully wired, icon-only named part with a stable accessible name.
 - [ ] Hover has a paired editor design state; `:focus-visible` remains a
       standalone keyboard indicator.
 - [ ] Hover-only visibility changes behavior, not the button's editable styling surface.

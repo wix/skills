@@ -105,7 +105,8 @@ These rules describe the initial width; reflow at narrow widths per
   value and enough room, split it up to 880px wide with that value beside the
   details. Otherwise keep one coherent layout; never invent a value or panel.
 - A carousel track starts flush with its container; only the trailing card is
-  cut. Its arrows and play/pause sit together in the header row.
+  cut. Its arrows sit in the header row; play/pause overlays the track's
+  viewport (`ANIMATED-COMPONENTS.md`).
 - Default copy matches the default images (`COMPONENT-CONTRACT.md` says what
   each pool image shows); text on a photo sits on a dark scrim.
 - Headings and labels fit their column without breaking inside a word;

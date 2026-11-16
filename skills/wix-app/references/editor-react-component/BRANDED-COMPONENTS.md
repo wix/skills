@@ -33,15 +33,15 @@ Keep two design decisions and a signature move.
 | Meta, caption, eyebrow, hint | `paragraph-2` / `paragraph-3` | heading tokens |
 | Primary action | complete `button-primary-*` set | heading or paragraph fonts |
 | Secondary action, arrows, pagination, tabs | `button-secondary-*` / `button-tertiary-*` | heading tokens |
+| Play/pause overlay | a bare icon in readable `--icon-color` | `button-*`, the action color |
 | Card or panel surface | `box-primary-*`, or `box-secondary-*` with its border | the page background on both page and card |
 | Divider between sections | `system-line-1/2-*` | — |
 | Error, success, alert, disabled | `system-*-color` | hand-picked colors |
 
 **Typography follows content role, not element tag.** An item title keeps
 18–28px title styling when it also toggles content: use neutral chrome and
-no button `text-transform`. Action/navigation labels, field labels and
-captions never use heading fonts. Preserve semantics, keyboard behavior,
-focus and a 44px target.
+no button `text-transform`. Preserve semantics, keyboard behavior, focus and
+a 44px target.
 
 Default Studio: `heading-5` is 32px, `heading-6` 24px. Step down a level;
 keep the font token intact. Ordinary controls and labels render 14–18px:
@@ -72,8 +72,8 @@ Use spacing and one separator per item. Keep strong `system-line-*` and
 
 ## Token Rules
 
-Import theme tokens from `@wix/react-component-schema/theme-variables.module.css`
-using CSS Modules `@value`, then consume with `var()`.
+Import tokens from `@wix/react-component-schema/theme-variables.module.css`
+with `@value`; consume with `var()`.
 
 - Never `var(--wst-*)`, a `var()` fallback or `@import`: use the `@value` alias.
 - Import every token you use, `color-mix()` included.
