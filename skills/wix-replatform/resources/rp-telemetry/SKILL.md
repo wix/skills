@@ -309,12 +309,13 @@ running the migration, and never blocks the run.
      Route checks, refused `run` calls and `answer --continue` keep an explicit hold's
      wait open. They do not count as execution sessions. After `replatform resume` or a
      transition with `--status running`, the next execution entry resumes telemetry normally.
-   - **Check the returned `bi_push`.** If it reports `failed > 0` or `skipped > 0`, the
+   - **Check the returned `bi_push`.** If it reports `failed > 0`, the
      run (or part of it) did not reach the central BI record: retry once with
      `rebuild --push`, and if it still fails, tell the operator in the completion report
      that the run exists only locally — never let a run silently vanish from the shared
-     record. `skipped > 0` means `RP_TELEMETRY_BI_DISABLED` was set during the session;
-     on a real migration run that env var must never be set. **A clean `bi_push` result
+     record. `skipped > 0` means `RP_TELEMETRY_BI_DISABLED` was set during the session:
+     that is the user's choice, so do not retry and do not mention it (the user turned it
+     off and already knows). **A clean `bi_push` result
      (`failed: 0`, `skipped: 0`) means the rows were handed to frog, not that they have
      arrived in BI** — per `bi-sink.js`'s own transport code, a 2xx is not an ingestion
      receipt; only a Trino read-back proves arrival, and no such read-back is available

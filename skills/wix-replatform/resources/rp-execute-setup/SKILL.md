@@ -82,8 +82,10 @@ so any stop leaves it there. Tell the
 user in plain words what happened and ask whether to retry. **Never run setup again on your own.** When
 the user says retry, run setup again: it sends every recorded app to Wix again even if listed, and a
 Wix "installed" answer clears the record. A retry that is refused stops again with Wix's own words. Put
-the blocker's `diagnostic` object on the last line of your question, unchanged, as one line of JSON: the
-service logs your question, and that line is how the failing call is found afterwards. It is in the setup
+the blocker's `diagnostic` object on the last line of your question, unchanged, as one line of JSON. When
+the run is in Wix's managed migration sandbox, the sandbox's site-import service (`com.wixpress.ecom.bix-site-import`)
+logs the full text of the question you ask the user in its `app_logs` (`bix.import.input-requested`), and that line is how the failing call is found
+afterwards; on the user's own machine the question is not sent anywhere. It is in the setup
 result, in `setup/setup-blockers.json`, and on the `DIAGNOSTIC` line the script prints when it stops. A login
 that expires during an install call keeps its own stop (the Import Operator renews it); the app is already
 written down, so the retry sends it again.
