@@ -1,0 +1,12 @@
+apiDoc:
+  title: Wix Studio Workspace Recipes
+
+  docs:
+    - file: ../../../skills/wix-manage/references/studio-workspace/collect-client-content.md
+      title: Collect Client Content with the Content Collector
+      docsEntry: https://dev.wix.com/docs/api-reference/account-level/studio-workspace/content-collector
+      tags: [studio-workspace]
+    - file: ../../../skills/wix-manage/references/studio-workspace/collect-client-feedback.md
+      title: Collect Client Feedback on a Site
+      docsEntry: https://dev.wix.com/docs/api-reference/account-level/studio-workspace/feedback
+      tags: [studio-workspace]

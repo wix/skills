@@ -1,6 +1,6 @@
 ---
 name: wix-manage
-description: "REST recipes to configure and manage a Wix site's business solutions — stores, bookings, donations, payments, CMS, and more — and to publish HTML, CSS and JavaScript files as a live Wix site, with or without a Wix account. Open the matching recipe for the exact endpoint, method, and payload before calling — never guess a Wix API, never write Wix dashboard URL from memory. Routes to: automations, stores, bookings, donations, get-paid, CMS, contacts, forms, media, app-installation, custom-apps, pricing-plans, restaurants, ricos rich-content, sites, collaborators, blog, calendar, domains, events, site-properties, ecommerce, marketing, online-programs, google-ads, google-business-profile, analytics, accessibility, seo, dashboard-navigation."
+description: "REST recipes to configure and manage a Wix site's business solutions — stores, bookings, donations, payments, CMS, and more — and to publish HTML, CSS and JavaScript files as a live Wix site, with or without a Wix account. Open the matching recipe for the exact endpoint, method, and payload before calling — never guess a Wix API, never write Wix dashboard URL from memory. Routes to: automations, stores, bookings, donations, get-paid, CMS, contacts, forms, media, app-installation, custom-apps, pricing-plans, restaurants, ricos rich-content, sites, collaborators, studio-workspace, blog, calendar, domains, events, site-properties, ecommerce, marketing, online-programs, google-ads, google-business-profile, analytics, accessibility, seo, dashboard-navigation."
 compatibility: Requires Wix REST API access (API key or OAuth).
 ---
 
@@ -516,6 +516,16 @@ Drive the Wix Site Import agent to migrate an existing store or site from anothe
 
 ### [Upload a Website or HTML Files](references/sites/upload-static-site.md)
 Publish HTML, CSS, JavaScript or a static build as a Wix Headless website; inspect its deployed files and edit them on the same site and URL. Covers file and ZIP uploads, selective additions, replacements and deletions while preserving other files, full-site replacement, authenticated publishing, verification, and connecting a Wix business backend; a Wix Astro build is released as a server-rendered site rather than dropped. Use for files the user supplies or pages you create for them. Not for publishing without a Wix account (use Publish a Site Without a Wix Account), migrating a live site from another platform by URL or CSV (use Site Import), embedding code in an editor-built Wix site, or uploading assets to Media Manager.
+
+---
+
+## Studio Workspace
+
+### [Collect Client Content with the Content Collector](references/studio-workspace/collect-client-content.md)
+Collects a client's project content with Studio workspace Content Collector intake forms (the client content form or questionnaire) — creates an intake form for a client project, shares it with the client, finds a client's forms, checks whether the client has submitted, and reads the client's answers, uploaded files and notes. Use when an agency or partner signs a new client or starts a client project and needs a content form to get the client's content, asks whether a client has filled in their form, or wants to see what a client answered. Not for Wix Forms on a site.
+
+### [Collect Client Feedback on a Site](references/studio-workspace/collect-client-feedback.md)
+Runs a client review round on a Wix site with Studio workspace Feedback — opens a feedback session and gets the link reviewers comment through, finds a site's existing review links, reads the comments reviewers pinned to the site and who left them, triages them as new, open or resolved, and replies to them. Use when an agency or partner wants a client to review a site, wants to know what the client said, or is working through the client's comments.
 
 ---
 
