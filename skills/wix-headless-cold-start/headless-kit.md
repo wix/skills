@@ -1,6 +1,6 @@
 ---
 name: wix-headless-kit-cold-start
-description: "Build a Wix Headless site from a single prompt: the business solution installed on a new site, its content created through the Wix API, and pages that read it, published on Wix. Verticals: storefront, bookings, rentals, blog, cms, events, forms, members, portfolio, pricing-plans, restaurants, faq, donations. Triggers: build me a store/blog/booking/events/portfolio/restaurant/FAQ/donation site, sell tickets or membership plans headless, collect donations headless, wix headless kit entry. With the Wix plugin or connector, the whole build goes through its tools. If wix-headless-kit runs on the machine and a build can reach the upload tool, the Astro build of wix-headless-kit is released instead of hand-written pages. A machine with a logged-in Wix CLI and no plugin takes the CLI route."
+description: "Build a Wix Headless site from a single prompt: the business solution installed on a new site, its content created through the Wix API, and pages that read it, published on Wix. Verticals: storefront, bookings, rentals, blog, cms, events, forms, members, portfolio, pricing-plans, restaurants, faq, donations. Triggers: build me a store/blog/booking/events/portfolio/restaurant/FAQ/donation site, sell tickets or membership plans headless, collect donations headless, put a site I already made on Wix, wix headless kit entry. With the Wix plugin or connector, the whole build goes through its tools. If wix-headless-kit runs on the machine and a build can reach the upload tool, the Astro build of wix-headless-kit is released instead of hand-written pages. A machine with a logged-in Wix CLI and no plugin takes the CLI route."
 ---
 
 # Wix Headless Kit: cold start
@@ -12,7 +12,7 @@ page that this page names in full. A fetch that makes a summary removes the call
 its content is in Wix (step 4), its pages read that content through the modules (step 5), and a
 visitor's read returns it (the check in step 5). An upload that succeeds does not make the site
 done. Do not reply to the user before the check passes, except to ask for something that only the
-user can give.
+user can give. A site made of the user's own files, with no solution, is done when its files are live.
 
 ## 1. Find and use the Wix Plugin and tools
 
@@ -76,6 +76,13 @@ Linux command; elsewhere run `npm ping` and give it 25 seconds. Without `npx`, g
 
 If both checks pass, make the pages with the Astro build of `wix-headless-kit` ("The Astro build"
 below). If one fails, write the pages by hand on the modules (step 5 below).
+
+**The user brought the pages.** When the user has the site's files (HTML, CSS and JavaScript, or a
+static build), those files are the pages: skip both checks and do the build below with them. A site
+that needs no solution takes steps 2, 5 and 6: create the site, upload the files as they are, and
+close. A site that needs one takes every step, and "Pages that already hold the content" says how
+its pages change. The upload calls are in
+`https://www.wix.com/skills/wix-manage/references/sites/upload-static-site.md`.
 
 ## 3. The build, through the Wix tools
 
@@ -186,7 +193,7 @@ Do the six steps in this order. For each step: what you do, the call, and the re
 - Start with the status of the build, one line each: the number of items that you created in Wix
   for each solution; the pages that read them; the visitor check, as passed, failed or not run. If
   a number is 0, or the check did not pass, the site is not done. Go back to that step. Do not
-  send the message.
+  send the message. A site with no solution has no counts and no check: give the links.
 - Give the live URL and the dashboard URL, each on its own line.
 - Say what you wrote as placeholder content.
 - Say which pages read from the site through the modules and which pages are static. If a step did
