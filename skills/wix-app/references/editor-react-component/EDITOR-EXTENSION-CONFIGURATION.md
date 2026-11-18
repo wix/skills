@@ -8,7 +8,8 @@ generation rewrites
 
 For a new component, complete the scaffolded installation and layout fields.
 For an existing component, change only the sizing, installation, or manifest
-behavior requested by the user; preserve every other extension field.
+behavior requested by the user, except when adding the play/pause button: then
+also apply `ANIMATED-COMPONENTS.md` section 4. Preserve every other extension field.
 Use the current scaffold's field shape and the values below. Inspect installed
 `@wix/astro` or schema types only if a related typecheck or build error requires it.
 Normal component setup needs no `ELEMENT_TYPE` or `DATA_TYPE` lookup: the
@@ -33,6 +34,8 @@ For a new component, the extension should continue to:
   `withEditorElementDefaults`
 - add layout overrides to the editor element after applying defaults, in the
   scaffold's own shape
+- for an animated component, remove the play/pause button's size controls
+  where `editorElementWithDefaults` is declared (`ANIMATED-COMPONENTS.md`, section 4)
 
 The current scaffold spreads the defaults; keep that and set `layout` beside
 them. The generated element has no `layout`, so don't spread one:
@@ -109,6 +112,8 @@ do not reconstruct the extension from an example. For a new component, size
 
 - [ ] Defaults are applied to the generated editor element before layout
       overrides are spread in; no `deepmerge(...)` around the override.
+- [ ] An animated component's play/pause button has no width, height,
+      blend-mode, margin, or justify controls.
 - [ ] Client and editor resources still point to their generated entry files.
 - [ ] The extension and `component.tsx` consume the same `defaultProps` source.
 - [ ] Initial sizing and resize axes match component behavior.
