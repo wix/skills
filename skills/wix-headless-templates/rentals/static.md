@@ -189,8 +189,8 @@ payment method); the plan upgrade is `https://www.wix.com/upgrade/website?metaSi
 Completing a rental online, free rentals included, needs a payment method on the site; manual
 payments are enough for free and pay-in-person. Real online payments also need a premium plan.
 Until then `rent()` reports that the site cannot take online bookings yet. Give both links in the
-close. Resources are seeded bookable around the clock; opening hours per resource are dashboard
-work, and they split a multi-day rental into one booking per day. Say so.
+close. Rental resources have no working hours: they're bookable around the clock, and a
+multi-day rental is always one booking.
 
 ## Seeding
 

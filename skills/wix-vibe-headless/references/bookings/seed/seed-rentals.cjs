@@ -96,10 +96,8 @@ async function ensureResourceType(ctx, name) {
  * ⚠️ PARALLEL CAPACITY COMES FROM MORE RESOURCES, not from a capacity number: two rooms that
  * can be booked at the same time are two resources.
  *
- * ⚠️ Seeded 24/7 on purpose — no `workingHoursSchedules`. A resource with working hours makes a
- * multi-day rental span several bookable windows, which Wix then models as a multi-service
- * group booking instead of one booking. Pass `workingHours` only when the brief names opening
- * hours and you accept that.
+ * ⚠️ Seeded 24/7 on purpose — no `workingHoursSchedules`. Rental resources have no working
+ * hours, so don't pass `workingHours`.
  * @returns {Promise<{ id: string, name: string }[]>}
  */
 async function createResources(ctx, resourceTypeId, names, { workingHours } = {}) {

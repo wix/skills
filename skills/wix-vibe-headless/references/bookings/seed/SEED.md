@@ -135,8 +135,8 @@ without `durationRange` still returns 200 and is simply a plain Bookings service
   Without it the create fails `MISSING_APPOINTMENT_RESOURCES`, whose message sends you to check
   the resource type's contents — a dead end, since it fails even when the type is populated.
 
-Resources are seeded **24/7** (no working hours) so a multi-day rental stays one booking rather
-than a multi-service group. Pass `workingHours` only when the brief names opening hours.
+Resources are seeded **24/7** (no working hours): rental resources have no working hours, so
+don't pass `workingHours`.
 
 ## Reference
 If a call returns a shape you didn't expect, or you need an operation this module doesn't cover,
