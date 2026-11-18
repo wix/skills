@@ -503,7 +503,9 @@ Show them and ask for explicit confirmation. **Never skip this — never assume.
 > - Phone: +1.2125551234
 > - Address: 123 Main St, New York, US 10001
 
-- Confirmed → §P5.
+- Confirmed → check them against §P4.3 and §P4.4 for this domain's TLD. Fine → §P5. A detail that breaks
+  a rule (a country the TLD does not accept, a missing TLD-specific field) → ask only for that, re-check
+  that one field against the rules, then go to §P5. Do not re-validate the fields that already passed.
 - Wants different details → collect as in §P4.2.
 
 ### P4.2 No contacts (US-28)
@@ -519,9 +521,12 @@ Ask for every field, one per line:
 > - Street address
 > - City
 > - Country
-> - Postal code
+> - State or province (if the country has them)
+> - Postal code (if the country uses one)
 
-Field rules:
+Ask for the TLD-specific fields of §P4.4 in the same message when the domain's TLD has any.
+
+Field rules — the full per-field rules are in §P4.3:
 
 - **Phone** — `+{countryCode}.{number}`, e.g. `+1.5551234567`, `+972.533456789`.
 - **Country** — accept a full name and convert to the 2-letter ISO code before saving
@@ -530,6 +535,159 @@ Field rules:
 The user may answer in a single line ("Alex Johnson, alex@cozycuts.com, +1.5032218800, 310 Oak Ave,
 Portland, US, 97201") — parse it, do not make them re-enter field by field.
 
+### P4.3 Contact rules for every TLD
+
+The save in §P5 catches some bad values, not all — a registry can still reject a contact after the
+order. So check each value against these rules **before** §P5 and ask again for the one that fails.
+The registrant, admin and tech contact all follow them.
+
+| Field | Rule |
+|-------|------|
+| First name | Required, up to 30 characters |
+| Last name | Required, 2–30 characters |
+| Email | Required, a valid address, 2–128 characters |
+| Company | Optional, 2–50 characters. Leave it out when empty — never send `n.a.` |
+| Street address | Required, 4–100 characters, and at least one character that is not a digit (`12345` fails) |
+| City | Required, 2–30 characters |
+| Country | Required, 2-letter ISO code. **Lebanon (`LB`) is not accepted** — tell the user Wix cannot register a domain for a Lebanese contact |
+| State or province | Required for a country that has states, provinces or regions (US, CA, AU, BR, ES, IT, MX, IN…) — when unsure, ask. Send it as `subdivision`, the country-prefixed ISO 3166-2 code (`ES-B`) |
+| Postal code | Required, in the format of the selected country (US `12345` or `12345-6789`, CA `K1A 0B1`, GB `SW1A 1AA`, IL 5 or 7 digits, BR 8 digits). Upper-case it. For these countries, which have no postal code, do not ask and send `NA`: AE AG AO AW BF BI BJ BQ BS BW BZ CD CF CG CI CK CM CW DJ DM ER FJ GD GH GM GN GQ GY HK IE KI KM KN KP LC ML MO MR MS MW NR NU QA SB SC SL SR ST SX SY TF TG TK TL TO TT TV TZ UG VU YE ZW. Jamaica (`JM`) — optional, omit the field. A GB code needs a space before its last three characters |
+| Phone | `+{countryCode}.{digits}` — digits only, no spaces or dashes, at most 15 digits, and a number that is valid for that country. Default country code `1`; when the user names a country and no code, use that country's code |
+
+**Latin characters only.** First name, last name, company, street address and city accept only
+printable ASCII (letters, digits, space and punctuation). `é`, `ü`, `ß`, Hebrew, Cyrillic, Arabic and
+CJK all fail. Ask the user for the Latin spelling (transliterate, or drop the accent) — do not send
+the original. The exception is `.es`: first name, last name and company have no character rule, and street address and city also accept accented Latin letters.
+
+When you change a value to satisfy a rule (accent dropped, code upper-cased), say so in the next message — never change a value silently.
+
+### P4.4 TLD-specific requirements
+
+Match the domain against the **longest** suffix in this table (`shop.co.uk` → `.co.uk`). A TLD that is
+not in the table has no rule beyond §P4.3. A row **adds to** §P4.3, and where it states a limit for a
+field the row's limit **replaces** the §P4.3 one for that TLD.
+
+A row that refuses what the user has already said — a government entity for `.ca`, a country the TLD
+does not take, a terms checkbox answered *no* — ends the purchase at once, even when the flow is
+still at an earlier step: say the domain cannot be registered through Wix on those terms, in one
+sentence, and make no save, cart or checkout link.
+
+| TLD | What is different |
+|-----|-------------------|
+| `.de` | Country is **Germany** (`DE`) only. City accepts letters only, no digits. §P5 sends the `registrantContact` only — no `adminContact` or `techContact` |
+| `.fr` | Country must be in the EU/EEA/overseas-territory list: AT AX BE BG CH CY CZ DE DK EE ES FI FR GF GI GP GR HU IE IS IT LI LT LU LV MQ MT NC NL NO PF PL PM PT RE RO SE SI SK TF WF YT. Default `FR` |
+| `.nl` | Remove the space from a Dutch postal code (`1012AB`, not `1012 AB`) |
+| `.co.uk` | First name + last name together must be at least 4 characters, at least 3 of them letters. A pair of initials (`J S`) is rejected by the registry — ask for the full name |
+| `.ca` | **Needs `tldData`** (§P4.5). Country is **Canada** (`CA`) only, phone `+1` with a 10-digit number, a province is required. The user chooses a **legal category**; the registrant company is required unless it is an individual one (`CCT`, `RES`, `LGR`, `ABO`). The user must agree to the [CIRA registrant agreement](https://www.cira.ca/policy/legal-agreement/registrant-agreement) — ask; on a *no* the domain cannot be registered, so end the purchase. Name, company, address and city are 2–64 characters |
+| `.it` | **Needs `tldData`** (§P4.5). Phone is at most 10 digits. The user chooses an **entity type**, which fixes the allowed country and the ID number. The user must accept the `.it` registry terms — ask; on a *no* the domain cannot be registered, so end the purchase |
+| `.com.au` | **Needs `tldData`** (§P4.5). Country is **Australia** (`AU`) only, phone code `61`, postal code a 4-digit Australian one, company **required**. §P5 sends `registrantContact` and `techContact` only — no `adminContact`. Asks eligibility questions |
+| `.com.br` | **Needs `tldData`** (§P4.5). Country is **Brazil** (`BR`) only: postal code is 8 digits **without the hyphen**, phone is 8–12 digits, street and city 2–64 characters, no company |
+| `.es` | **Needs `tldData`** (§P4.5). Province is required for Spain, and the postal code must start with that province's 2-digit code (`08xxx` for Barcelona). Company is required for a business registrant. The user must accept the [dominios.es terms](https://www.dominios.es/en/registra-un-dominio/terminos-condiciones/clausulas) — ask; on a *no* the domain cannot be registered, so end the purchase. The registry emails the registrant to verify — say so |
+| `.us` | **Needs `tldData`** (§P4.5). The user declares a **nexus category** and the **purpose** of the domain |
+| `.co.il`, `.org.il` | **Needs `tldData`** (§P4.5). Name must be English letters and spaces only; street 4–255 and city 2–100 characters, starting with a letter or digit, no apostrophe. An Israeli address gets phone code `972` |
+
+Ask the TLD-specific questions as plain choices, one message, in the user's words — never show an
+enum code to the user.
+
+**`.ca` legal categories** (value → what to show): `CCT` Canadian citizen · `RES` Permanent resident of Canada ·
+`LGR` Legal representative of a Canadian citizen or permanent resident · `ABO` Aboriginal Peoples indigenous to
+Canada · `CCO` Corporation · `TDM` Trademark registered in Canada · `OMK` Official mark registered in Canada ·
+`ASS` Unincorporated association · `TRD` Trade union · `TRS` Trust established in Canada · `PRT` Partnership
+registered in Canada · `PLT` Political party · `EDU` Educational institution · `LAM` Library, archive or
+museum · `HOP` Hospital · `INB` Indian Band · `MAJ` Her Majesty the Queen. **`GOV` (government entity) cannot be
+registered through Wix** — send the user to the CIRA registration page (<https://www.cira.ca/ca-domains/register-your-ca>)
+and stop the purchase.
+
+**`.it` entity type → what it requires:**
+
+| `entityType` | Who | Country | ID number (`regCode`) | Company |
+|--------------|-----|---------|-----------------------|---------|
+| `ITR` | Individual resident in the EEA, Switzerland or Vatican | EEA, Switzerland, Vatican (incl. `IT`) | Italy: fiscal code (16 characters, `RSSMRA80A01H501U`). Elsewhere: tax or ID document number, up to 50 letters, digits or `-` | Not allowed |
+| `FWI` | Freelancer | `IT` only | Italian VAT number, 11 digits | Required |
+| `COM` | Company or one-person company | `IT` only | Italian VAT number, 11 digits | Required |
+| `NPO` | Non-profit organization | `IT` only | Italian VAT number, 11 digits | Required |
+| `POI` | Public organization | `IT` only | Italian VAT number, 11 digits | Required |
+| `OSI` | Other subjects | `IT` only | Italian VAT number, 11 digits | Required |
+| `FOR` | Company in the EEA, Switzerland or Vatican, outside Italy | That country, not `IT` | VAT number in that country's format | Required |
+
+The country follows the entity type — when the user's country does not fit the type, tell them which
+countries the type allows and ask again (or pick another type).
+
+**`.com.au` eligibility:**
+
+- `policyReason`: `CLS` — the domain is closely and substantially connected to the business (default); `EXC` — the
+  domain is an exact match, abbreviation or acronym of the business or trademark name.
+- `eligibilityType` — what the registrant is: `COM` registered company · `PRT` partnership · `STR` sole trader ·
+  `TRO` trademark owner · `PTO` pending trademark owner · `CWE` Commonwealth entity · `GVB` government body ·
+  `INA` incorporated association · `TRS` trust · `STB` statutory body · `TRC` trading cooperative ·
+  `RBU` registered business.
+- `eligibilityIdType` + `eligibilityId` — `ABN` (11 digits) or `ACN` (9 digits). A `STR` or `PRT` registrant can only use
+  `ABN`. Spaces are ignored; the number must pass the ABN / ACN check digit — a number that does not is
+  rejected, so ask the user to re-read it from their ABN or ACN certificate.
+- `registrantName` — the registered business name, up to 128 characters.
+
+**`.com.br`:** `identificationNumber` is a **CPF** (individual, 11 digits) or a **CNPJ** (company, 14 digits),
+digits only, passing the CPF / CNPJ check digits. Ask which one the registrant is. A CPF registrant must
+also give `dateOfBirth` as `YYYY-MM-DD` (after 1900, in the past); a CNPJ registrant does not.
+
+**`.es`:**
+
+- `idType`: `NIF` (Spanish tax ID) · `NIE` (foreigner ID) · `OTHER` (default, any other ID).
+- `govId`, trimmed and upper-case: `NIF` for an individual — DNI, 8 digits + a control letter; `NIF` for a
+  business — CIF, a letter + 7 digits + a control character; `NIE` — `X`, `Y` or `Z` + 7 digits + a control
+  letter; `OTHER` — 1–20 letters or digits.
+- A business registrant also gives the company name (2–64 characters) as the registrant `company`.
+
+**`.us`:**
+
+- `nexusCategory` — the registrant's tie to the United States: `C11` US citizen · `C12` permanent resident ·
+  `C21` US organization · `C31` foreign organization that regularly does business in the US ·
+  `C32` foreign organization with an office or facility in the US.
+- `usAppPurpose` — `P1` business use for profit · `P2` non-profit business or organization · `P3` personal use ·
+  `P4` educational purposes · `P5` government purposes.
+- `nexusValidator` — **only for `C31` and `C32`**: the 2-letter code of the registrant's country, which must not be `US`.
+
+**`.co.il` / `.org.il`:** `registrantType` is `INDIVIDUAL` (default) or `ORGANIZATION`. An `ORGANIZATION` registrant also gives
+the company name as the registrant `company` (3–100 characters, Latin letters and digits, **at least two words**) and
+`registrationNumber`: the 9-digit company number, starting with `5`, passing the Israeli company-number
+check digit.
+
+### P4.5 TLD data in the save
+
+For the TLDs marked "Needs `tldData`" in §P4.4, §P5 carries the answers in `domainRegistrationIntent.tldData`.
+`tldType` is the TLD in upper case with `.` → `_` (`CA`, `IT`, `COM_AU`, `COM_BR`, `ES`, `US`, `CO_IL`,
+`ORG_IL`); the options object is named after it:
+
+| `tldType` | Options object | Fields |
+|-----------|----------------|--------|
+| `CA` | `caOptions` | `legalType: {"value": "CCT"}` |
+| `IT` | `itOptions` | `entityType: {"value": "ITR"}`, `regCode` (leave out when there is none) |
+| `COM_AU` | `comAuOptions` | `policyReason: {"value": "CLS"}`, `eligibilityType: {"value": "COM"}`, `eligibilityIdType: {"value": "ABN"}`, `eligibilityId`, `registrantName` |
+| `COM_BR` | `comBrOptions` | `identificationNumber`, `dateOfBirth` (CPF only) |
+| `ES` | `esOptions` | `idType`, `govId` |
+| `US` | `usOptions` | `nexusCategory`, `usAppPurpose`, `nexusValidator` (`C31` / `C32` only) |
+| `CO_IL` | `coIlOptions` | `registrantType`, `registrationNumber` (`ORGANIZATION` only) |
+| `ORG_IL` | `orgIlOptions` | same as `coIlOptions` |
+
+Value fields of `CA`, `IT` and `COM_AU` use the wrapper `{"value": "…"}`; the others take a plain string. A `.ca` save, in full:
+
+```json
+{
+  "domainRegistrationIntent": {
+    "domain": "{domain}",
+    "sessionId": "<uuid>",
+    "registrantContact": { "firstName": "...", "lastName": "...", "email": "...", "phone": "+1.4165550123",
+                           "streetAddress": "...", "city": "...", "subdivision": "CA-ON", "country": "CA", "postalCode": "M5J 1E6" },
+    "adminContact":  { ...same as registrant... },
+    "techContact":   { ...same as registrant... },
+    "tldData": { "tldType": "CA", "caOptions": { "legalType": { "value": "CCT" } } }
+  }
+}
+```
+
+The preview call in §P4 returns the same `tldData` under `domainRegistrationIntent.tldData` for a domain whose
+details are already on file — reuse it instead of asking again.
+
 ---
 
 ## P5. Save Contacts (US-29)
@@ -537,8 +695,10 @@ Portland, US, 97201") — parse it, do not make them re-enter field by field.
 Do this immediately once contacts are confirmed or collected — before asking about privacy — so
 validation problems surface while the user is still thinking about their details.
 
-Generate a random UUID as `sessionId` (`wsess`). It links the contacts to the cart; keep it, §P8
-needs the same value.
+Generate a random UUID v4 and use it as `sessionId`, in its plain 8-4-4-4-12 hex form with nothing added
+before or after it — the save rejects anything else (`sessionId is not a valid GUID`). `wsess` is only
+the name §P8 gives this same value in the cart metadata; it is not part of the value. The `sessionId`
+links the contacts to the cart; keep it, §P8 needs the same value.
 
 ```
 POST https://manage.wix.com/v1/domain-registration-intents/upsert
@@ -548,7 +708,7 @@ POST https://manage.wix.com/v1/domain-registration-intents/upsert
 {
   "domainRegistrationIntent": {
     "domain": "{domain}",
-    "sessionId": "<wsess>",
+    "sessionId": "<uuid>",
     "registrantContact": {
       "firstName": "...", "lastName": "...", "email": "...", "phone": "...",
       "streetAddress": "...", "city": "...", "country": "...", "postalCode": "..."
@@ -560,6 +720,9 @@ POST https://manage.wix.com/v1/domain-registration-intents/upsert
 ```
 
 Use the same contact for registrant, admin and tech — standard for individual registrations.
+**`.de` — send `registrantContact` only. `.com.au` — send `registrantContact` and `techContact` only.**
+Leave out `adminContact` (and, for `.de`, `techContact`) for those two TLDs. Add `company` and `subdivision` to a contact when §P4.3 calls for them. Add `tldData` **only** for a TLD
+marked "Needs `tldData`" in §P4.4 (shape in §P4.5) — leave it out for every other TLD.
 
 ### Validation errors (US-29)
 
@@ -570,9 +733,9 @@ path, or a code.
 >
 > - **Email** — doesn't look like a valid email address
 
-Take the correction, retry the upsert, and carry on. Some TLDs need extra fields — `.com.br` an
-identification number, `.it` an entity type. If the error is about a TLD-specific requirement,
-explain what is needed and ask for it.
+Take the correction, retry the upsert, and carry on. If the error is about a TLD-specific
+requirement, explain what is needed from §P4.4 and ask for it. A name, address or city the registry
+rejects for its characters is a §P4.3 Latin-characters problem — ask for the Latin spelling.
 
 On success, go to §P6.
 
@@ -720,13 +883,13 @@ Three calls, in order, **silently**:
       "productInfo": { "productId": "<products[0].productId from §P3>",
                        "productTypeId": "72af0602-1321-4897-8299-f507480b2bb8" },
       "cycle": { "cycleDuration": { "count": <years>, "unit": "YEAR" }, "cycleType": "RECURRING" },
-      "metadata": { "domainName": "{domain}", "wsess": "<wsess from §P5>", "core": "true" }
+      "metadata": { "domainName": "{domain}", "wsess": "<the sessionId from §P5>", "core": "true" }
     },
     {
       "productInfo": { "productId": "<addon product ID from §P6>",
                        "productTypeId": "b3d86a1d-9db3-4f69-bd54-c132808856b1" },
       "cycle": { "cycleDuration": { "count": <years>, "unit": "YEAR" }, "cycleType": "RECURRING" },
-      "metadata": { "domainName": "{domain}", "wsess": "<wsess from §P5>" }
+      "metadata": { "domainName": "{domain}", "wsess": "<the sessionId from §P5>" }
     }
   ]
 }
@@ -845,6 +1008,11 @@ The user's only remaining step is payment; say nothing more.
   the same period again — `/yr` belongs on a 1-year term and nowhere else (§P3, §P6, §P9).
 - Mention a sale that `getPremiumSale` did not report.
 - Skip the contact confirmation in §P4.1 because the details "look right".
+- **Save contacts without checking them against §P4.3 and the domain's TLD row in §P4.4**, or guess a
+  TLD-specific value (VAT number, CPF, ABN, nexus category) the user did not give.
+- **Send non-Latin characters in a name, company, street or city**, or an enum code (`C31`, `ITR`) in
+  anything the user reads.
+- Continue past a TLD terms checkbox (`.ca`, `.it`, `.es`) without an explicit yes.
 - Continue to §P3 after the user accepted a bundle link — that is the end of the flow.
 - Put `msid` on a standalone checkout link, or leave it off when a Premium site is attached.
 - Re-check availability for a domain that came from the suggest endpoint.
@@ -858,7 +1026,7 @@ The user's only remaining step is payment; say nothing more.
   Fixed wording, and never a currency name or a conversion (§R10).
 - Show what the domain renews at wherever its price appears — the period table (§P3) **and** the
   pre-checkout summary (§P9). Same two figures, fetched once.
-- Reuse the same `wsess` across the intent save and both cart line items.
+- Reuse the same `sessionId` across the intent save and, as `wsess`, both cart line items.
 - Keep `siteId` from §P1 through §P9.
 
 ---
@@ -1140,7 +1308,9 @@ Extract the TLD greedily from the right: `site.co.uk` → `.co.uk`, not `.uk`.
 
 ### Silent retry (US-37)
 
-Any failed call: **retry once, silently.** Say nothing to the user, before or after. Do not narrate
+A call that failed for a transient reason (a `5xx`, a timeout): **retry once, silently.** A `400` is not
+transient — the same body fails again, so fix what the error names and send the corrected body (§P5).
+Say nothing to the user, before or after. Do not narrate
 "let me try that again", do not mention that anything failed. If the retry succeeds, continue as if
 nothing happened.
 
@@ -1160,7 +1330,7 @@ The fallback link appears at stage 2, not stage 1. Do not skip stage 1.
 | `DOMAINS_UNSUPPORTED_TLD` | Not an error to the user — a branch. See §S4. |
 | `403` / `access_denied` on domain-search v2 | You added auth to a public endpoint. Remove all headers and retry. |
 | Offering returns no products | *"Wix doesn't support purchasing this TLD. Try a different extension like .com, .net, or .org."* |
-| Intent upsert validation error | Show which fields are wrong, ask for corrections, retry. See §P5. |
+| Intent upsert validation error | A field the user gave is wrong → show which, ask for the correction, retry. A value you generated is wrong (`sessionId` is not a valid GUID) → fix it silently and retry once. See §P5. |
 | Cart `add-items` fails | Confirm `productId` came from the offering response, not hardcoded. Retry once. |
 | Anything else, persistent | Escalation ladder above. |
 
