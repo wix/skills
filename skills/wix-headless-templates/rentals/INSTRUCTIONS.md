@@ -273,9 +273,8 @@ New Service" wizard. Never send the owner there for their rentals.
 Completing a rental online — free rentals included — needs a payment method on the site ("manual
 payments" is enough for free and pay-in-person); taking real online payments also needs a premium
 plan. Until then `rent()` surfaces "the site cannot take online bookings yet" and hosted checkout says
-"We can't accept online payments." Hand both links above in the close; don't treat it as a code failure. Resources are seeded bookable around the clock;
-opening hours per resource are dashboard work (and split a multi-day rental into one booking per
-day) — say so.
+"We can't accept online payments." Hand both links above in the close; don't treat it as a code failure. Rental resources have no working hours:
+they're bookable around the clock, and a multi-day rental is always one booking.
 
 ## Seeding
 
