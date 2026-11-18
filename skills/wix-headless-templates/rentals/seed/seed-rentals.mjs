@@ -5,7 +5,7 @@
 //
 // It mints its own site token via the Wix CLI, installs the Wix Rentals app if needed, creates the
 // resource types (idempotent by name) and their resources (idempotent by name within a type; no
-// working hours = bookable 24/7, which keeps a multi-day rental to ONE booking), creates the rental
+// working hours: rental resources are bookable 24/7), creates the rental
 // services ONE AT A TIME with the five values that make a Bookings service a rental (the Rentals
 // app id, serviceResources + primaryResourceType, the Rentals form, a duration range), re-reads the
 // first one to confirm the range landed, and imports+attaches images. Prints a JSON result to stdout.
@@ -147,8 +147,8 @@ export async function queryResources(ctx, typeId) {
   return (r.resources ?? []).map((x) => ({ id: x.id, name: x.name, typeId: x.typeId ?? typeId }));
 }
 
-// Resources of one type by name — idempotent. No workingHoursSchedules: bookable 24/7, so a multi-day
-// daily rental stays ONE booking (working hours split it into one booking per day — dashboard work).
+// Resources of one type by name — idempotent. No workingHoursSchedules: rental resources have no working
+// hours and are bookable 24/7.
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/bookings/resources/resources-v2/create-resource.md
 export async function createResources(ctx, typeId, names) {
   const byName = new Map((await queryResources(ctx, typeId)).map((x) => [x.name, x]));

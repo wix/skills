@@ -40,8 +40,8 @@ machine — uploaded to Wix Media) or `imageUrl` (their own hosted URL; verify i
 
 - `resourceTypes` — the kinds of things rented (`name`, max 40 characters, unique per site) and
   the individual units in each (`resources`, by name). Two resources in a type mean two customers
-  can rent in parallel. Resources are created **without working hours**: bookable around the
-  clock, which keeps a multi-day rental to one booking. Opening hours are dashboard work — say so.
+  can rent in parallel. Resources are created **without working hours**: rental resources are
+  bookable around the clock.
 - `rentals` — one entry per rental service. `resourceType` names the type it rents from (every
   resource of that type unless `resources` narrows it). **The rate lives on the service**, so
   resources that rent at different prices are separate rentals sharing a type.

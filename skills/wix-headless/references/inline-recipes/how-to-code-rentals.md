@@ -129,18 +129,9 @@ const { timeSlots } = await availabilityTimeSlots.listAvailabilityTimeSlots({
 
 After the customer picks a start date, **iterate forward through the returned list and stop at the first gap, or when you hit the service's `maxDurationInDays`.** Those are the selectable end dates. A naive "start + max days" range will offer dates across a gap and then fail at booking time.
 
-**How a daily rental is stored depends on the resource's working hours — and it changes which call you make:**
+A daily rental is **one** booking spanning the whole range, created with `createBooking`. Set the boundaries to midnight-to-midnight: `startDate` = midnight on the first day, `endDate` = **midnight on the day after the last day**. A Monday–Wednesday inclusive rental ends at midnight on **Thursday**. **⚠️ Wix derives `allDay` itself — do not set it.**
 
-| Resource | Stored as | Booking call |
-|---|---|---|
-| **24/7** (no working-hours schedule) — the `setup-rentals.md` default | **one** booking spanning the whole range | `createBooking` |
-| **Has working hours** | a **linked group**, one booking per working day (2–8) | `createMultiServiceBooking` with `multiServiceBookingType: 'SEQUENTIAL_BOOKINGS'` |
-
-For the **24/7** case, set the boundaries to midnight-to-midnight: `startDate` = midnight on the first day, `endDate` = **midnight on the day after the last day**. A Monday–Wednesday inclusive rental ends at midnight on **Thursday**. **⚠️ Wix derives `allDay` itself — do not set it.**
-
-For the **working-hours** case, build one booking per day with that day's own working-period start and end (e.g. 09:00 → 18:00), and send them together. The group is created **all or nothing**: any unavailable or non-consecutive day fails the whole call.
-
-Docs: <https://dev.wix.com/docs/api-reference/business-solutions/rentals/about-wix-rentals-availability.md> · <https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/bookings-writer-v2/create-multi-service-booking.md?apiView=SDK>
+Docs: <https://dev.wix.com/docs/api-reference/business-solutions/rentals/about-wix-rentals-availability.md>
 
 ---
 
@@ -231,8 +222,7 @@ Everything else about the three-step item-page SEO wiring (`wixMetadata` export 
 
 **Cancellation.** A logged-in member can cancel their own rental:
 
-- A **single** rental (hourly, or daily on a 24/7 resource) cancels with `cancelBooking` and its current `revision`.
-- A **multi-day group** (daily on a working-hours resource) cancels with `cancelMultiServiceBooking` and the group's **`multiServiceBookingInfo.id`**, read back off any booking in the group.
+- A rental, hourly or daily, is a single booking. Cancel it with `cancelBooking` and its current `revision`.
 
 **⚠️ Read the booking back with `queryExtendedBookings`, filtered on the rentals `appId`.** Without an `appId` (or `createdByAppId`) filter of your own, the query applies a default one that covers Bookings but **not** rentals, and returns **0** results — a rentals booking that exists looks like it doesn't. Naming `appId` in the filter suppresses that default:
 
@@ -247,7 +237,7 @@ Refunds are the eCommerce Orders API, not Bookings. Also out of scope, as in boo
 - Rentals is **`@wix/bookings`** — there is no `@wix/rentals`, and its absence is not a missing capability.
 - **Every catalog read filters on the rentals `appId`**, or a mixed site shows the wrong services.
 - **Hourly** = two availability calls (start → `timeSlots`, then end options → **`endOptions`**, hourly-only, `location` required, `serviceId` positional). **Daily** = one call with `timeSlotsPerDay: 1`, then walk consecutive days client-side.
-- **Daily storage follows the resource:** 24/7 → one booking (midnight to midnight-after, never set `allDay`); working hours → a sequential multi-service group whose id you must persist yourself.
+- **A daily rental is one booking:** midnight to midnight-after, never set `allDay`.
 - **Price preview needs both local dates and the time zone**, or it silently returns a duration-blind price.
 - Booking, cart, checkout and confirmation are the **bookings** flow, with the rentals app id on the cart's `catalogReference` — **except** the anonymous-token confirmation step, which rentals must skip entirely (§5).
 - **The slot's location id must be read defensively** as `.location.id ?? .location._id` — the SDK type says `_id`, but the field stays `.id` on the wire.

@@ -79,9 +79,8 @@ Keep each resource's returned **`id`** — it's needed for attributes (STEP 5) a
 
 **A resource's `typeId` binds it to its type; the service binds to the type.** STEP 4's `serviceResources` names the resource *type*; the service then books any resource of it, unless it also lists `resourceIds`, which limits it to those. A resource added later joins a service that lists no ids on its own; for a service that lists them, add its id to `resourceIds`.
 
-- **⚠️ Omit `workingHoursSchedules` — this is the deliberate seed default and it matters downstream.** ([Why, in detail](https://dev.wix.com/docs/api-reference/business-solutions/rentals/about-wix-rentals-availability.md#resource-schedules).) A resource with **no** working-hours schedule is bookable **24/7**. That keeps the seed to a single call per resource, *and* it makes a multi-day daily rental store as **one booking** rather than a linked group of per-day bookings. A resource **with** working hours splits every multi-day rental into one booking per working day, created through Create Multi Service Booking — a materially harder frontend flow (`how-to-code-rentals.md` § "Daily availability"). Seed 24/7 unless the request explicitly needs opening hours; the merchant can add hours from the dashboard later.
-- **Working hours, when the request genuinely needs them,** are a Schedules V3 schedule referenced by `workingHoursSchedules.scheduleId` — created separately, then attached. It is out of scope for a seed; note it in the handoff instead. Reference: <https://dev.wix.com/docs/api-reference/business-solutions/bookings/resources/resources-v2/create-resource.md>
-- **Locations** — `locationOptions.specificLocationOptions` binds a resource to business locations. Omit it for a single-location site (the default). When both `workingHoursSchedules` and `locationOptions` are set, **`workingHoursSchedules` takes precedence**.
+- **⚠️ Omit `workingHoursSchedules`.** ([Why, in detail](https://dev.wix.com/docs/api-reference/business-solutions/rentals/about-wix-rentals-availability.md#resource-schedules).) Rental resources have no working hours: they're bookable **24/7**, and a multi-day daily rental is always **one booking**.
+- **Locations** — `locationOptions.specificLocationOptions` binds a resource to business locations. Omit it for a single-location site (the default).
 
 ### STEP 3: No category — rental services don't use categories
 
@@ -250,5 +249,5 @@ Following these steps **in order** sets up a Wix Rentals site:
 - Every service carries **`form.id`** = the Rentals default booking form constant, so it uses the rentals form rather than the standard Bookings one.
 - Every service carries a **`durationRange`** with a single `unitType` and its matching `hourOptions`/`dayOptions` — never alongside `sessionDurations`.
 - **No category** is set — rental services don't use categories, and the bookings visibility rule doesn't apply to them. They are surfaced by the `appId`-filtered catalog read.
-- Resources are seeded **24/7** (no working-hours schedule), which keeps a multi-day daily rental to a single booking.
+- Resources are seeded **24/7** (no working-hours schedule), because rental resources have no working hours.
 - IDs kept for the coding handoff: `resourceTypeIds[]`, `resourceIds[]`, `serviceIds[]`, service `slug`s (`mainSlug.name`), and any `attributeDefinitionIds[]`.
