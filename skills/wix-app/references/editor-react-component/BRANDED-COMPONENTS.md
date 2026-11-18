@@ -7,7 +7,7 @@ layout, scale, shape and imagery. `VISUAL-QUALITY.md` applies.
 ## Styling Scope
 
 - Requested colors/fonts win only on the named elements; theme the rest.
-  "Red buttons" get a red fill and keep the theme button. Keep contrast.
+  "Red buttons" get a red fill and keep the theme button.
 - Unless theming is requested, supplied code keeps its palette, and so does
   a Character-led component (below).
 - Edits keep existing styling unless asked to change it.
@@ -102,7 +102,7 @@ with `@value`; consume with `var()`.
 
 ## Example
 
-Use theme tokens directly. Keep named-part editor styling controls; add no universal color-picker preset or extension overrides.
+Use theme tokens directly. Keep named-part styling controls; no universal color-picker preset or extension overrides but the play/pause trim.
 
 ```css
 @value wst-primary-background-color, wst-paragraph-1-color, wst-button-primary-background-color, wst-box-primary-background-color, wst-box-primary-background-image, wst-box-primary-box-shadow, wst-box-primary-border-top-left-radius, wst-box-primary-border-top-right-radius, wst-box-primary-border-bottom-right-radius, wst-box-primary-border-bottom-left-radius, wst-heading-6-font, wst-heading-6-color, wst-heading-6-letter-spacing, wst-heading-6-text-decoration, wst-paragraph-2-font, wst-paragraph-2-color, wst-paragraph-2-letter-spacing, wst-paragraph-2-text-decoration, wst-button-secondary-font, wst-button-secondary-color, wst-button-secondary-background-color, wst-button-secondary-background-image, wst-button-secondary-box-shadow, wst-button-secondary-text-transform, wst-button-secondary-letter-spacing, wst-button-secondary-border-top-width, wst-button-secondary-border-right-width, wst-button-secondary-border-bottom-width, wst-button-secondary-border-left-width, wst-button-secondary-border-top-style, wst-button-secondary-border-right-style, wst-button-secondary-border-bottom-style, wst-button-secondary-border-left-style, wst-button-secondary-border-top-color, wst-button-secondary-border-right-color, wst-button-secondary-border-bottom-color, wst-button-secondary-border-left-color, wst-button-secondary-border-top-left-radius, wst-button-secondary-border-top-right-radius, wst-button-secondary-border-bottom-right-radius, wst-button-secondary-border-bottom-left-radius from "@wix/react-component-schema/theme-variables.module.css";

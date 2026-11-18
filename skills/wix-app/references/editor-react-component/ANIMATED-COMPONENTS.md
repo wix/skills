@@ -1,9 +1,6 @@
 # Animated Components
 
-Use this reference when the component's primary content **auto-advances or plays**
-— a slideshow/carousel/slider; a Lottie/JSON animation; an animated GIF/SVG, a canvas/WebGL loop, a video-like surface; or similar content a visitor should be able to start or stop.
-
-Every such component must ship an on-stage **play/pause button**.
+Content that **auto-advances or plays** must ship an on-stage **play/pause button**.
 
 ## Apply When
 
@@ -15,29 +12,24 @@ Apply whenever the component has `autoPlay` or startable/loopable primary conten
 - Canvas / WebGL animation loops (also follow `CANVAS-COMPONENTS.md`)
 - Any video-like playing surface
 
-**Key rule:** If the component accepts an `autoPlay` prop — even if the
-underlying mechanism is a `setInterval` advancing an index rather than a media
-player, it must expose a play/pause button so visitors can stop the
-auto-advancing behavior. "Autoplay" is a behavior contract, not an
-implementation detail.
+**Key rule:** an `autoPlay` prop requires a play/pause button, even when it only
+advances an index on a `setInterval`.
 
 ## Required Contract
 
-1. **Props** — for a new component, use `autoPlay` when it can start
-   automatically, `loop` only when repeat behavior is supported, and
-   `pauseButtonVisibility` (default `'showOnHover'`) for the on-stage control.
-   When editing, preserve existing playback prop names and add only the
-   missing safety contract.
-   Carousels, sliders, slideshows, and galleries **must** define `autoPlay`
-   (default `true`).
+1. **Props** — `autoPlay` when it can start automatically (carousels, sliders,
+   slideshows and galleries **must** define it, default `true`), `loop` only when
+   repeat is supported, and `pauseButtonVisibility` (default `'showOnHover'`).
+   When editing, keep existing playback prop names and add only what is missing.
 2. **Playback state** — play/pause toggle state, derived `isPlaying`, and
    `handlePause` / `handleResume`
 3. **Play/pause button** — icon-only `<button>` over the playing content, apart
    from other controls; SVG using `--icon-size`/`--icon-color`; it must be a
    named part with `elementProps` wiring, a hover design state, and a
    standalone `:focus-visible` keyboard indicator
-4. **Modify `component.preview.tsx`** — suppress autoplay in editor design mode
-5. **Respect `prefers-reduced-motion`** — start paused when the OS requests reduced motion
+4. **Remove the button's size and justify controls** in the extension
+5. **Modify `component.preview.tsx`** — suppress autoplay in editor design mode
+6. **Respect `prefers-reduced-motion`** — start paused when the OS requests reduced motion
 
 ### Announce Manually Selected Parallel Content
 
@@ -53,9 +45,8 @@ wrapper a live region:
 
 ## 1. Define Props
 
-Playback controls are behavior props. `pauseButtonVisibility` is the documented
-exception to the usual visual-visibility rule because editor preview must be
-able to force the safety control visible.
+Playback controls are behavior props; `pauseButtonVisibility` is one by exception,
+so the preview can force the safety control visible.
 
 ```typescript
 import type { A11y, Direction } from '@wix/editor-react-types';
@@ -86,8 +77,6 @@ export const defaultProps = {
 } as const;
 ```
 
-Omit `loop` when repeat is unsupported.
-
 ### Lottie / JSON source
 
 For Lottie, `animationUrl?: string` is a JSON URL, not `VectorArt` (SVG).
@@ -97,12 +86,10 @@ otherwise add it as a runtime dependency. Import `lottie` and
 `type AnimationItem` from it. In an effect, call
 `lottie.loadAnimation({ container, renderer: 'svg', path: animationUrl,
 loop, autoplay: false })`; keep the item in a ref, destroy it on cleanup,
-and use `play()` / `pause()` when `isPlaying` changes. Browser work belongs in
-effects. Preserve supplied or existing animations. For a new component needing
+and use `play()` / `pause()` when `isPlaying` changes. Preserve supplied or existing animations. For a new component needing
 a generic default, copy
 `<SKILL_ROOT>/scripts/default-animation.json` into the component
-and import it with `?url` as `defaultProps.animationUrl`. Verify rendering and
-playback.
+and import it with `?url` as `defaultProps.animationUrl`.
 
 ## 2. Manage Playback State
 
@@ -130,20 +117,19 @@ const handlePause = () => setIsPlayOn(false);
 const handleResume = () => setIsPlayOn(true);
 ```
 
-`reducedMotion` is runtime-only. Pause when the OS turns reduced motion on, but
-do not restart when it turns off. Resume can still override the preference.
+`reducedMotion` is runtime-only: pause when it turns on, never restart when it
+turns off; Resume still overrides it.
 
-Derive runtime playback from `isPlayOn` plus only needed conditions. Without
-another condition, use `const isPlaying = isPlayOn`. A carousel, slideshow,
-slider, or gallery also uses hover and focus state:
+Derive `isPlaying` from `isPlayOn` plus only needed conditions (otherwise
+`const isPlaying = isPlayOn`). A carousel, slideshow, slider or gallery adds hover and focus:
 
 ```tsx
 const isPlaying = isPlayOn && !isHovered && !isFocusWithin;
 ```
 
 Pass `isPlaying` to the renderer. In CSS, put it in the `animation` shorthand,
-never in `animationPlayState`. The button uses `isPlayOn` and toggles between
-`handlePause` / `handleResume` on click.
+never in `animationPlayState`. The button toggles `isPlayOn` with
+`handlePause` / `handleResume`.
 
 ## 3. Add the Play/Pause Button
 
@@ -187,7 +173,7 @@ Position it absolutely inside the playing content, not a controls row:
 }
 ```
 
-Define stable system-owned labels outside JSX:
+Labels live outside JSX:
 
 ```ts
 // constants.ts
@@ -197,8 +183,7 @@ export const ARIA_LABELS = {
 } as const;
 ```
 
-Set the visibility data attribute on the existing elected root, preserving its
-full root contract:
+Set the visibility attribute on the elected root, keeping its root contract:
 
 ```tsx
 data-pause-button-visibility={pauseButtonVisibility}
@@ -225,8 +210,7 @@ Wire the named part completely:
 ```
 
 ```css
-/* Narrow behavior-only exception documented in CSS-GUIDELINES.md. Keep editable
-   appearance on .playButton and use this relationship only for visibility. */
+/* Visibility only (CSS-GUIDELINES.md exception); editable styling stays on .playButton. */
 
 /* showOnHover (default) */
 .root[data-pause-button-visibility="showOnHover"] .playButton {
@@ -239,25 +223,40 @@ Wire the named part completely:
   opacity: 1;
   pointer-events: auto;
 }
-
-/* showAlways — no extra CSS needed */
 ```
 
-## 4. Suppress Autoplay in `component.preview.tsx`
+## 4. Remove the Button's Size Controls
 
-The Wix CLI scaffold generates `component.preview.tsx`. Read the file first,
-then edit only the body of the existing preview component. Do not overwrite
-the file from scratch.
+Generation gives every `<button>` part size, blend-mode, margin and (under flex
+or grid) justify controls. Add this above `editorElementWithDefaults` in
+`<component-name>.extension.ts`, keyed by its `elementProps` key:
 
-### Edit the generated `component.preview.tsx`
+```ts
+const sizedByIcon = (parts: Record<string, ElementItem>): Record<string, ElementItem> => Object.fromEntries(Object.entries(parts).map(([key, part]) => {
+  const inline = part.inlineElement;
+  if (!inline) return [key, part];
+  let { cssProperties: css, elements } = inline;
+  if (key === 'myAnimationPlayButton' && css) {
+    const { width, height, mixBlendMode, marginTop, marginBottom, marginInlineStart, marginInlineEnd,
+      justifyContent, ...kept } = css;
+    css = kept;
+  }
+  return [key, { ...part, inlineElement: { ...inline, cssProperties: css, elements: elements && sizedByIcon(elements) } }];
+}));
+const withPlayButtonSizedByIcon = <E extends EditorElement>(element: E): E =>
+  element.elements ? { ...element, elements: sizedByIcon(element.elements) } : element;
+```
 
-Add `useIsEditMode` to the existing `@wix/react-component-utils` import. Then
-edit only the body of the existing `ComponentNamePreview` function — add the
-`isEditMode` check and gate the autoplay props. Do not touch the
-`withFallbackPlaceholder` call, the `withDefaults` export, or any other part
-of the file. The composition must keep `withDefaults` outside
-`withFallbackPlaceholder`, whether the calls are nested inline or assigned to
-component variables.
+Wrap the declaration: `withPlayButtonSizedByIcon(withEditorElementDefaults(editorElement, defaultProps))`,
+importing `type EditorElement` and `type ElementItem` from `@wix/react-component-schema` if missing.
+Then check `*.generated.ts` has that key at any depth under `elements`; a typo trims nothing.
+
+## 5. Suppress Autoplay in `component.preview.tsx`
+
+Read the scaffolded `component.preview.tsx`; never rewrite it. Add `useIsEditMode`
+to its `@wix/react-component-utils` import and change only the body of
+`ComponentNamePreview`. Leave `withFallbackPlaceholder` and the `withDefaults`
+export as they are; `withDefaults` stays outside `withFallbackPlaceholder`.
 
 ```tsx
 const ComponentNamePreview: FC<ComponentProps<typeof Component>> = (props) => {
@@ -272,11 +271,8 @@ const ComponentNamePreview: FC<ComponentProps<typeof Component>> = (props) => {
 };
 ```
 
-Design mode stops autoplay and exposes the control; preview uses the user's values.
-
 ## Checklist
 
-- [ ] Autoplaying or loopable primary content has an on-stage play/pause control.
 - [ ] Autoplay and pause-control props use the documented contract; `loop` is
       present only when repeat behavior is supported.
 - [ ] Reduced motion starts paused and never restarts playback automatically.
@@ -284,6 +280,7 @@ Design mode stops autoplay and exposes the control; preview uses the user's valu
 - [ ] The play/pause button is a fully wired, icon-only named part with a stable accessible name.
 - [ ] Hover has a paired editor design state; `:focus-visible` remains a
       standalone keyboard indicator.
+- [ ] Section 4 removes the button's size and justify controls.
 - [ ] Hover-only visibility changes behavior, not the button's editable styling surface.
 - [ ] The preview exports the adapter with synchronized fallback metadata and
       disables autoplay in design mode.

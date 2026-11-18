@@ -91,8 +91,9 @@ no skim or grep. Unopened references fail.
 
 6. **Configure the editor extension.** For creation or a requested sizing,
    installation, or manifest change, apply `EDITOR-EXTENSION-CONFIGURATION.md`
-   to the extension; otherwise leave it unchanged. Synchronize preview
-   `requiredDataFields` and `rootClassName`.
+   to the extension; otherwise leave it unchanged (adding a play/pause button:
+   `ANIMATED-COMPONENTS.md` section 4). Sync preview `requiredDataFields` and
+   `rootClassName`.
 
 7. **Generate and validate.** Batch implementation edits, then build and
    generate the manifest once:
@@ -140,7 +141,7 @@ are leaves.
   direction-sensitive layout.
 - Deterministic render; no browser globals during render.
 - Baseline Widely Available CSS/DOM only, or fallbacks.
-- Accessibility per part, per [`ACCESSIBILITY.md`](editor-react-component/ACCESSIBILITY.md):
+- Accessibility per part, per `ACCESSIBILITY.md`:
   read only `a11y.ariaLabel`, and only for a control without a visible name;
   never spread the `a11y` object or add one-off ARIA props.
 - Named parts: global class, module class, and `elementProps` (root uses
@@ -156,7 +157,6 @@ are leaves.
 - No arrays inside array items; keep group fields flat (no object props).
 - Autoplay/loop: play/pause control, honor reduced motion, suppress autoplay in
   editor design mode.
-- Resizable layout: keep required content usable at 320px, per
-  [`OVERFLOW.md`](editor-react-component/OVERFLOW.md).
+- Resizable layout: keep required content usable at 320px, per `OVERFLOW.md`.
 - Preview: `withDefaults` outermost, one crucial data field, matching root
   class, per [`COMPONENT-PREVIEW.md`](editor-react-component/COMPONENT-PREVIEW.md).
