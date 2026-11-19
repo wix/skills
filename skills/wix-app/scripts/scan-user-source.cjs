@@ -30,7 +30,6 @@ const SOURCE_EXTENSIONS = new Set([
   '.svelte',
   '.json',
 ]);
-const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif', '.avif']);
 // Project and tool configuration that comes along in a zipped project; never content.
 const CONFIG_JSON = /^(?:package(?:-lock)?|tsconfig.*|jsconfig.*|.*\.config|\.?[\w-]*rc)\.json$/i;
 // Fields an owner edits as text, in a source list's items.
@@ -41,14 +40,6 @@ const PLATFORM_VARIABLE = /^--(wix|wst)-/;
 // Style properties the design panel edits; set inline, they win over the panel.
 const PANEL_STYLE_KEY =
   /\b(background|backgroundColor|color|fontFamily|fontSize|fontWeight|letterSpacing|lineHeight|borderColor|borderRadius|boxShadow)\s*:\s*([^,}]+)/g;
-// COMPONENT-CONTRACT.md's default image pool: stock photos for slots the user gave no image for.
-const DEFAULT_POOL = [
-  '11062b_2f97b87dcea2446fa48e9ad9c5457ae1~mv2',
-  '11062b_73f31c7e7d3544c69dc8ecd8d34c5717~mv2',
-  '11062b_3682ebfcb08e4da5b3168b62819a1e68~mv2',
-  '11062b_45e67783d39c4963ab9e4fc418173233~mv2',
-  '11062b_4c11f014b0d04948b2e6f554076bc40a~mv2',
-];
 // Read by the editor itself, not by the component.
 const SCAFFOLD_VARIABLES = new Set(['--display']);
 // Hooks, a React import, or JSX returned from a function. Markup inside strings
@@ -194,8 +185,6 @@ const OWNER_SENTENCES = {
   'dropped-source-option': (subject) =>
     `Some options the uploaded component had (such as ${subject}) aren’t in the settings panel yet.`,
   'image-without-uri': 'Some images can’t be replaced from the panel yet.',
-  'source-images-replaced-by-pool':
-    'The component shows stock photos instead of the images from your upload; you can replace them in the panel.',
   'inline-style-blocks-panel': 'Some colors and fonts can’t be changed from the design panel yet.',
   'logic-builds-elements':
     'Some parts of the component, like its labels and pop-ups, can’t be selected or styled in the editor yet.',
@@ -1013,37 +1002,6 @@ function scan({ componentDir, sources }) {
     );
   }
 
-  // Step 6: the source's own images (painted or linked) are the defaults, never the stock pool.
-  const PAINTS = /\.(?:toDataURL|toBlob)\s*\(|URL\.createObjectURL\s*\(/;
-  const sourceMarkup = sourceFiles
-    .filter((file) => !CODE_EXTENSIONS.has(extOf(file)) && extOf(file) !== '.json')
-    .map(read)
-    .join('\n');
-  const sourceText = `${sourceCode}\n${sourceMarkup}`;
-  // Images the source has: painted ones, attached image files, imported or `url()` files, and
-  // image URLs, also extensionless CDN links when they sit in a src, an image field or `url()`.
-  const sourceHasImages =
-    PAINTS.test(sourceCode) ||
-    (sources.length ? sources : [DEFAULT_SOURCE_DIR]).some(
-      (target) => listFiles(target, IMAGE_EXTENSIONS).length > 0,
-    ) ||
-    /https?:\/\/[^\s'"`)]+\.(?:png|jpe?g|webp|gif|avif)\b/i.test(sourceText) ||
-    /(?:\bfrom\s*|\brequire\(\s*|\burl\(\s*)['"]?[^'"()\s]+\.(?:png|jpe?g|webp|gif|avif)\b/i.test(
-      sourceText,
-    ) ||
-    /(?:\bsrc\s*[=:]\s*\{?\s*|\b(?:image|img|photo|picture|poster|thumbnail|backgroundImage)\s*:\s*|\burl\(\s*)['"`]?https?:\/\//i.test(
-      sourceText,
-    );
-  const poolDefaults = DEFAULT_POOL.filter((file) => propsText.includes(file));
-  if (sourceHasImages && poolDefaults.length) {
-    fail(
-      'source-images-replaced-by-pool',
-      relative(propsPath),
-      6,
-      `The source has its own images, but ${poolDefaults.length} default${poolDefaults.length > 1 ? 's come' : ' comes'} from the contract's stock pool. Upload the source's images (render the ones it paints with render-images.cjs) and use those as the defaults. If uploading or rendering one fails, keeping the pool image for it is fine: say so in your final message with the script's error.`,
-    );
-  }
-
   // Step 6: every Image default is a Wix Media file.
   for (const literal of propsText.match(/\{[^{}]*\burl\s*:[^{}]*\}/g) ?? []) {
     if (!/\buri\s*:\s*['"`][^'"`]+['"`]/.test(literal)) {
@@ -1051,13 +1009,14 @@ function scan({ componentDir, sources }) {
         'image-without-uri',
         relative(propsPath),
         6,
-        `This default has a url and no uri: ${literal.replace(/\s+/g, ' ').slice(0, 120)}. Upload it with upload-media.cjs and use the { uri, url } it prints.`,
+        `This default has a url and no uri: ${literal.replace(/\s+/g, ' ').slice(0, 120)}. Use the { uri, url } the upload-media tool returns for it, or a pool image from DEFAULT-IMAGES.md when you don't have the tool.`,
       );
     }
   }
 
   // Step 6: images the code generates become uploaded defaults too, also when the port
   // dropped the painter (a CSS gradient in its place): the source still paints them.
+  const PAINTS = /\.(?:toDataURL|toBlob)\s*\(|URL\.createObjectURL\s*\(/;
   const allCode = [...texts.values()].join('\n');
   const hasImageField = /\bImage\b/.test(propsText.replace(/import[^;]*;/g, ''));
   // A Wix Media file ID counts however it is written (`uri: '…'` or a helper like `image('…', alt)`).
@@ -1069,7 +1028,7 @@ function scan({ componentDir, sources }) {
       'generated-image-without-default',
       relative(propsPath),
       6,
-      `The ${PAINTS.test(allCode) ? 'code generates' : 'source paints'} its images at runtime (toDataURL, toBlob or createObjectURL), and no Image default has a uri, so the panel shows no images. Copy the painter from the source unchanged into the engine file and export it (step 1), render each default from there with render-images.cjs, upload the files with upload-media.cjs, and use the results as the Image defaults; keep the generator for items left without an image. Never replace the painter with CSS or a new drawing.`,
+      `The ${PAINTS.test(allCode) ? 'code generates' : 'source paints'} its images at runtime (toDataURL, toBlob or createObjectURL), and no Image default has a uri, so the panel shows no images. Copy the painter from the source unchanged into the engine file and export it (step 1), upload each default with the upload-media tool's render option, and use the results as the Image defaults (pool images from DEFAULT-IMAGES.md when you don't have the tool); keep the generator for items left without an image. Never replace the painter with CSS or a new drawing.`,
     );
   }
 

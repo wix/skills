@@ -19,10 +19,11 @@ files. Say which you chose in your final message.
 
 **For every kind of source, first:** before you write `props.ts`, upload every
 image the source has (image files and URLs in the code, images it paints,
-rendered in step 1, photos in a screenshot, attached images) with `upload-media.cjs` and use the
-results as the defaults (How to upload images). The contract's pool is only for
-a slot the source has no image for, or whose upload failed. In your final
-message, list each image's upload result.
+photos in a screenshot, attached images) with the `upload-media` tool and use
+the results as the defaults (How to upload images). The pool in
+`DEFAULT-IMAGES.md` is only for a slot the source has no image for, or whose
+upload failed. Without the tool, use the pool for every image. In your final
+message, list each image's upload result, or each image you replaced.
 
 ## Building from the user's code
 
@@ -46,12 +47,7 @@ to in this source (`DEFAULT_ITEMS` → `items` array prop, `accent` →
    `.jsx` file, or import or render it: the scaffold component replaces it.
    With no such logic, copy nothing.
    If the source paints images, export the painter and, before writing any
-   other file, render each default item's image and upload the renders:
-
-   ```bash
-   node <SKILL_ROOT>/scripts/render-images.cjs <engine-file> <export> '<json args>' …
-   node <SKILL_ROOT>/scripts/upload-media.cjs <each renders[].file>
-   ```
+   other file, upload each default item's image with the tool's `render`.
 2. **Lift what the owner edits out of the logic.**
    - Elements the logic builds (`createElement`, `innerHTML`, `appendChild`:
      hotspots, labels, slides) are rendered in JSX as named parts per
@@ -113,9 +109,9 @@ to in this source (`DEFAULT_ITEMS` → `items` array prop, `accent` →
    - Keep the libraries the source imports at its versions; if the app has
      another, install the source's under an npm alias
      (`three-128@npm:three@0.128.0`). Never change the code to fit a version.
-6. **Images:** every image the code uses, URLs included, is uploaded; never
-   keep the original URL or swap in a stock image. Keep the painter for items
-   added later.
+6. **Images:** never keep the original URL. Upload every image the code uses,
+   URLs included, with the tool; without it, use the pool. Keep the painter
+   for items added later.
 7. **Check before you validate.** Run it exactly as written, without quotes:
 
    ```bash
@@ -150,20 +146,16 @@ component around it.
 
 An `Image` default must be a Wix Media file with a `uri`
 (`COMPONENT-CONTRACT.md`); without it the editor rejects every save, so panel
-edits never reach the component. From the app root:
+edits never reach the component. Give the `upload-media` tool each image: a
+`source` (a file or an image URL) or a `render`. For a photo in a
+screenshot, add `crop` (`left,top,width,height` in % of the screenshot) at the
+photo's own edges, never in fixed tiles; look at each crop's `file` and redo
+any that cuts into a neighbor. Each result's `image` (`{ uri, url }`) is that
+slot's default; add `alt`. An SVG icon the owner should replace follows `VECTOR-ART.md` instead.
 
-```bash
-node <SKILL_ROOT>/scripts/upload-media.cjs --size <screenshot>
-node <SKILL_ROOT>/scripts/upload-media.cjs --crop 0,12%,25%,74% <screenshot> <photo.jpg> <https://image-url>
-```
-
-`--crop left,top,width,height` (pixels or %) applies to the next image; repeat
-it per photo. For a screenshot, run `--size` first, then crop each photo at its
-own edges, never in fixed tiles; look at each crop in `/tmp/user-images` and
-redo any that cuts into a neighbor. Each `uploads[].image` (`{ uri, url }`) is that slot's default; add
-`alt`. An SVG icon the owner should replace follows `VECTOR-ART.md` instead.
-
-Never use a stock or drawn substitute, a CSS gradient for a painted image, a
-`?url` file, the attachment's link, or the whole screenshot as an `Image`. Only when the script fails for an
-image (`uploads[].error` says why), use the contract's pool for that slot and
-say so in your final message.
+Never use a drawn substitute, a CSS gradient for a painted image, a `?url`
+file, the attachment's link, or the whole screenshot as an `Image`. With the
+tool, never use a stock image either: only when an image's result has an
+`error`, use the pool for that slot and say so in your final message. Without
+the tool, use a pool image for every slot, never the source's URL, and list
+each one you replaced in your final message.
