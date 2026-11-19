@@ -36,7 +36,7 @@ curl -X POST 'https://www.wixapis.com/_serverless/pa-google/v1/campaigns/{campai
 
 ## Update & change budget
 
-`PATCH /v1/campaigns/{id}` replaces the campaign with the entity you send: **send the entire campaign** as returned by `GET /v1/campaigns/{id}`, with only the fields you are changing different. The fields to update are inferred (`updateMask` is ignored) and omitted fields may be cleared, so a partial body can drop locations, languages, phone, assets or search themes. Budget is in **micros** (`20000000` = $20.00/day).
+`PATCH /v1/campaigns/{id}` replaces the campaign with the entity you send: the body is `{ "campaign": <the entire campaign returned by GET /v1/campaigns/{id}> }`, with only the fields you are changing different. Send no other key and leave `updateMask` out: as an array or `{ "paths": [...] }` it fails with `400` `Failed to parse request message`, and campaign fields at the top level, outside `campaign`, are refused. The fields to update are inferred and omitted fields may be cleared, so a partial body can drop locations, languages, phone, assets or search themes. Budget is in **micros** (`20000000` = $20.00/day).
 
 ```bash
 curl -X PATCH 'https://www.wixapis.com/_serverless/pa-google/v1/campaigns/{campaignId}' -H 'Authorization: <AUTH>' -H 'Content-Type: application/json' \
