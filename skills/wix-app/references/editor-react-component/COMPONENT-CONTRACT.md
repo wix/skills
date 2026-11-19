@@ -204,7 +204,7 @@ root and nested `a11y` fields. Both `component.tsx` and the extension consume
 this object; never duplicate them in destructuring or JSX.
 
 All rendered media must come from Wix-hosted services, local assets, or props.
-No external hosts (upload user images). Third-party runtime packages must
+No external hosts (upload user images, or use the pool without the `upload-media` tool). Third-party runtime packages must
 be imported by the user's code.
 
 For `Image` defaults, populate only `uri`, `url`, and `alt`; the editor fills
@@ -225,7 +225,8 @@ Use distinct defaults per slot until the pool runs out, then repeat as
 hardcodes a second one.
 
 Use the pool in `DEFAULT-IMAGES.md` only when the source has no image for
-a slot or its upload failed (`USER-SOURCES.md`).
+a slot, its upload failed, or you don't have the `upload-media` tool
+(`USER-SOURCES.md`).
 
 For `Video` defaults, use the pool in `DEFAULT-VIDEOS.md` the same way.
 
