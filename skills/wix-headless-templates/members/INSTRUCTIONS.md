@@ -131,7 +131,7 @@ as static HTML and never hydrate — the view stays on its loading placeholder f
 import SiteLayout from "../layouts/SiteLayout.astro";
 import LoginForm from "../components/members/LoginForm";
 ---
-<SiteLayout title="Log in">
+<SiteLayout>
   <section class="mx-auto max-w-md">  {/* one narrow column: the form is the page */}
     <h1 class="mb-6 text-2xl font-semibold">Welcome</h1>
     <LoginForm client:only="react" />
@@ -145,7 +145,7 @@ import LoginForm from "../components/members/LoginForm";
 import SiteLayout from "../layouts/SiteLayout.astro";
 import AccountPage from "../components/members/AccountPage";
 ---
-<SiteLayout title="My account">
+<SiteLayout>
   <h1 class="mb-8 text-2xl font-semibold tracking-tight">My account</h1>
   <AccountPage client:only="react" />
 </SiteLayout>

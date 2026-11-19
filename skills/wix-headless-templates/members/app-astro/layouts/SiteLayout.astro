@@ -7,8 +7,10 @@
 import MemberMenu from "../components/members/MemberMenu";
 import "../styles/global.css";
 
+// A page at a fixed address (home, a list) passes no title/description: Wix adds the ones the
+// owner sets in the dashboard (guides/seo.md). A page of one item passes the item's.
 interface Props {
-  title: string;
+  title?: string;
   description?: string;
 }
 const { title, description } = Astro.props;
@@ -19,7 +21,7 @@ const { title, description } = Astro.props;
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{title}</title>
+    {title && <title>{title}</title>}
     {description && <meta name="description" content={description} />}
     <slot name="seo-tags" />
   </head>

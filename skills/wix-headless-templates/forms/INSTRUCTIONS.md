@@ -196,7 +196,7 @@ try {
   // schema itself and shows the real error if it fails again.
 }
 ---
-<SiteLayout title="Contact">
+<SiteLayout>
   <!-- your heading / intro, then: -->
   <ContactForm client:load formId={FORM_ID} initialForm={form ?? undefined} />
 </SiteLayout>

@@ -18,7 +18,7 @@ try {
 }
 ---
 
-<SiteLayout title={only ? only.name : "Donate"} image={only?.imageUrl || undefined}>
+<SiteLayout image={only?.imageUrl || undefined}>
   {only ? (
     <CampaignPage campaign={only} />
   ) : (

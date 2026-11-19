@@ -52,7 +52,7 @@ if (!rental) {
 }
 ---
 
-<SiteLayout title={rental.name}>
+<SiteLayout {...(seoTagsServiceConfig ? {} : { title: rental.name })}>
   <SEO.Tags seoTagsServiceConfig={seoTagsServiceConfig} slot="seo-tags" />
 
   <div class="grid gap-10 md:grid-cols-2">
