@@ -1,6 +1,6 @@
 ---
 name: wix-headless-kit-cold-start
-description: "Build a Wix Headless site from a single prompt: the business solution installed on a new site, its content created through the Wix API, and pages that read it, published on Wix. Verticals: storefront, bookings, rentals, blog, cms, events, forms, members, portfolio, pricing-plans, restaurants, faq, donations. Triggers: build me a store/blog/booking/events/portfolio/restaurant/FAQ/donation site, sell tickets or membership plans headless, collect donations headless, put a site I already made on Wix, wix headless kit entry. With the Wix plugin or connector, the whole build goes through its tools. If wix-headless-kit runs on the machine and a build can reach the upload tool, the Astro build of wix-headless-kit is released instead of hand-written pages. A machine with a logged-in Wix CLI and no plugin takes the CLI route."
+description: "Builds a new Wix site or puts the user's own site online, from a prompt, and keeps changing it afterwards. Fully agentic, start to finish. The pages are code in any web technology, and Wix runs the backend. Covers every step: connecting to Wix (with the Wix plugin or connector, the whole build goes through its tools; otherwise the Wix CLI, or no Wix login), creating the site, adding its content, writing the pages, and putting them live on Wix hosting or on another host. Use when the user wants a site on Wix or wants their site online, or asks for Wix Headless. Business features include a store, bookings, rentals, events and tickets, a restaurant, a blog, a CMS, forms, members, a portfolio, pricing plans, donations, an FAQ and many more."
 ---
 
 # Wix Headless Kit: cold start
@@ -41,6 +41,11 @@ the skills that this page names. You do not install anything.
    or the CLI is available, continue the build on that site.
 
 ## 2. Choose how to make the pages
+
+**Who serves the site.** Wix hosts the site, unless something else serves it: the platform you run
+in, the user's own server, or another hosting service. When another host serves it, the build
+below is the same, with the pages written by hand on the modules (step 5). Skip the two checks:
+nothing is uploaded to Wix.
 
 Steps 1 to 4 of the build are the same for every route. Step 5, the pages, has two routes: the
 Astro build of `wix-headless-kit`, server-rendered pages from the shipped templates, and pages
@@ -87,7 +92,7 @@ its pages change. The upload calls are in
 ## 3. The build, through the Wix tools
 
 Every call runs as the site owner through `ExecuteWixAPI`. This tool carries the login of the user.
-Files go to the site through `UploadHeadlessWebsiteFiles`.
+Files go to the Wix hosting of the site through `UploadHeadlessWebsiteFiles`.
 
 The reference for each step is the code of `wix-headless-kit`. Read it online with `ReadFullDocsArticle` from
 `https://www.wix.com/skills/{skill}/{path}`. In this page:
@@ -173,12 +178,13 @@ Do the six steps in this order. For each step: what you do, the call, and the re
 
 **Step 5: write the pages, upload them, install the modules.**
 - Write the pages on the modules of the solutions. Upload the pages. Then install the modules next
-  to them.
+  to them. On another host, the pages and the modules go into its project.
 - Calls: the pages import the published browser modules of the solutions (`client.ts`, `rest/*.ts`
   and the cores, already built). The pages use what the module functions return.
   `UploadHeadlessWebsiteFiles` with the pages, then one `ExecuteWixAPI` call that copies the
-  modules into the site ("Step 5: the modules" below). The design of the pages is the design job
-  of the solution.
+  modules into the site ("Step 5: the modules" below). On another host: no upload, and its origins
+  go on the OAuth app of the site ("Step 5: another host" below). The design of the pages is the
+  design job of the solution.
 - Reference, the functions and their arguments: the `{TEMPLATES}/{solution}/rest/` folder, its
   listing first, then its files. The modules export the same functions. If a file imports a
   function and exports it again, the function is written in the file it imports from.
@@ -194,7 +200,8 @@ Do the six steps in this order. For each step: what you do, the call, and the re
   for each solution; the pages that read them; the visitor check, as passed, failed or not run. If
   a number is 0, or the check did not pass, the site is not done. Go back to that step. Do not
   send the message. A site with no solution has no counts and no check: give the links.
-- Give the live URL and the dashboard URL, each on its own line.
+- Give the live URL and the dashboard URL, each on its own line. On another host, the live URL
+  is the address that host serves; give the origins on the allow-list of the OAuth app with it.
 - Say what you wrote as placeholder content.
 - Say which pages read from the site through the modules and which pages are static. If a step did
   not complete, name the step.
@@ -237,6 +244,7 @@ async function run() {
 
 The new site has a hosting address, and `GetSiteContext` shows it as "Published". It serves nothing
 until the upload in step 5: the address answers 404. Do not give the user a URL before step 6.
+When another host serves the site, this address stays empty. Do not give it to the user.
 
 ### A site that already exists
 
@@ -313,8 +321,8 @@ for the plan.
 Search engines read the HTML of a page. Give every page a `<title>` and a
 `<meta name="description">` of its own, one `<h1>`, `alt` text on each picture and the Open Graph
 tags. A page that shows one item sets its tags from the item when it loads. Do not upload a
-`robots.txt` or a `sitemap.xml`. Wix serves its own. The full list is in
-`{SKILL_ROOT}/guides/seo.md`.
+`robots.txt` or a `sitemap.xml`. Wix serves its own; on another host, they are the host's. The
+full list is in `{SKILL_ROOT}/guides/seo.md`.
 
 ### Step 5: the modules
 
@@ -337,9 +345,10 @@ functions. It starts with its declarations: what it exports, the arguments, and 
 returns. The files of every solution on the site share the one folder. This is the layout that
 `INSTRUCTIONS.md` of the solution describes for a static site.
 
-Upload the pages first, with `UploadHeadlessWebsiteFiles`. Then make one `ExecuteWixAPI` call with
-the `siteId` of the site. This call copies the modules of the solutions and the shared client into
-the site, as the templates build them. It writes the `appId` of the site as the client id:
+**On Wix hosting,** upload the pages first, with `UploadHeadlessWebsiteFiles`. Then make one
+`ExecuteWixAPI` call with the `siteId` of the site. This call copies the modules of the solutions
+and the shared client into the site, as the templates build them. It writes the `appId` of the
+site as the client id:
 
 ```javascript
 async function run() {
@@ -373,6 +382,13 @@ async function run() {
 }
 ```
 
+**On another host,** the modules go into its project, with your own tools. Fetch
+`https://www.wix.com/skills/wix-headless-templates/static/shared.json` and the `.json` of each
+solution from the same folder. Each has `files`, a map from a path to its content. Write each file
+at its path, so that the host serves it under `/js/wix/`. Write `js/wix/config.js` with the `appId`
+of the site, as the script above does. The paths of the pages follow the rules of the host: the
+file rule above is for Wix static hosting.
+
 ### Step 5: the check
 
 The site is done when a visitor's response shows the fields that the pages show. A successful
@@ -390,8 +406,8 @@ it. A check through `wix.request` reads what the owner sees, not what a visitor 
 The check passes when the read returns the content that step 4 created, by name. An empty 200
 response right after the seed can come from the new-install window, or from the query. Read again.
 Then compare your query with the file of `wix-headless-kit`. Read the site files back with
-`wix.headless.files.list`. The modules must be next to the pages. No page holds, in its HTML, a
-copy of the content that step 4 created.
+`wix.headless.files.list`; on another host, look in its project. The modules must be next to the
+pages. No page holds, in its HTML, a copy of the content that step 4 created.
 
 ### Step 5: the upload
 
@@ -416,6 +432,20 @@ live URL, the dashboard and the list of files on the site. The full recipe is
 - **With no Wix login,** the same pages go live through
   `{MANAGE}/references/sites/publish-without-a-wix-account.md`. It gives the user a link to keep
   the site.
+
+### Step 5: another host
+
+When another host serves the site, the pages and the modules are in its project ("Step 5: the
+modules"), and that host puts them live. Nothing is uploaded to Wix.
+
+Wix needs the origins of the site on the allow-list of its OAuth app. A flow that opens on Wix
+(checkout, a booking payment, a plan purchase) returns to the page that started it, and only to an
+origin on the list. Add each origin that serves the site, with its scheme, for example
+`https://shop.example.com`: the local one while you test, and the public one. The call is
+"Update an OAuth App" in `{MANAGE}/references/sites/manage-oauth-apps.md`, field
+`allowedRedirectDomains`, on the app whose id is the `appId`. Send the origins that are there
+with the new ones. A new public origin goes on the list before a flow can return to it; say so in
+step 6.
 
 ## The Astro build
 
