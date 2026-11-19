@@ -241,7 +241,7 @@ try {
   // renders your empty state instead.
 }
 ---
-<SiteLayout title="Shop">
+<SiteLayout>
   <!-- your page heading / intro, then: -->
   <ShopView client:load initialProducts={products} initialCategories={categories} />
 </SiteLayout>

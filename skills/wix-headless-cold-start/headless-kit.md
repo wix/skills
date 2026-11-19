@@ -321,8 +321,9 @@ for the plan.
 Search engines read the HTML of a page. Give every page a `<title>` and a
 `<meta name="description">` of its own, one `<h1>`, `alt` text on each picture and the Open Graph
 tags. A page that shows one item sets its tags from the item when it loads. Do not upload a
-`robots.txt` or a `sitemap.xml`. Wix serves its own; on another host, they are the host's. The
-full list is in `{SKILL_ROOT}/guides/seo.md`.
+`robots.txt` or a `sitemap.xml`. Wix serves its own; on another host, they are the host's. On the
+Astro build, the pages at a fixed address take their title, description and social tags from Wix.
+The full list is in `{SKILL_ROOT}/guides/seo.md`.
 
 ### Step 5: the modules
 

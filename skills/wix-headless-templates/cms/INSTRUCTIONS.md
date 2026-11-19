@@ -157,7 +157,7 @@ try {
   // Guarded: an unguarded SSR throw truncates the response mid-stream; the island renders your empty state.
 }
 ---
-<SiteLayout title="Recipes">
+<SiteLayout>
   <!-- your page heading / intro, then: -->
   <CollectionView client:load collectionId="recipes" sort={SORT} limit={12} initialItems={page.items} initialHasNext={page.hasNext} />
 </SiteLayout>

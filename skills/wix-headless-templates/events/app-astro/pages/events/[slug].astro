@@ -63,7 +63,7 @@ if (event.recurringCategoryId) {
 }
 ---
 
-<SiteLayout title={event.title}>
+<SiteLayout {...(seoTagsServiceConfig ? {} : { title: event.title })}>
   <SEO.Tags seoTagsServiceConfig={seoTagsServiceConfig} slot="seo-tags" />
 
   <div class="grid gap-10 md:grid-cols-2">

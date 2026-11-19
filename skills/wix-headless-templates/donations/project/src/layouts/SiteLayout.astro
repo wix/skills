@@ -5,8 +5,10 @@
 // SiteLayout won — merge a Donate nav link there instead.)
 import "../styles/global.css";
 
+// A page at a fixed address (home, a list) passes no title/description: Wix adds the ones the
+// owner sets in the dashboard (guides/seo.md). A page of one item passes the item's.
 interface Props {
-  title: string;
+  title?: string;
   description?: string;
   /** An absolute image URL for social previews (the campaign's cover). */
   image?: string;
@@ -19,9 +21,9 @@ const { title, description, image } = Astro.props;
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{title}</title>
+    {title && <title>{title}</title>}
     {description && <meta name="description" content={description} />}
-    <meta property="og:title" content={title} />
+    {title && <meta property="og:title" content={title} />}
     {description && <meta property="og:description" content={description} />}
     {image && <meta property="og:image" content={image} />}
     <slot name="seo-tags" />

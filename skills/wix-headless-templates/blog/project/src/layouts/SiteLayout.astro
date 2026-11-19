@@ -6,7 +6,9 @@
 //
 // One source of head tags per page: a page that renders <SEO.Tags> (the post and category item
 // pages, when the SEO service resolved) passes NO title/description here — the service owns them,
-// including the owner's dashboard overrides. Every other page passes its own.
+// including the owner's dashboard overrides. A page at a fixed address (home, the feed) passes none
+// either: Wix adds the ones the owner sets in the dashboard (guides/seo.md). A page of one item with
+// no SEO service (a tag) passes its own.
 import "../styles/global.css";
 
 interface Props {

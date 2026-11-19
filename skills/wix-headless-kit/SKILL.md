@@ -356,8 +356,9 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
    written copy of the vertical's content: every list and item the pages show is read through the
    shipped code from what step 2 seeded.
    **Every page carries its SEO tags**: a title and a description of its own, one `h1`, `alt`
-   text, the Open Graph tags; the shipped item pages keep their SEO pieces. The list for each
-   stack is `<SKILL_ROOT>/guides/seo.md`.
+   text, the Open Graph tags; the shipped item pages keep their SEO pieces. On managed Astro
+   the main pages take their title, description and social tags from Wix, set after the release.
+   The list for each stack is `<SKILL_ROOT>/guides/seo.md`.
    If the brief needs a core operation that shipped code does not cover, read
    `templates/shared/CUSTOM_OPERATIONS.md` before writing it. Use one documented path and
    implement it; do not reverse-engineer SDK internals.
