@@ -1535,7 +1535,7 @@ function scan({ componentDir, sources }) {
       // `--sh-mobile-scale`, not `--sh-scale`), as long as their last words agree.
       const twin = rootVariableWords
         .filter(({ words: parts }) => last.length > 3 && parts[parts.length - 1] === last)
-        .sort(
+        .toSorted(
           (a, b) =>
             words.filter((word) => b.words.includes(word)).length -
             words.filter((word) => a.words.includes(word)).length,
