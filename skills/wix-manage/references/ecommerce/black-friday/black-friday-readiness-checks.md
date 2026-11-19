@@ -71,9 +71,10 @@ async function() {
     return items;
   };
 
+  const INVENTORY = { method: "POST", url: "https://www.wixapis.com/stores/v3/inventory-items/query", body: { query: { cursorPaging: { limit: 1000 } } } };
   const results = Object.fromEntries(await Promise.all([
     safe("products", listProducts),
-    probe("inventory", { method: "POST", url: "https://www.wixapis.com/stores/v3/inventory-items/query", body: { query: { cursorPaging: { limit: 1000 } } } }),
+    probe("inventory", INVENTORY),
     probe("categories", { method: "POST", url: "https://www.wixapis.com/categories/v1/categories/query",
       body: { treeReference: { appNamespace: "@wix/stores" }, returnNonVisibleCategories: true, query: { cursorPaging: { limit: 1000 } } } }),
     probe("coupons", { method: "POST", url: "https://www.wixapis.com/stores/v2/coupons/query", body: { query: { paging: { limit: 100 } } } }),
@@ -93,6 +94,15 @@ async function() {
     storeExistedLastBfcm ? safe("ordersLastBfcm", () => searchOrders(bfcmStart, bfcmEnd))
                          : Promise.resolve(["ordersLastBfcm", { ok: true, skipped: "store created after last year's sale", data: [] }]),
   ]));
+
+  // A product written in the last 3 minutes can still show its old stock. Wait once, then read products and inventory again.
+  const fresh = (p) => Date.now() - new Date(p.updatedDate || p.createdDate || 0).getTime() < 180000;
+  if (results.products.ok && results.products.data.some(fresh)) {
+    await new Promise(resolve => setTimeout(resolve, 15000));
+    const again = Object.fromEntries(await Promise.all([safe("products", listProducts), probe("inventory", INVENTORY)]));
+    if (again.products.ok) results.products = again.products;
+    if (again.inventory.ok) results.inventory = again.inventory;
+  }
 
   // Two more public pages for the no-browser fallback: the sale category page and one discounted product page.
   // Their URLs are taken from the homepage's own links (a headless site's routes differ from the catalog's url field); the catalog URL is the fallback.
@@ -303,7 +313,7 @@ Run after Probes 1 and 2 **whenever the agent has a tool that opens web pages an
 
 **What P1–P6 change in the grading.** A visual check seen in the browser is graded from what was seen, and the evidence line says so ("the bar reads 'Black Friday 30% off Nov 27–30', matches your discount"; "Oak Wick Trimmer shows $34 crossed out, $24 in red"). A visual check contradicted by the browser overrides the HTML probe (the bar's text is in the HTML but hidden behind a popup → ⚠️). Check 3 gains real evidence from P6: the payment methods shown at checkout.
 
-**Fallback when there is no browser.** Say so in the report header. Then the checklist opens with the group **On your live site**, one checkbox per visual check the agent could not see, each with the exact URL and the thing to look at, on a phone and on a computer:
+**Fallback when there is no browser.** Say so in the report header. Then the checklist opens with the group **On your live site**, one line per visual check the agent could not see (a checkbox only when the client draws ones the owner can click, otherwise a plain bullet; see the review's checklist rule), each with the exact URL and the thing to look at, on a phone and on a computer:
 
 - [ ] Open <SITE_URL> on your phone. Check that the <sale name> bar shows without scrolling and says <dates from the sale window>. (4)
 - [ ] Open each featured product on your homepage. Check that you can add it to the cart. (5)
@@ -327,7 +337,7 @@ Marks: ✅ passes. ⚠️ is a verified problem: it goes in **🔧 I can fix the
 
 **Any sale, not only Black Friday.** In every line the owner reads, `<sale name>` is the sale from step 2 of the review ("Christmas", "Mother's Day", "Black Friday"); never print "Black Friday" for another sale. "The campaign start" (checks 21, 23) is 26 days before the sale day, which is Nov 1 for Black Friday 2026. `ordersLastBfcm` holds the same sale's weeks one year earlier, whatever the sale. Anything about Cyber Monday applies to Black Friday only.
 
-**Stock facts come from `stockSummary`.** "N of M products can be bought", and which products are out of stock, are read from `stockSummary`, never worked out again from the product and inventory lists: a tracked row has a `quantity` and no `inStock` field, so a missing `inStock` does not mean out of stock. Call a product out of stock only when it is in `stockSummary.outOfStock`, and give its `why` in plain words ("counted stock is 0"). When that list is not empty, the count in the header is not enough: 🔧 has its own line under "Needs one answer from you" that names up to three of them, "2 products are out of stock: Wick Trimmer, Gift Box. Give me the quantities and I'll set them, or tell me to hide them." It starts with "Stops sales." when no product can be bought. A product in `stockSummary.unclear` is never called out of stock: it becomes a checklist line, "Check that <name> can be bought. Its stock record and its product page disagree." When `stockSummary.inventoryRead` is false, say stock could not be checked.
+**Stock facts come from `stockSummary`.** "N of M products can be bought", and which products are out of stock, are read from `stockSummary`, never worked out again from the product and inventory lists: a tracked row has a `quantity` and no `inStock` field, so a missing `inStock` does not mean out of stock. Call a product out of stock only when it is in `stockSummary.outOfStock`, and give its `why` in plain words ("counted stock is 0"). When that list is not empty, the count in the header is not enough: 🔧 has its own line under "Needs one answer from you" that names up to three of them, "2 products are out of stock: Wick Trimmer, Gift Box. Give me the quantities and I'll set them, or tell me to hide them." It starts with "Stops sales." when no product can be bought. A product in `stockSummary.unclear` is never called out of stock: it becomes a checklist line, "Check that <name> can be bought. Its stock record and its product page disagree." When `stockSummary.inventoryRead` is false, say stock could not be checked. Stock takes a few seconds to settle after a product is created or edited, so when any product was written in the last 3 minutes the probe waits 15 seconds and reads products and inventory once more before judging; that is why the call can take longer right after a change.
 
 **Truncated lists.** When `truncated.<list>` is true, every check that reads that list (inventory: 5, 13, 15; coupons: 16, 17, 19, 20, 21; discountRules: 16, 18, 19, 21; shippingOptions: 9) reports ❔ "more than N items; I checked the first N" instead of ✅, and the fix offers stand only for items actually read.
 
