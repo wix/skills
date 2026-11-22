@@ -149,6 +149,27 @@ Create the services **one at a time** with `POST https://www.wixapis.com/booking
 }
 ```
 
+**For an overnight rental** (check-in and check-out times, for example a vacation house), add `timeBoundaries` to `dayOptions`:
+
+```json
+"durationRange": {
+  "unitType": "DAY",
+  "dayOptions": {
+    "minDurationInDays": 1,
+    "maxDurationInDays": 14,
+    "timeBoundaries": {
+      "type": "OVERNIGHT",
+      "overnightTimes": { "checkInTime": "15:00", "checkOutTime": "11:00" }
+    }
+  }
+}
+```
+
+- Times are `HH:mm` in the business time zone, on the hour or half hour. Neither can be `00:00`, and `checkOutTime` must be earlier than or the same as `checkInTime` (the same time means 24-hour nights). Otherwise the create fails with `INVALID_OVERNIGHT_TIMES`.
+- `minDurationInDays` and `maxDurationInDays` are numbers of nights, and the price is per night.
+
+Doc: <https://dev.wix.com/docs/api-reference/business-solutions/rentals/wix-rentals-and-the-bookings-apis.md#check-in-and-check-out-times>
+
 **⚠️ CRITICAL FORMAT REQUIREMENTS:**
 
 - **`appId` must be the Wix Rentals app id** `ff5d6eb1-65e4-4f9a-8b14-64d34c12cc2e`, and it is **immutable after create** — a service created without it is a plain Bookings service forever, and no update can convert it. Getting this wrong is the single most expensive mistake in this recipe.
@@ -165,7 +186,7 @@ Create the services **one at a time** with `POST https://www.wixapis.com/booking
 - **`form.id` selects the booking form. Set it to the Wix Rentals default booking form — `3a2ea2ce-91f4-4617-ab24-629933c0c31a`.** Installing the Rentals app provisions that form, and because it is cloned from the template with the template's own id, **the GUID is the same on every site** — treat it as a constant, like the `appId`. Omit the field and the service uses the standard Wix Bookings form instead, so the rentals form's own fields won't be there. It's the Rentals app's own choice too: `RentalsProvisioner` sets it on every service it creates.
 - **`durationRange` and `sessionDurations` are mutually exclusive** — send one or the other, never both. `durationRange` also **can't be combined with `workingHours`** on the service.
 - **`unitType` selects which config object is read:** `HOUR` → `hourOptions`, `DAY` → `dayOptions`. Sending `dayOptions` with `unitType: "HOUR"` leaves the range unset.
-- **Ranges:** hourly `minDurationInMinutes`/`maxDurationInMinutes` are **30–1440**; daily `minDurationInDays`/`maxDurationInDays` are **1–8** for rentals. Min must be **≤** max. (The underlying Services V2 schema permits days up to 60; Wix Rentals documents 1–8 — stay inside 1–8.)
+- **Ranges:** hourly `minDurationInMinutes`/`maxDurationInMinutes` are **30–1440**; daily `minDurationInDays`/`maxDurationInDays` are **1–40**. Min must be **≤** max.
 - **One unit type per service.** A service is hourly *or* daily, never both. If the request wants a room by the hour **and** by the day, that is **two services**, each with its own price.
 - **Omit `staffMemberIds`.** Rentals are resource-driven, not staff-driven — `serviceResources` above is what satisfies the appointment-resource requirement. Never add a staff resource to get past `MISSING_APPOINTMENT_RESOURCES`; that reintroduces staff-based availability and produces a service that is no longer a rental in behaviour.
 - **Omit `category`.** Rental services don't use categories at all (STEP 3).
@@ -173,6 +194,8 @@ Create the services **one at a time** with `POST https://www.wixapis.com/booking
 - **`defaultCapacity`** is required; use `1` (one customer rents a given resource at a time; parallel capacity comes from having more *resources*, not higher capacity).
 - **`payment.options` — at least one of `online`/`inPerson` must be `true`**, even for free services. `NO_FEE` must pair with `online: false, inPerson: true`.
 - **Price is per unit** — per hour for `HOUR`, per day for `DAY`. Wix multiplies it out at booking time (hourly is prorated per minute: `minutes × price ÷ 60`). Do **not** pre-multiply into a whole-rental price.
+- **Pricing tiers** (a rate that changes with the rental's length or dates): set `payment.rateType` to `VARIED` with the base rate in `payment.varied.defaultPrice`, then create the tiers with the Service Options and Variants API. Follow [Set up pricing tiers](https://dev.wix.com/docs/api-reference/business-solutions/rentals/sample-flows.md#set-up-pricing-tiers).
+- **Additional fees** (for example a cleaning fee): `payment.additionalFees`, up to 5, each with `name`, `amount.value`, and `chargeType` `PER_RESERVATION` or `PER_UNIT`. Follow [Add additional fees](https://dev.wix.com/docs/api-reference/business-solutions/rentals/sample-flows.md#add-additional-fees).
 - **`locations[].type`** — use **`"BUSINESS"`**, never `"OWNER_BUSINESS"` (that enum belongs to `createBooking`'s slot location).
 - **Currency** — the site's business currency wins; a EUR-locale site stores `EUR` even if you send `USD`. Not an error.
 - **Imagery is opt-in** (`SEED.md` § "Entity images") — seed text-only, attach images in the pass-2 step below.

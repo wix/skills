@@ -159,6 +159,14 @@ Wix static hosting serves files. Make every page a file in the root and link to 
 the pages' scripts as files of their own and keep each file small; a page's code travels as text
 in the upload call. One stylesheet shared by the pages, on one set of tokens.
 
+## Beyond this layer
+
+The layer handles fixed-rate hourly and full-day rentals. For overnight services, pricing tiers, and additional fees, follow the [Wix Rentals docs](https://dev.wix.com/docs/api-reference/business-solutions/rentals/introduction.md) and their [sample flows](https://dev.wix.com/docs/api-reference/business-solutions/rentals/sample-flows.md):
+
+- **Overnight services** (`dayOptions.timeBoundaries.type` is `OVERNIGHT`): the daily walk ends a rental at midnight, but an overnight booking must end at the check-out time, or it fails with `SLOT_NOT_AVAILABLE`. Follow [Book an overnight rental](https://dev.wix.com/docs/api-reference/business-solutions/rentals/sample-flows.md#book-an-overnight-rental).
+- **Pricing tiers** (`payment.rateType` is `VARIED`): the base rate is in `payment.varied.defaultPrice`, which `rateLabel` doesn't read. The server quote already applies the tiers. See [Pricing tiers](https://dev.wix.com/docs/api-reference/business-solutions/rentals/wix-rentals-and-the-bookings-apis.md#pricing-tiers).
+- **Additional fees** (`payment.additionalFees`): `quote.total` excludes fees. The total with fees is `priceInfo.calculatedPriceWithFees`. See [Additional fees](https://dev.wix.com/docs/api-reference/business-solutions/rentals/wix-rentals-and-the-bookings-apis.md#additional-fees).
+
 ## Rules
 
 - Renting goes through the flow store and `rentResource`. They own the sequence, the payment

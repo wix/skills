@@ -227,6 +227,10 @@ wrote the public client id into `wix/config.ts`; nothing else to configure.
 Routes on Wix hosting: the host serves files only, so a clean route answers 404 when loaded
 directly — hash routes, or one HTML file per route, decided before the first route is written.
 
+## Beyond this template
+
+The template ships fixed-rate hourly and full-day rentals. For overnight services, pricing tiers, and additional fees, the shipped code needs changes: follow the [Wix Rentals docs](https://dev.wix.com/docs/api-reference/business-solutions/rentals/introduction.md) and their [sample flows](https://dev.wix.com/docs/api-reference/business-solutions/rentals/sample-flows.md).
+
 ## Hard rules
 
 - **Rental logic only through the shipped exports** — `useRentalFlow`/`rentResource` own the
