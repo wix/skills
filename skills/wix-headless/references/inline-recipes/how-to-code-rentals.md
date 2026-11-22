@@ -133,6 +133,17 @@ A daily rental is **one** booking spanning the whole range, created with `create
 
 Docs: <https://dev.wix.com/docs/api-reference/business-solutions/rentals/about-wix-rentals-availability.md>
 
+### Overnight services (check-in and check-out times)
+
+A daily service whose `schedule.availabilityConstraints.durationRange.dayOptions.timeBoundaries.type` is `OVERNIGHT` rents by the night, for example a vacation house:
+
+- **Each slot is 1 night**, from `overnightTimes.checkInTime` to `overnightTimes.checkOutTime` on the next day. Walk the slots the same way; `minDurationInDays` and `maxDurationInDays` are numbers of nights.
+- **The end date the customer picks is the check-out date**, the day after the last night. Picking only 1 date means 0 nights, so it isn't a valid stay.
+- **Book from the start of the first slot to the end of the last slot:** `startDate` = the check-in time on the first night, `endDate` = the check-out time on the check-out date. For example, Monday 15:00 to Wednesday 11:00 for 2 nights. **⚠️ Never midnight:** an end that doesn't match the check-out time fails with `SLOT_NOT_AVAILABLE`.
+- A night needs the resource free only from check-in to check-out, so a new stay can check in on the same day another stay checks out.
+
+Docs: <https://dev.wix.com/docs/api-reference/business-solutions/rentals/about-wix-rentals-availability.md#overnight-availability> · <https://dev.wix.com/docs/api-reference/business-solutions/rentals/sample-flows.md#book-an-overnight-rental>
+
 ---
 
 ## 4 · Price preview (duration-based)
@@ -155,7 +166,12 @@ const { priceInfo } = await pricing.previewPrice([{
 
 **⚠️ Omitting `localStartDate` / `localEndDate` / `timeZone` does not error — it silently falls back to participant-based pricing** and returns a flat rate that ignores the duration. The customer then sees one price and is charged another. Always send all three.
 
-Hourly is prorated per minute (`minutes × base ÷ 60`); daily is `base × days`. Doc: <https://dev.wix.com/docs/api-reference/business-solutions/bookings/pricing/pricing-api/preview-price.md?apiView=SDK>
+Hourly is prorated per minute (`minutes × base ÷ 60`); daily is `base × days` (nights, for an overnight service). Doc: <https://dev.wix.com/docs/api-reference/business-solutions/bookings/pricing/pricing-api/preview-price.md?apiView=SDK>
+
+**Pricing tiers and additional fees are already in the response. Never compute them yourself:**
+
+- **Pricing tiers** (`payment.rateType: VARIED`): `calculatedPrice` already applies each tier's rate, by the rental's length or by its dates. The service's base rate is `payment.varied.defaultPrice`, not `payment.fixed.price`. Doc: <https://dev.wix.com/docs/api-reference/business-solutions/rentals/wix-rentals-and-the-bookings-apis.md#pricing-tiers>
+- **Additional fees** (`payment.additionalFees`, for example a cleaning fee): `calculatedPrice` **excludes** fees. Show `priceInfo.calculatedPriceWithFees` as the total the customer pays; `priceInfo.totalAdditionalFees` is the sum of the fees, and the line item's `additionalFees` lists each fee with its `feeId`, `units`, and `amount`. These fields are returned only when at least 1 fee applies. Doc: <https://dev.wix.com/docs/api-reference/business-solutions/rentals/wix-rentals-and-the-bookings-apis.md#additional-fees>
 
 ---
 

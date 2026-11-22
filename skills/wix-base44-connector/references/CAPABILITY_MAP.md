@@ -23,7 +23,7 @@ missing.
 | Donations | `business-solutions/donations` | Donation campaigns · Fundraising goals · One-time and recurring donations · Predefined and custom amounts · Cover fees · Campaign progress |
 | Benefit Programs | `business-solutions/benefit-programs` | Benefit programs · Program templates · Membership tiers · Credits · Benefit redemption · Visitor enrollment · Balances · Eligibility checks |
 | Meetings | `business-solutions/meetings` | Scheduling links · Shareable booking page · Meeting duration and location · Video, phone, in-person · Hosts · Calendar sync · Intake forms · Paid meetings · Rescheduling |
-| Rentals | `business-solutions/rentals` | Rental services · Hourly and daily durations · Customer-selected length · Bookable resources · Resource attributes · Per-hour and per-day pricing · Availability · Consecutive multi-day bookings |
+| Rentals | `business-solutions/rentals` | Rental services · Hourly and daily durations · Customer-selected length · Bookable resources · Resource attributes · Per-hour, per-day, and per-night pricing · Overnight stays with check-in and check-out times · Pricing tiers · Additional fees · Availability · Consecutive multi-day bookings |
 | Suppliers Hub | `business-solutions/suppliers-hub` | Marketplace products · Suppliers · Dropshipping · Wholesale price tiers · Categories and tags · Product search · Bulk catalog operations · Mockup generation |
 | Forum | `business-solutions/forum` | **Deprecated** — discontinued March 2026; migrate to Community → Groups |
 

@@ -46,7 +46,7 @@ machine — uploaded to Wix Media) or `imageUrl` (their own hosted URL; verify i
   resource of that type unless `resources` narrows it). **The rate lives on the service**, so
   resources that rent at different prices are separate rentals sharing a type.
   - `unit` — `HOUR` or `DAY`, never both on one rental (a room by the hour AND by the day is two
-    rentals). `min`/`max` are in that unit: hours from 0.5 to 24 (default 1 to 8), days from 1 to 8
+    rentals). `min`/`max` are in that unit: hours from 0.5 to 24 (default 1 to 8), days from 1 to 40
     (default 1 to 5).
   - `rate` — a number per unit (per hour or per day); Wix multiplies it out at booking time. Omit
     it or set `free: true` for a no-fee rental (rents without a checkout, paid in person).

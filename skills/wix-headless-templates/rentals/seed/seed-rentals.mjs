@@ -61,7 +61,7 @@ const slugify = (name) => String(name || "").toLowerCase().replace(/[^a-z0-9]+/g
 const money = (n, currency) => ({ value: Number(n).toFixed(2), currency: currency ?? "USD" });
 
 // plain rental -> flat Services V2 create object carrying the five rentals values.
-//   unit HOUR: min/max in HOURS (0.5 to 24; stored as minutes 30–1440); unit DAY: min/max in DAYS (1–8).
+//   unit HOUR: min/max in HOURS (0.5 to 24; stored as minutes 30–1440); unit DAY: min/max in DAYS (1–40).
 //   rate: per unit; free -> NO_FEE paid in person (the API needs one payment option true).
 export function buildRental(r, { resourceTypeId, resourceIds, currency }) {
   if (!resourceTypeId) throw new Error(`rental "${r.name}" names no resource type`);
@@ -71,7 +71,7 @@ export function buildRental(r, { resourceTypeId, resourceIds, currency }) {
   let durationRange;
   if (unit === "DAY") {
     const min = Math.max(1, Math.floor(Number(r.min ?? 1)));
-    const max = Math.min(8, Math.max(min, Math.floor(Number(r.max ?? 5))));
+    const max = Math.min(40, Math.max(min, Math.floor(Number(r.max ?? 5))));
     durationRange = { unitType: "DAY", dayOptions: { minDurationInDays: min, maxDurationInDays: max } };
   } else {
     const min = Math.max(30, Math.round(Number(r.min ?? 1) * 60));
