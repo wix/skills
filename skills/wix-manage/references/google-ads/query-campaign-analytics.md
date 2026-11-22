@@ -24,13 +24,13 @@ Both come from Get/List Campaign (see [Manage Campaign Lifecycle](manage-campaig
 | Per-product performance | `POST /v1/shopping-performance-metrics` | Shopping / retail PMAX | `campaignId` |
 | Per-asset (headline/description/image) | `POST /v1/asset-performance-metrics` | PMAX Leads only | `campaignId` |
 
-**Date range** is shared: `{ "dateRange": { "custom": { "from": "2026-03-01", "to": "2026-03-31" } } }` (YYYY-MM-DD). Omit `dateRange` to default to the campaign lifetime.
+**Date range** is shared: `{ "dateRange": { "custom": { "from": "2026-03-01", "to": "2026-03-31" } } }` (YYYY-MM-DD). Write any window the user names, such as this month or the last 30 days, as a `custom` range. Omit `dateRange` to default to the campaign lifetime.
 
 ---
 
 ## Daily performance metrics
 
-Clicks, impressions, CTR, cost, leads, phone calls — per day, plus a summary row. `fields` chooses which metrics to return (defaults to clicks, impressions, CTR, cost, phone calls, date). `includePreviousPeriod: true` adds a `previousPeriodSummaryRow` and `trends` (decimal % change vs the equivalent preceding period).
+Clicks, impressions, CTR, cost, leads, phone calls — per day, plus a summary row. `fields` chooses which metrics to return (defaults to clicks, impressions, CTR, cost, phone calls, date). `includePreviousPeriod: true` adds a `previousPeriodSummaryRow` and `trends` (decimal % change vs the equivalent preceding period). Send it only with a `custom` `dateRange`, as below: with `dateRange` omitted (campaign lifetime) the request is rejected with `400` `PREVIOUS_PERIOD_WITHOUT_FINITE_DATE_RANGE`, so read lifetime numbers without `includePreviousPeriod`.
 
 ```bash
 curl -X POST 'https://www.wixapis.com/_serverless/pa-google/v1/performance-metrics' \
@@ -139,6 +139,7 @@ Each result has `assetContent`, `assetFieldType`, `assetSource` (`ADVERTISER` vs
 | Symptom | Cause | Fix |
 | --- | --- | --- |
 | Empty results / all-zero metrics | Campaign not `LIVE`, or no activity yet in the range | Confirm the campaign is live; data lags a few hours. Widen the date range |
+| `400` `PREVIOUS_PERIOD_WITHOUT_FINITE_DATE_RANGE` on performance metrics | `includePreviousPeriod: true` sent without a finite range (`dateRange` omitted means campaign lifetime) | Send a `custom` `dateRange` for the comparison; read lifetime numbers in a separate request without `includePreviousPeriod` |
 | `ACCOUNT_NOT_FOUND` / `CAMPAIGN_NOT_FOUND` | Wrong id or no account | Verify via List/Get Campaign |
 | Wrong-id error on performance/search-term-v1 | Passed `campaignId` where `campaignResourceName` is required (or vice-versa) | Match the ID column in the "Which query?" table |
 | Asset-performance returns nothing on a non-Leads campaign | Only PMAX Leads is supported | Use performance/shopping metrics for other types |
