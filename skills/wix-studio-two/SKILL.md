@@ -133,9 +133,9 @@ The machine keeps the work: after each command it commits and pushes every chang
 - **Otherwise:** save.
 
 Save with two execute-commands, polling GET `{base}/v1/executions/{execution.id}?waitSeconds=25&outputTailLength=60000` while each runs:
-1. Lint with `{ "command": "yarn install --mode=skip-build && yarn lint", "timeoutSeconds": 900, "waitSeconds": 25 }`.
+1. Validate with `{ "command": "yarn install --mode=skip-build && yarn lint && yarn tsc", "timeoutSeconds": 900, "waitSeconds": 25 }`.
 2. Import with `{ "command": "wix origami import-site --json", "timeoutSeconds": 900, "waitSeconds": 25 }`.
-- Handle lint errors as `wix-site-edit` says, and lint again until it passes or reports only errors `wix-site-edit` says to import with.
+- Handle lint and type errors as `wix-site-edit` says, and validate again until both pass or report only errors `wix-site-edit` says to import with.
 - The import succeeded when `exitCode` is 0.
 - When the import fails, read the end of `stderr`, fix the problem in the code, and import again.
 - When the import says code import is not enabled for this site, tell the user in a sentence that this site can't take code changes yet, and stop.
