@@ -43,7 +43,7 @@ no skim or grep. Unopened references fail.
    Check this directory, then the workspace; never search the OS:
 
    ```bash
-   npx wix generate --params '{"extensionType":"EDITOR_REACT_COMPONENT","name":"ComponentName","folder":"component-name","description":"What visitors see and can do"}'
+   npm run generate -- --params '{"extensionType":"EDITOR_REACT_COMPONENT","name":"ComponentName","folder":"component-name","description":"What visitors see and can do"}'
    ```
 
    Describe the UI, use cases and tradeoffs
