@@ -58,3 +58,4 @@ This handler is only invoked by the real Wix AI assistant deciding a tool is rel
 3. **Handle all activated tools** — cover every `methodName` with `activated: true` in your `APP_TOOLS` declaration; unhandled names should throw a clear error
 4. **Respond quickly** — the AI assistant is waiting; slow responses degrade the user experience
 5. **Elevate permissions for Wix API calls** — wrap SDK methods with `auth.elevate` from `@wix/essentials`
+6. **Report failures with `error.message`** — in a response field or a log, never the error object or `String(error)`. SDK errors can be circular, and `message` is the part the AI assistant can pass on to the user
