@@ -10,7 +10,7 @@ const { readReceipt } = require('./destination.js');
 const { readEnvFile } = require('./config-env.js');
 const { getEffectiveDeliveryMode, isWebsiteDeliveryMode } = require('./orchestration-decisions.js');
 
-const EDITOR_LABEL = { studio: 'Wix Studio', harmony: 'Wix Harmony' };
+const EDITOR_LABEL = { studio: 'Wix Studio', harmony: 'Wix Harmony', studio2: 'Wix Studio 2' };
 
 async function readJsonIfExists(filePath) {
   try { return JSON.parse(await fs.readFile(filePath, 'utf8')); } catch { return null; }
@@ -88,7 +88,7 @@ function developerToolsOperatorActions(receipt) {
   }];
 }
 
-function destinationOperatorActions(receipt, { frontendCompletion = null, deliveryMode = 'management_and_website' } = {}) {
+function destinationOperatorActions(receipt, { frontendCompletion = null, deliveryMode = 'management_and_website', studioTwoCopy = null } = {}) {
   const websiteDelivery = isWebsiteDeliveryMode(deliveryMode);
   if (receipt && receipt.requestedSiteType === 'headless') return websiteDelivery ? headlessOperatorActions(receipt, { frontendCompletion }) : [];
   if (!receipt || !EDITOR_LABEL[receipt.requestedSiteType] || !receipt.metaSiteId || receipt.status !== 'verified') return [];
@@ -102,6 +102,17 @@ function destinationOperatorActions(receipt, { frontendCompletion = null, delive
   const generated = receipt.creationMethod === 'harmony_generation'
     ? ' The site was created by Harmony generation: its generated pages, AI-generated text and images are placeholders until reviewed or replaced, even when the site looks finished; their existence never resolves this item.'
     : '';
+  // A Studio 2 site's website is copied from the source as local code; the agent needs the capture,
+  // which lives in the migration environment. Once the copy phase reads the site back as copied
+  // (frontend/frontend-copy.json), the item asks only for the review.
+  const studioTwo = receipt.requestedSiteType === 'studio2';
+  // Only a copy bound to THIS destination site, with a passing read-back, counts: a stale or foreign artifact must not suppress the handoff.
+  const copied = studioTwo && !!studioTwoCopy && studioTwoCopy.status === 'copied'
+    && studioTwoCopy.siteId === receipt.metaSiteId && !!studioTwoCopy.readback && studioTwoCopy.readback.ok === true;
+  const state = copied ? 'is copied from the source but not reviewed or published' : 'is not built — customers cannot use the migrated website yet';
+  const studioTwoNext = !studioTwo ? ''
+    : copied ? ' The wix-studio2-editor copy is done (frontend/frontend-copy.json): review it in the editor opened from the Wix dashboard, with its report of differences and pages linked to a stand-in.'
+      : ' Requires Import Operator: in the migration environment, copy the website with the wix-studio2-editor skill ("Copy the source website into the Studio 2 site of this project with the wix-studio2-editor skill"), then review it in the editor opened from the Wix dashboard.';
   const publication = receipt.publication && receipt.publication.state === 'unpublished'
     ? `verified unpublished at ${receipt.publication.checkedAt}`
     : 'publication state not verified as unpublished — an unresolved check, not "unpublished"';
@@ -110,7 +121,7 @@ function destinationOperatorActions(receipt, { frontendCompletion = null, delive
     {
       code: 'editor_website_unfinished',
       severity: 'high',
-      action: `Site owner/designer: the ${editor} website for site ${receipt.metaSiteId} is not built — customers cannot use the migrated website yet.${editorLink} Open the verified editor, complete the pages and required app surfaces for the imported data, then review/publish through the authorized cutover workflow. Resolve with bound website review/release evidence; backend import counts alone do not resolve this.${generated}`,
+      action: `Site owner/designer: the ${editor} website for site ${receipt.metaSiteId} ${state}.${editorLink} Open the verified editor, complete the pages and required app surfaces for the imported data, then review/publish through the authorized cutover workflow. Resolve with bound website review/release evidence; backend import counts alone do not resolve this.${generated}${studioTwoNext}`,
       deadlineReason: 'before switching traffic',
       entity: 'website',
       affectedCount: 1,
@@ -194,8 +205,9 @@ async function projectDestinationOperatorActions(projectDir) {
   const deliveryMode = getEffectiveDeliveryMode(decisions || {}) || 'management_and_website';
   const frontendCompletion = await readJsonIfExists(path.join(projectDir, 'website', 'completion.json'));
   const appPagesRecord = await readJsonIfExists(path.join(projectDir, 'setup', 'harmony-app-pages.json'));
+  const studioTwoCopy = await readJsonIfExists(path.join(projectDir, 'frontend', 'frontend-copy.json'));
   return [
-    ...(usable ? destinationOperatorActions(usable, { frontendCompletion, deliveryMode }) : []),
+    ...(usable ? destinationOperatorActions(usable, { frontendCompletion, deliveryMode, studioTwoCopy }) : []),
     ...(isWebsiteDeliveryMode(deliveryMode) ? appPagesOperatorActions(appPagesRecord, usable, await projectSiteId(projectDir)) : []),
   ];
 }

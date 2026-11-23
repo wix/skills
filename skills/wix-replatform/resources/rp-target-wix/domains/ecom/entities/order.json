@@ -53,6 +53,7 @@
     "surface": "eCom Orders",
     "endpoint": "POST /ecom/v1/orders/import",
     "writerId": "importOrder",
+    "requestInput": "order",
     "verification": "verified-live",
     "importSafe": true,
     "bulk": false,
@@ -238,6 +239,7 @@
   "mappingGuidance": [
     "When a source product is known not to land, keep the order deferred-final and offer fix-and-rerun first. A catalog-less custom line is built only after an explicit per-record opt-in; never omit the product link by default.",
     "Resolve product, variation, contact, and coupon crosswalks before writing orders.",
+    "Map the source customer id to buyerInfo.contactId and each line's product / variation id to lineItems[].catalogReference (catalogItemId / options.variantId) as their own native outputs (sourceReferenceLeaves); the gate fills the Wix ids. A guest order with an empty billing contact uses the shipping contact, then the order email (order-buyer.js orderBuyerContact); hold only with order-buyer-contact-missing.",
     "Contacts import first, orders second: Import Order accepts buyerInfo.contactId (schema-checked 2026-08-04) but creates no contact itself \u2014 always pass the crosswalked contact ID, including for guest buyers derived from order billing emails (see crm/contact). The field doc's 'automatically created if one doesn't exist' text is shared with live Create Order and is unverified for the import path \u2014 do not rely on it.",
     "Use order and line-item extended fields for source-only metadata when configured.",
     "A per-order merchant note or comment from the source (e.g. a WooCommerce order note, or a payment-gateway plugin's note field) has no import-time field \u2014 `activities[]` is read-only on Create/Import Order (dev.wix.com verified 2026-08-11). Add it as a SEPARATE follow-up call after the order is imported: POST /ecom/v1/orders/{orderId}/activities/add with activityType MERCHANT_COMMENT and merchantComment.message (max 5000 chars). This stamps authorEmail and createdDate at migration time \u2014 the original note's author and timestamp cannot be preserved; prefix the message with the original date/author if that provenance matters.",
@@ -616,6 +618,9 @@
     "stores/product-variant": [
       "lineItems[].catalogReference.options.variantId"
     ],
+    "gift-cards/gift-card-product": [
+      "lineItems[].catalogReference.catalogItemId"
+    ],
     "stores/coupon": [
       "appliedDiscounts[].coupon.id"
     ],
@@ -631,6 +636,33 @@
     "tax/tax-group": [
       "lineItems[].taxInfo.taxGroupId"
     ]
+  },
+  "referenceCompanionFields": {
+    "_comment": "Paths written together with a gate-filled reference (dependencyReferenceFields of the same ref), never without it: catalogItemId and appId are required together on Import Order. A pure build with no lookups has neither, so the read-back canary does not demand them.",
+    "stores/product": ["lineItems[].catalogReference.appId"]
+  },
+  "sourceReferenceLeaves": {
+    "_comment": "Source leaves that carry a reference this order needs. A native/extended mapping decision that lists one must write it to the matching dependencyReferenceFields path (the gate fills the Wix id); mapping-field-contract refuses a plan that drops it (mapping-reference-leaf-dropped).",
+    "crm/contact": [
+      "customer_id",
+      "customer.id"
+    ],
+    "stores/product": [
+      "line_items[].product_id"
+    ],
+    "stores/product-variant": [
+      "line_items[].variation_id",
+      "line_items[].variant_id"
+    ]
+  },
+  "sourceReferenceLeafNotes": {
+    "members/member": "customer_id is the contact reference (crm/contact); the member link follows the contact, so no separate source leaf carries it.",
+    "gift-cards/gift-card": "WooCommerce core orders carry no gift card; a gift-card plugin is read by its own plugin reader.",
+    "gift-cards/gift-card-product": "WooCommerce core order lines carry a product id, not a gift-card product; a gift-card plugin's lines are read by its own plugin reader.",
+    "ecom/shipping-option": "WooCommerce shipping lines carry a method id, not a Wix shipping option; the option is matched by zone and title at import.",
+    "ecom/delivery-profile": "Resolved from the shipping zone at import; no order leaf carries it.",
+    "tax/tax-group": "WooCommerce line taxes carry a rate id, not a tax class id; the group is resolved from the product at import.",
+    "stores/coupon": "No required source leaf: a historical order may keep its coupon as text (coupon_lines[].code -> appliedDiscounts[].coupon.code, as real runs map it) without linking the Wix coupon id, so dropping the link is not a loss of the order's discount."
   },
   "operationContracts": {
     "importOrder": {
@@ -799,5 +831,19 @@
         "taxFidelity": true
       }
     ]
+  },
+  "valueContracts": {
+    "_comment": "Values Wix refuses whatever the request. The mapping check (lib/target-value-contracts.js) refuses a plan row whose transform can only write such a value, with why and the nearest option.",
+    "number": {
+      "pattern": "^[0-9]+$",
+      "why": "Wix order numbers are digits only: Import Order refuses any other number with a bare 400 and no field path (pitfall order-number-must-be-numeric).",
+      "alternative": "The nearest option keeps the number as digits (WC-1234 becomes 1234). channelInfo.externalOrderId stays the source order id, the durable pointer back to the source; Wix has no field for a display prefix.",
+      "choice": {
+        "name": "order-number-format",
+        "value": "digits-only",
+        "default": "source-number",
+        "decidedBy": "ai"
+      }
+    }
   }
 }

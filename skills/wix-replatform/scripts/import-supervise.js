@@ -18,10 +18,18 @@
 //   1  supervisor error -- bad arguments or the supervisor itself failed
 //   128+n               -- the supervisor got signal n; it forwarded it to the import and waited
 //
+//   12 still_running    -- --wait-max passed; the import keeps running, run the same command again
+//
 // It never starts a second import: a claim file records the child it launched, and a later call
 // that finds that child still alive attaches to it (polls only) instead of spawning. Every relaunch
 // is the same entrypoint with the same arguments, which resumes from the attempt journal and
 // crosswalk exactly as a manual re-run would.
+//
+// A host stops a long tool call at its own limit (a background command's longest timeout is 2 h),
+// and an import can run far longer. So the supervisor loop runs detached, in its own session, and
+// is not a descendant of the agent's command; the command only waits for it. If the host stops the
+// command, the import keeps running and the next call waits for the same supervisor. `--stop` (and
+// the runner's cancel) stops it.
 
 const fs = require('node:fs');
 const os = require('node:os');
@@ -30,9 +38,13 @@ const { spawn, spawnSync } = require('node:child_process');
 const { checkpointOf, sameCheckpoint } = require('../lib/subagent-handoff.js');
 const { listPendingBlockingUserActions } = require('../lib/user-actions.js');
 const { isProcessAlive } = require('../lib/local-state.js');
+const { projectProgressLog } = require('../lib/progress-log.js');
+const { supervisorClaimPath, supervisorResultPath, readJson, writeJson, runsEntry, isLiveSupervisor, liveSupervisor } = require('../lib/detached-supervisor.js');
 
 const HEALTH_CHECK = path.join(__dirname, 'execution-health-check.js');
-const EXIT = { complete: 0, needs_decision: 10, resume_limit: 11, error: 1 };
+const EXIT = { complete: 0, needs_decision: 10, resume_limit: 11, still_running: 12, error: 1 };
+const BOOLEAN_FLAGS = new Set(['--foreground', '--spawn-detached', '--stop']);
+const WAIT_POLL_MS = 1000;
 const AUTH_STOP_EXIT = 75; // wix-auth.js WIX_AUTH_EXIT_CODE
 const AWAITING_USER_EXIT = 3;
 const SIGNALS = { SIGHUP: 1, SIGINT: 2, SIGTERM: 15 };
@@ -43,12 +55,16 @@ function usage() {
   node skills/wix-replatform/scripts/import-supervise.js --project <dir>
       [--entry src/import/run-import.js] [--script <health-check script id>]
       [--poll 3m] [--stale-after 5m] [--max-resumes 3] [--max-launches 10] [--backoff 30s]
-      [-- <entrypoint args>]
+      [--wait-max 100m] [-- <entrypoint args>]
+  node skills/wix-replatform/scripts/import-supervise.js --project <dir> [--script <id>] --stop
 
 Runs the entrypoint (relative to --project) until it completes, needs a decision, or stops making
-settled progress. If an import it launched earlier is still running, it attaches to that one.
-Run it in the host's background mode; after a timed-out call, just run it again.
-Prints one JSON line. Exit 0 complete, 10 needs_decision, 11 resume_limit, 1 error.
+settled progress. The import runs detached from this command: if the host stops the command, the
+import keeps running, and running the same command again waits for it (never a second import).
+Run it from the top-level agent in the host's background mode and end the turn; it exits only on an
+event. Never poll it. After --wait-max it prints still_running (exit 12); run it again.
+--stop stops the import.
+Prints one JSON line. Exit 0 complete, 10 needs_decision, 11 resume_limit, 12 still_running, 1 error.
 `;
 }
 
@@ -68,6 +84,7 @@ function parseArgs(argv) {
     if (token === '--help' || token === '-h') { args.help = true; continue; }
     if (!token.startsWith('--')) throw new Error(`unexpected argument: ${token}`);
     const key = token.slice(2).replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+    if (BOOLEAN_FLAGS.has(token)) { args[key] = true; continue; }
     const value = argv[i + 1];
     if (value === undefined) throw new Error(`missing value for ${token}`);
     args[key] = value;
@@ -130,15 +147,6 @@ function writeClaim(projectDir, script, claim) {
   fs.writeFileSync(`${file}.tmp`, JSON.stringify(claim));
   fs.renameSync(`${file}.tmp`, file);
 }
-// A recorded pid can be reused after a reboot. Where /proc exists, the process must still be
-// running our entrypoint; elsewhere a live pid on this host is the best evidence available.
-function runsEntry(pid, entry) {
-  try {
-    return fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8').split('\0').some((arg) => arg.endsWith(entry));
-  } catch (error) {
-    return !(error && error.code === 'ENOENT' && fs.existsSync('/proc/self'));
-  }
-}
 function liveClaim(projectDir, script) {
   const claim = readClaim(projectDir, script);
   // pid must be positive: process.kill(0|-n, ...) signals a whole process group, never one import.
@@ -163,7 +171,9 @@ function runOnce({ projectDir, entry, passthrough, pollMs, script, staleAfter, k
     // The entrypoint's own output goes to a log file, never into the agent's context.
     fs.mkdirSync(path.join(projectDir, 'logs'), { recursive: true });
     const log = fs.openSync(path.join(projectDir, 'logs', 'import-supervise.log'), 'a');
-    const child = spawn(process.execPath, [path.join(projectDir, entry), ...passthrough], { cwd: projectDir, stdio: ['ignore', log, 'pipe'] });
+    // PROGRESS_LOG is the file the health check reads, so the child's progress is always seen.
+    const env = { ...process.env, PROGRESS_LOG: projectProgressLog(projectDir) };
+    const child = spawn(process.execPath, [path.join(projectDir, entry), ...passthrough], { cwd: projectDir, env, stdio: ['ignore', log, 'pipe'] });
     activeChild = child;
     if (child.pid) writeClaim(projectDir, script, { pid: child.pid, host: os.hostname(), supervisorPid: process.pid, entry, startedAt: new Date().toISOString() });
     let stderrTail = '';
@@ -285,12 +295,87 @@ async function supervise(args) {
   }
 }
 
+// The arguments the detached supervisor loop gets: this call's, minus the waiter-only flags, plus
+// `mode` (before any `--` passthrough, so the entrypoint never sees it).
+function loopArgv(argv, mode) {
+  const split = argv.indexOf('--');
+  const own = split === -1 ? argv : argv.slice(0, split);
+  const rest = split === -1 ? [] : argv.slice(split);
+  const kept = [];
+  for (let i = 0; i < own.length; i += 1) {
+    if (BOOLEAN_FLAGS.has(own[i])) continue;
+    if (own[i] === '--wait-max') { i += 1; continue; }
+    kept.push(own[i]);
+  }
+  return [...kept, mode, ...rest];
+}
+
+const print = (value) => process.stdout.write(`${JSON.stringify(value)}\n`);
+
+// Middle process of a double fork: start the supervisor loop in its own session, record it, print
+// its pid and exit at once. The loop is then re-parented away from the agent's command, so a host
+// that stops the command (or its whole process tree) does not reach the import.
+function spawnDetached(args, projectDir) {
+  fs.mkdirSync(path.join(projectDir, 'logs'), { recursive: true });
+  const log = fs.openSync(path.join(projectDir, 'logs', 'import-supervise.log'), 'a');
+  const child = spawn(process.execPath, [__filename, ...loopArgv(process.argv.slice(2), '--foreground')], { cwd: process.cwd(), env: process.env, detached: true, stdio: ['ignore', log, log] });
+  child.unref();
+  if (child.pid) writeJson(supervisorClaimPath(projectDir, args.script), { pid: child.pid, host: os.hostname(), startedAt: new Date().toISOString() });
+  process.stdout.write(String(child.pid || ''));
+  process.exit(child.pid ? 0 : EXIT.error);
+}
+
+// The agent's command: start the detached supervisor unless one is already running, then wait for
+// its result. A signal to this process ends only the wait.
+async function launchAndWait(args, projectDir) {
+  if (!fs.existsSync(path.join(projectDir, args.entry))) throw new Error(`entrypoint not found: ${args.entry}`);
+  const waitMaxMs = durationMs(args.waitMax || '100m', '--wait-max');
+  let supervisor = liveSupervisor(projectDir, args.script);
+  const attached = Boolean(supervisor);
+  if (!supervisor) {
+    const started = spawnSync(process.execPath, [__filename, ...loopArgv(process.argv.slice(2), '--spawn-detached')], { cwd: process.cwd(), env: process.env, encoding: 'utf8' });
+    const pid = Number(started.stdout);
+    if (!Number.isInteger(pid) || pid <= 0) throw new Error(`could not start the supervisor: ${(started.stderr || '').trim().slice(0, 300)}`);
+    supervisor = { pid };
+  }
+  const deadline = Date.now() + waitMaxMs;
+  while (isLiveSupervisor(supervisor.pid)) {
+    if (Date.now() >= deadline) {
+      print({ ok: true, outcome: 'still_running', supervisorPid: supervisor.pid, attachedToRunningSupervisor: attached, nextAction: 'The import keeps running. Run the same command again to keep waiting.' });
+      process.exitCode = EXIT.still_running;
+      return;
+    }
+    await sleep(WAIT_POLL_MS);
+  }
+  const result = readJson(supervisorResultPath(projectDir, args.script));
+  if (!result || result.supervisorPid !== supervisor.pid || !result.result) {
+    throw new Error('the supervisor ended without a result (see logs/import-supervise.log); run the same command again to resume');
+  }
+  print(result.result);
+  process.exitCode = result.exitCode;
+}
+
+async function stopDetached(args, projectDir) {
+  const supervisor = liveSupervisor(projectDir, args.script);
+  if (!supervisor) { print({ ok: true, outcome: 'not_running' }); return; }
+  process.kill(supervisor.pid, 'SIGTERM');
+  const deadline = Date.now() + 30000;
+  while (isLiveSupervisor(supervisor.pid) && Date.now() < deadline) await sleep(200);
+  const result = readJson(supervisorResultPath(projectDir, args.script));
+  print(result && result.supervisorPid === supervisor.pid ? result.result : { ok: false, outcome: 'stop_sent', supervisorPid: supervisor.pid });
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.help) { process.stdout.write(usage()); return; }
   if (!args.project) throw new Error(`--project is required\n${usage()}`);
-  // A host that stops the tool call stops this process. Forward the signal so the import stops
-  // with it (and resumes on the next call) instead of running on unsupervised.
+  const projectDir = path.resolve(args.project);
+  if (args.spawnDetached) return spawnDetached(args, projectDir);
+  if (args.stop) return stopDetached(args, projectDir);
+  if (!args.foreground) return launchAndWait(args, projectDir);
+  // A signal to the supervisor loop (`--stop`, the runner's cancel, or a host that runs it with
+  // --foreground) is forwarded, so the import stops with it (and resumes on the next call)
+  // instead of running on unsupervised.
   for (const name of Object.keys(SIGNALS)) {
     process.on(name, () => {
       stopSignal = name;
@@ -300,9 +385,18 @@ async function main() {
       if (attachedPid > 0) { try { process.kill(attachedPid, name); } catch { /* already gone */ } }
     });
   }
-  const result = await supervise(args);
-  process.stdout.write(`${JSON.stringify({ ok: result.outcome !== 'stopped', ...result })}\n`);
-  process.exitCode = result.outcome === 'stopped' ? 128 + SIGNALS[result.signal] : EXIT[result.outcome];
+  let output;
+  try {
+    const result = await supervise(args);
+    output = { ok: result.outcome !== 'stopped', ...result };
+    process.exitCode = result.outcome === 'stopped' ? 128 + SIGNALS[result.signal] : EXIT[result.outcome];
+  } catch (error) {
+    output = { ok: false, outcome: 'error', error: String(error && error.message ? error.message : error).slice(0, 400) };
+    process.exitCode = EXIT.error;
+  }
+  // The waiting command (this run or a later one) reads the result from here.
+  writeJson(supervisorResultPath(projectDir, args.script), { supervisorPid: process.pid, finishedAt: new Date().toISOString(), exitCode: process.exitCode, result: output });
+  print(output);
 }
 
 main().catch((error) => {

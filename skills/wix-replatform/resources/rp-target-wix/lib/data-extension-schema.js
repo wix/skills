@@ -2,11 +2,11 @@
 
 const crypto = require('node:crypto');
 
-// The Data Extension Schema (DES) path for the three objects the supported-target matrix
-// admits -- eCommerce ORDER (shipped first), stores PRODUCT, and CRM CONTACT on the default
-// Contacts V5 surface -- and nothing else. Checkout, Bookings, Booking Services and every nested
-// order subrecord are refused before any network call: add one only when a mapping needs it and
-// it has been verified live the way the order path was. The legacy Contacts V4 path is a
+// The Data Extension Schema (DES) path for the supported objects -- eCommerce ORDER, stores
+// PRODUCT, and CRM CONTACT on the default Contacts V5 surface -- and nothing else. Checkout,
+// Bookings, Booking Services and every nested order subrecord are refused before any network call:
+// add one only when a mapping needs it and it has been verified live the way the order path was.
+// The legacy Contacts V4 path is a
 // different API (CRM Extended Fields) and lives in contact-extended-fields.js; the two surfaces
 // are never mixed.
 //
@@ -42,9 +42,10 @@ const USER_FIELDS_NAMESPACE = '_user_fields';
 // supported-objects table (Products: yes; Orders: no). Contacts are absent from that table, so
 // filtering is treated as unsupported rather than assumed.
 const CONTACTS_FQDN = 'wix.contacts.*.contact';
+const PRODUCT_FQDN = 'wix.stores.catalog.*.product';
 const SUPPORTED_TARGETS = {
   'wix.ecom.*.order': { targetRef: 'ecom/order', supportsFiltering: false },
-  'wix.stores.catalog.*.product': { targetRef: 'stores/product', supportsFiltering: true },
+  [PRODUCT_FQDN]: { targetRef: 'stores/product', supportsFiltering: true },
   [CONTACTS_FQDN]: { targetRef: 'crm/contact', supportsFiltering: false, contactWriteSurface: 'contacts-v5', requiresLiveVerification: true },
 };
 
@@ -642,6 +643,7 @@ function isRevisionConflict(error) {
 module.exports = {
   SCHEMA_SERVICE,
   CONTACTS_FQDN,
+  PRODUCT_FQDN,
   OUT_OF_SCOPE_TARGETS,
   MAX_SCHEMA_WRITE_ATTEMPTS,
   OBSERVED_NAMESPACE_MAX_LIMIT_BYTES,

@@ -167,7 +167,7 @@ function latchStop(projectDir, signal) {
 //   if not, writes are still outstanding and only the journal is trusted. Record the stop, exit
 //   143/130. Every step is bounded by `stepMs`; a second signal exits at once.
 // `onInterrupted(interruption)` stamps or rebuilds the report and writes the handoff.
-async function runImportWithFinalize({ dispatch, finalize, onInterrupted = async () => {}, projectDir, graceMs = FINALIZE_GRACE_MS, stepMs = FINALIZE_GRACE_MS, proc = process, stderr = process.stderr }) {
+async function runImportWithFinalizeUnlocked({ dispatch, finalize, onInterrupted = async () => {}, projectDir, graceMs = FINALIZE_GRACE_MS, stepMs = FINALIZE_GRACE_MS, proc = process, stderr = process.stderr }) {
   // Without the project there is no latch, and a stopped run would keep starting writes.
   if (typeof projectDir !== 'string' || !projectDir) throw new TypeError('runImportWithFinalize requires projectDir');
   let finalized = false;
@@ -235,6 +235,14 @@ async function runImportWithFinalize({ dispatch, finalize, onInterrupted = async
   } finally {
     for (const [name, handler] of handlers) proc.removeListener(name, handler);
   }
+}
+
+// The generated src/import/run-import.js entrypoint is the other supported live-write boundary.
+// Keeping the lock here covers hand-written composite tasks as well as vendored task runners;
+// nested runner/writer calls reuse this process's ownership.
+async function runImportWithFinalize(options = {}) {
+  if (typeof options.projectDir !== 'string' || !options.projectDir) throw new TypeError('runImportWithFinalize requires projectDir');
+  return localLib().withStateLock(options.projectDir, () => runImportWithFinalizeUnlocked(options), { script: 'run-import.js', reentrant: true });
 }
 
 module.exports = {

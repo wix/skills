@@ -113,48 +113,12 @@ counts and complete-identity checks; a failed component leaves the logical entit
 Only a reconciled full output and current entity/component manifests authorize import.
 `sample:true` returns a preview without full-reader calls or artifact/status changes.
 
-Generate bridge dispatch with the committed `lib/generated-plugin-handoff.js` emitter.
-It owns `src/import/plugin-handoff.js` and the thin importer/extractor entrypoints. It
-refuses to overwrite any existing non-template entrypoint, checking all destinations
-before writing. Before deliberately replacing an existing entrypoint, adapt its implementation
-into `src/project/plugin-runtime.js`, preserving its heartbeat, self-check, ledger, selectors
-and target dependency order. The adapter exports:
-
-- `describeImport()`: pure declaration from the retained importer's actual configuration,
-  including its run-ID source, supported selection modes and actual ledger paths. The
-  wrapper never manufactures these capabilities. Also include `entityOrder`, listing every
-  planned canonical entity reference exactly once in the existing target dependency order.
-  The wrapper preserves this ordering and topologically orders source prerequisites;
-  missing references, cycles or a conflict with the declared target order fail before hooks/writes. This does not add the separate
-  target-parent readiness gate. Declare the same `migrationReview` capture contract as any
-  generated importer. When the mapping plan has an exact field contract, also declare its
-  `mappingPlanDigest`, `resolvedEntityRefs` and `mappingScopeAssertion: 'assertExecutionScope'`;
-  the wrapper then dispatches only resolved entities and re-checks that guard before each
-  `importEntity` call. A held-back entity is never written.
-- `migrationReviewProbe({probeProjectDir,args})`: the isolated review probe the verifier runs.
-  Write only under `probeProjectDir`, with synthetic inputs and no source or target calls,
-  using the same capture/publication functions as `importEntity`/`finalizeImport`.
-- `sourceTransport({entity,projectDir,siteBaseUrl})`: same authenticated shared HTTP bridge
-  transport and telemetry callback discovery used; load secrets from the configured source.
-- `preview(entity)`: retained discovery samples only, or null. Never fetch full data here.
-- `extractNative({entity,selection,projectDir})`: existing supported native extraction.
-- `preflight({entities,selection,projectDir,runId})`: existing run-scoped authorization/setup/mute
-  checks, once before the first ready write; throw on refusal. Do not replace them with a
-  fixed successful response.
-- `importEntity({entity,selection,projectDir,dryRun})`: existing target writer, record
-  selectors, ledger, idempotency and recovery. It owns Migration review before-write,
-  write-outcome and recovery captures; the wrapper captures none, and passing the probe
-  does not prove them. Honour `dryRun` and every selection flag;
-  the wrapper's source-readiness gate grants no target permission or omission approval.
-- `finalizeImport({results,selection,projectDir,runId,deferredExtraction})`: retain existing
-  per-run recovery/completion publication, merging `deferredExtraction.operatorActions`
-  and `statuses` with the real journal-backed outcomes. Pass the pinned `mappingPlanDigest`
-  to the completion writer so held-back mapping scope stays visible. It runs once even when all selected
-  plugin entities are held. A local finalization error never rewrites target receipts as
-  rejected creates.
-- `afterExtraction({results,selection,projectDir,runId})`: file accumulated source-read
-  telemetry once after the read pass, including deferred reads. Telemetry failure must not
-  discard extraction evidence.
+The codegen scaffold writes the bridge dispatch and the project adapter (`lib/codegen-scaffold.js`):
+`src/import/plugin-handoff.js`, the thin importer/extractor entrypoints (from
+`lib/generated-plugin-handoff.js`) and `src/project/plugin-runtime.js`, which runs the toolkit's
+`lib/project-adapter.js` (descriptor, preflight, `importEntity` per manifest task, migration review,
+completion). Do not write or edit them. A run-specific change to one adapter step goes in
+`src/project/overrides.js` (`<step>(...args, toolkitDefault)`); every override is a toolkit finding.
 
 An entity already read in full before the checkpoint is not read again here unless its plan or
 output changed (`full-extraction-stale`).

@@ -48,6 +48,7 @@ async function boundedRequest({ fetch, clock }, url, init, timeoutMs) {
     return {
       status: response.status,
       retryAfter: response.headers && typeof response.headers.get === 'function' ? response.headers.get('retry-after') : null,
+      location: response.headers && typeof response.headers.get === 'function' ? response.headers.get('location') : null,
       text,
       json,
     };

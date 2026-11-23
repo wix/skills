@@ -23,7 +23,8 @@
 // - Never throws for a shape it can represent; throws only for contradictory input (a scope the
 //   records disprove, a choice the attribute does not declare), which the caller reports as a gap.
 
-const LIMITS = Object.freeze({ options: 6, variants: 1000, choicesPerOption: 100 });
+const LIMITS = Object.freeze({ options: 6, variants: 1000, choicesPerOption: 100, modifiers: 10 });
+const MAX_DESCRIPTION = 16000;
 const SCOPES = new Set(['shared', 'partial', 'per-choice']);
 
 const own = (object, key) => Object.prototype.hasOwnProperty.call(object || {}, key);
@@ -195,14 +196,35 @@ function modifierFor(attribute) {
   return { name: attribute.name, customizationName: attribute.name, choices: [...attribute.choices], mandatory: attribute.required !== false };
 }
 
+const escapeHtml = (text) => String(text).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+
+// The description paragraph that lists options over the Wix modifier limit.
+function extraOptionsNote(extra) {
+  return `<p>More options: ${extra.map((m) => `${escapeHtml(m.name)}: ${m.choices.map(escapeHtml).join(', ')}`).join('; ')}.</p>`;
+}
+
+// Called once per product just before buildProduct, after every plan row has merged, so the
+// description row cannot overwrite the note. Skips the note when the description has no room.
+function foldSelectionOptionsNote(canonical) {
+  const note = canonical && canonical.selectionOptionsNote;
+  if (canonical) delete canonical.selectionOptionsNote;
+  if (!note) return canonical;
+  const description = canonical.description ? `${canonical.description}\n${note}` : note;
+  if (description.length + String(canonical.shortDescription || '').length + 8 <= MAX_DESCRIPTION) canonical.description = description;
+  return canonical;
+}
+
 function dropChoices(record, names) {
   return { ...record, choices: (record.choices || []).filter((c) => !names.has(c.optionName)) };
 }
 
-// Returns { product, route, decision, renamed, operatorActions }. `product` is a copy carrying optionNames, variants,
+// Returns { product, route, decision, renamed, operatorActions } (route: none | variants | modifiers | hybrid | held). `product` is a copy carrying optionNames, variants,
 // modifiers and sourceDeclaredOptionNames, ready for buildProduct. Products without
 // selectionAttributes are returned unchanged with route 'none'.
-function routeSelections(product) {
+// `options.onOptionOverLimit`: 'import' (default, the shipped route below) or 'hold'. With 'hold', a product
+// whose variant attributes (those not shared) exceed the Wix option limit is not routed: it returns
+// route 'held' with `held: 'product-options-over-limit'` and the caller creates nothing.
+function routeSelections(product, options = {}) {
   if (!product || !Array.isArray(product.selectionAttributes) || !product.selectionAttributes.length) {
     return { product, route: 'none', operatorActions: [] };
   }
@@ -218,6 +240,9 @@ function routeSelections(product) {
   let variants;
   let decision = null;
 
+  if (options.onOptionOverLimit === 'hold' && variantAttributes.length > LIMITS.options) {
+    return { product, route: 'held', held: 'product-options-over-limit', decision: null, renamed: normalized.renamed, operatorActions: [] };
+  }
   if (!variantAttributes.length) {
     // Every attribute is shared: one default variant. Only the first record can ever match.
     variants = [{ ...records[0], choices: [], variantKey: String(records[0].sourceId ?? 0) }];
@@ -258,12 +283,32 @@ function routeSelections(product) {
   }
 
   // Labels are unique per product (normalize), so each modifier has its own customization name.
-  const modifiers = attributes.filter((a) => modifierAttributes.includes(a)).map(modifierFor);
+  let modifiers = attributes.filter((a) => modifierAttributes.includes(a)).map(modifierFor);
+  // Wix refuses a product with more than LIMITS.modifiers modifiers. Import it with the first ones
+  // in source order and list the rest in the description (selectionOptionsNote, which
+  // foldSelectionOptionsNote adds after every row has merged), so the shopper still sees them. The
+  // routed product then declares only what it builds (buildProduct accounts for every declared
+  // option); the dropped ones are recorded in the cutover action below.
+  let declared = attributes;
+  if (modifiers.length > LIMITS.modifiers) {
+    const extra = modifiers.slice(LIMITS.modifiers);
+    modifiers = modifiers.slice(0, LIMITS.modifiers);
+    const droppedNames = new Set(extra.map((m) => m.name));
+    declared = attributes.filter((a) => !droppedNames.has(a.name));
+    product = { ...product, selectionAttributes: declared, selectionOptionsNote: extraOptionsNote(extra) };
+    operatorActions.push({
+      code: 'selection-modifiers-over-limit',
+      severity: 'medium',
+      sourceId: product.sourceId,
+      droppedModifiers: extra.map((m) => ({ name: m.name, choices: m.choices })),
+      detail: `Wix allows ${LIMITS.modifiers} product options without price change; the first ${LIMITS.modifiers} were imported and ${extra.map((m) => m.name).join(', ')} are listed at the end of the product description (unless it is already at the 16,000-character limit). Decide how shoppers choose them (for example a custom text field) before launch`,
+    });
+  }
   const route = !modifiers.length ? 'variants' : !variantAttributes.length ? 'modifiers' : 'hybrid';
   return {
     product: {
       ...product,
-      sourceDeclaredOptionNames: attributes.map((a) => a.name),
+      sourceDeclaredOptionNames: declared.map((a) => a.name),
       optionNames: variantAttributes.map((a) => a.name),
       variants,
       modifiers,
@@ -340,4 +385,4 @@ function modifierExpectation(routedProduct, connectedModifiers) {
   }));
 }
 
-module.exports = { LIMITS, routeSelections, routeRecord, planSelectionCustomizations, customizationPayload, modifierExpectation };
+module.exports = { LIMITS, routeSelections, foldSelectionOptionsNote, routeRecord, planSelectionCustomizations, customizationPayload, modifierExpectation };

@@ -60,6 +60,10 @@ const {
   summarizeDispositions,
 } = require('../lib/plugin-disposition.js');
 const {
+  STATUS_META,
+  artifactContract,
+} = require('../lib/plugin-coverage-contract.js');
+const {
   cmsFallbackDecisionKeys,
   cmsFallbackDecisionShape,
   capabilityOfKey: cmsFallbackCapabilityOfKey,
@@ -985,10 +989,11 @@ function renderPluginSection(context) {
   const rows = coverage
     .map((row) => {
       const via = row.status === 'migration-planned' ? `${row.via} · ${row.confidence}` : '-';
+      const statusLabel = STATUS_META[row.status]?.label || row.status;
       const blocked = (row.blocked || []).length > 0
         ? row.blocked.map((blocker) => `${blocker.kind}${blocker.declined ? ' (declined)' : ''}`).join(', ')
         : '-';
-      return `| ${row.capability} | \`${row.status}\` | ${via} | ${row.recognized ? 'yes' : 'no'} | ${row.plugins.join(', ') || '-'} | \`${row.channel || 'none'}\` | ${blocked} | ${row.action ? row.action : '-'} |`;
+      return `| ${row.capability} | ${statusLabel} | ${via} | ${row.recognized ? 'yes' : 'no'} | ${row.plugins.join(', ') || '-'} | \`${row.channel || 'none'}\` | ${blocked} | ${row.action ? row.action : '-'} |`;
     })
     .join('\n');
 
@@ -1013,7 +1018,7 @@ function renderPluginSection(context) {
     `- Unprofiled namespaces: ${unprofiled.length}\n` +
     `- Installed but unrecognized: ${detection.installedButUnprofiled.length}\n` +
     `- Publicly fingerprinted (named, not enumerated): ${(detection.fingerprinted || []).length}\n` +
-    `- Capabilities by status: ${Object.entries(summary.byStatus).map(([status, count]) => `\`${status}\`: ${count}`).join(', ') || 'none'}\n\n` +
+    `- Capabilities by status: ${Object.entries(summary.byStatus).map(([status, count]) => `${STATUS_META[status]?.label || status}: ${count}`).join(', ') || 'none'}\n\n` +
     `| Capability | Status | Via | Recognized | Plugins | Channel | Blocked | Action needed |\n` +
     `| --- | --- | --- | --- | --- | --- | --- | --- |\n` +
     `${rows || '| None | - | - | - | - | - | - | - |'}\n\n` +
@@ -1127,12 +1132,73 @@ function loadDecisions(args) {
 
 // The batched ask (J1 step 9) records one decision per blocker under the key
 // `pluginBlocker:<capability>:<kind>`; a value of `declined` (or `skipped`) marks it declined.
+// In a user-chosen one-click run an unanswered item is declined by default (never asked) and
+// listed for cutover by `recordOneClickPluginSkips`.
 function applyBlockerDecisions(rows, decisions) {
+  const oneClick = require('../../../lib/orchestration-decisions.js').isExplicitUserOneClick(decisions);
   for (const row of rows) {
     for (const blocker of row.blocked || []) {
       const entry = decisions[`pluginBlocker:${row.capability}:${blocker.kind}`];
       if (entry && ['declined', 'skipped'].includes(entry.value)) blocker.declined = true;
+      else if (!entry && oneClick) { blocker.declined = true; blocker.declinedBy = 'one_click_default'; }
     }
+  }
+}
+
+const ONE_CLICK_PLUGIN_SKIP = 'plugin-optional-data-skipped';
+// The skipped list grows with the site (65 items on one store), so it lives in its own artifact;
+// the action carries a count, a short summary and the artifact's sha256 (user-actions writeListArtifact).
+const ONE_CLICK_PLUGIN_SKIP_FILE = 'discovery/one-click-plugin-skips.json';
+async function recordOneClickPluginSkips(projectDir, rows) {
+  const items = [];
+  for (const row of rows || []) for (const blocker of row.blocked || []) {
+    if (blocker.declinedBy === 'one_click_default') items.push({ capability: row.capability, kind: blocker.kind });
+  }
+  if (!projectDir) return null;
+  items.sort((a, b) => `${a.capability}:${a.kind}`.localeCompare(`${b.capability}:${b.kind}`));
+  const ua = require('../../../lib/user-actions.js');
+  const list = items.length ? await ua.writeListArtifact(projectDir, ONE_CLICK_PLUGIN_SKIP_FILE, items, { name: (item) => `${item.capability} (${item.kind})` }) : null;
+  let matching = null;
+  for (const listed of await ua.listUserActions(projectDir)) {
+    const request = await ua.readUserAction(projectDir, listed.requestId);
+    if (request.subject?.type !== ONE_CLICK_PLUGIN_SKIP) continue;
+    if (list && request.status !== 'superseded' && request.subject.itemsSha256 === list.sha256) matching ||= request;
+    else if (request.status === 'pending') await ua.supersedeUserAction(projectDir, request.requestId);
+  }
+  if (!list || matching) return matching;
+  return ua.createUserAction(projectDir, {
+    kind: 'manual_action',
+    stage: 'cutover',
+    title: `Optional plugin data skipped (${list.count})`,
+    prompt: `This one-click run skipped ${list.count} optional plugin data item(s) it could not read without you: ${list.summary}. The full list is in ${ONE_CLICK_PLUGIN_SKIP_FILE}. Recreate any you need in Wix, or acknowledge to accept the skip. Requires Import Operator to include one later: record pluginBlocker:<capability>:<kind>=provided in orchestration/decisions.json, supply the input, and re-run discovery.`,
+    response: { mode: 'none', required: true },
+    artifactRefs: [list.artifactRef],
+    subject: { type: ONE_CLICK_PLUGIN_SKIP, count: list.count, itemsSha256: list.sha256 },
+  });
+}
+
+// The plugin inventory could not be read: plugin data may go undetected. One open cutover task
+// per project (an earlier pending one is kept), joined into completion-report operatorActions.
+const PLUGIN_INVENTORY_SKIP = 'plugin-inventory-skipped';
+async function recordPluginInventorySkip(projectDir, error) {
+  if (!projectDir) return null;
+  const ua = require('../../../lib/user-actions.js');
+  try {
+    for (const listed of await ua.listUserActions(projectDir, { status: 'pending' })) {
+      const request = await ua.readUserAction(projectDir, listed.requestId);
+      if (request.subject?.type === PLUGIN_INVENTORY_SKIP) return request;
+    }
+    return await ua.createUserAction(projectDir, {
+      kind: 'manual_action',
+      stage: 'cutover',
+      title: 'WordPress plugin inventory not read',
+      prompt: `Discovery could not read the WordPress plugin list (${String(error?.code || error?.message || error).slice(0, 200)}), so plugin data (forms, reviews, subscriptions and the like) may not have been found or imported. Requires Import Operator: fix source access and re-run discovery, then compare the plugin list with the import.`,
+      response: { mode: 'none', required: true },
+      subject: { type: PLUGIN_INVENTORY_SKIP, role: 'import-operator' },
+    });
+  } catch {
+    // The progress line above still records the skip; a broken user-action store is reported by its own readers.
+    return null;
   }
 }
 
@@ -1471,6 +1537,7 @@ function reclassifyPluginCoverage({ prior, inventory, decisions = {}, pluginsRoo
       perPluginSummary: summarizeDispositions(disposition),
       capabilities: rows,
       perPlugin: disposition,
+      statusContract: artifactContract(),
       statusInvariant: { ...(prior.statusInvariant || {}), toolkitExcluded: toolkitExcludedCount(detection, hints) },
       bridgeEntities,
       cmsFallbackDecisionIssues: cmsFallbackDecisionIssues(rows, decisions),
@@ -1524,6 +1591,7 @@ async function runReclassifyCoverage(args) {
     }
   }
   if (canonicalDirExists) targets.push(canonical);
+  await recordOneClickPluginSkips(projectDirOfOutDir(outDir), result.payload.capabilities);
   for (const target of targets) {
     await fs.mkdir(path.dirname(target), { recursive: true });
     const tempPath = `${target}.${process.pid}.tmp`;
@@ -2126,6 +2194,7 @@ function pluginCoveragePayload(context) {
     authenticated: context.authMode !== 'none',
     bridgeAuthMode: context.bridgeAuthMode,
     pluginListAvailable: plugins.detection.pluginListAvailable,
+    statusContract: artifactContract(),
     notes: [
       ...(context.pluginNotes || []),
       ...(plugins.targetKnowledgeError
@@ -2170,10 +2239,15 @@ async function ensureDir(dirPath) {
   await fs.mkdir(dirPath, { recursive: true });
 }
 
+// The project a capture into <project>/data/wp-discovery belongs to.
+function projectDirOf(outDir, context = {}) {
+  return context.projectDir ? path.resolve(context.projectDir)
+    : (path.basename(path.resolve(outDir)) === 'wp-discovery' && path.basename(path.dirname(path.resolve(outDir))) === 'data' ? path.resolve(outDir, '../..') : null);
+}
+
 async function writeOutputs(outDir, context, progress) {
   await ensureDir(outDir);
-  const planProjectDir = context.projectDir ? path.resolve(context.projectDir)
-    : (path.basename(path.resolve(outDir)) === 'wp-discovery' && path.basename(path.dirname(path.resolve(outDir))) === 'data' ? path.resolve(outDir, '../..') : null);
+  const planProjectDir = projectDirOf(outDir, context);
   if (planProjectDir) {
     const { sha } = require('../lib/plugin-entity-read-plan.js');
     for (const entity of context.entities) {
@@ -2225,11 +2299,9 @@ async function writeOutputs(outDir, context, progress) {
       step: 'write-artifact',
       artifact: path.join(outDir, 'plugin-inventory.json'),
     });
-    await fs.writeFile(
-      path.join(outDir, 'plugin-coverage.json'),
-      `${JSON.stringify(pluginCoveragePayload(context), null, 2)}\n`,
-      'utf8',
-    );
+    const coveragePayload = pluginCoveragePayload(context);
+    await fs.writeFile(path.join(outDir, 'plugin-coverage.json'), `${JSON.stringify(coveragePayload, null, 2)}\n`, 'utf8');
+    await recordOneClickPluginSkips(projectDirOfOutDir(outDir), coveragePayload.capabilities);
     progress?.progress('Wrote WordPress plugin coverage', {
       phase: 'discovery',
       step: 'write-artifact',
@@ -2433,11 +2505,13 @@ async function main() {
         },
       });
     } catch (error) {
-      // Never fail discovery over the plugin pre-pass; record and continue.
+      // Never fail discovery over the plugin pre-pass; record and continue. The progress line
+      // alone never reached the cutover list, so the skip is also a durable cutover task.
       progress.progress(`WordPress plugin inventory skipped: ${error.message}`, {
         phase: 'discovery',
         step: 'plugin-inventory',
       });
+      await recordPluginInventorySkip(projectDirOfOutDir(args.outDir), error);
     }
   }
 
@@ -2642,6 +2716,13 @@ async function main() {
     progress,
   });
 
+  // Capture is done: the toolkit's read-only extract starts in the background now, so the records
+  // are ready when mapping starts (lib/source-extract-background.js; it needs the project's
+  // config/source.*.env, and starts once).
+  const projectDir = projectDirOf(args.outDir, context);
+  const extract = projectDir ? require('../../../lib/source-extract-background.js').startSourceExtract(projectDir, { platform: 'wordpress' }) : { skipped: 'no-project' };
+  progress.progress(extract.started ? 'Source extract started in the background' : `Source extract not started (${extract.skipped})`, { phase: 'discovery', step: 'source-extract-start' });
+
   console.log(`Wrote ${entities.length + 1} markdown files and skipped-routes.json to ${args.outDir}`);
   progress.complete('WordPress discovery completed', {
     phase: 'discovery',
@@ -2663,6 +2744,7 @@ if (require.main === module) {
 
 module.exports = {
   parseArgs,
+  renderEntityFile,
   deriveEntityCandidates,
   renderIndexFile,
   renderPluginSection,
@@ -2673,6 +2755,9 @@ module.exports = {
   pluginCoveragePayload,
   buildEntityStats,
   reclassifyPluginCoverage,
+  applyBlockerDecisions,
+  recordOneClickPluginSkips,
+  recordPluginInventorySkip,
   runReclassifyCoverage,
   loadDecisions,
   loadTargetKnowledge,

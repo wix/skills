@@ -104,7 +104,10 @@ function normalizeRequest(projectDir, input = {}) {
       && typeof input.effect.siteId === 'string' && input.effect.siteId && /^[0-9a-f]{64}$/.test(input.effect.changesDigest || '')
       && choices.length === 2 && choices.every((item) => ['change', 'keep'].includes(item.id));
     const isNotificationMuteDecision = kind === 'question' && mode === 'choice' && require('./notification-mute.js').isValidNotificationMuteEffect(input.effect, choices);
-    if (!isApproval && !isImportModeDecision && !isSiteTypeDecision && !isEditorWebsiteDecision && !isReadBackAck && !isSiteRegionalAnswer && !isNotificationMuteDecision) throw new Error('unsupported user-action effect');
+    const isFieldInventoryReview = input.effect.kind === 'mapping-field-inventory-review'
+      && kind === 'review' && mode === 'text'
+      && (input.effect.answerArtifact === 'mapping/review/field-inventory-answers.json' || input.effect.answerArtifact === undefined);
+    if (!isApproval && !isImportModeDecision && !isSiteTypeDecision && !isEditorWebsiteDecision && !isReadBackAck && !isSiteRegionalAnswer && !isNotificationMuteDecision && !isFieldInventoryReview) throw new Error('unsupported user-action effect');
   }
   return {
     schemaVersion: SCHEMA_VERSION,
@@ -152,7 +155,9 @@ async function rebuildIndex(projectDir) {
 }
 
 async function createUserAction(projectDir, input) {
-  const request = normalizeRequest(projectDir, input);
+  // Approval ids are checked at creation only, so older durable requests still load.
+  const isApproval = input?.effect?.kind === 'approval';
+  const request = normalizeRequest(projectDir, isApproval ? { ...input, choices: require('./approval-choices.js').approvalChoices(input.choices) } : input);
   await fs.mkdir(userActionsDir(projectDir), { recursive: true });
   const filePath = requestPath(projectDir, request.requestId);
   try {
@@ -199,11 +204,17 @@ function isCutoverUserAction(request) {
 // Read the same blocking set for every consumer that can stop import progress. The public
 // list remains unfiltered so cutover work stays visible and answerable.
 async function listPendingBlockingUserActions(projectDir) {
+  await require('./mapping-field-inventory-review.js').syncAnsweredFieldInventoryReviews(projectDir);
   const rows = await listUserActions(projectDir, { status: 'pending' });
   const requests = [];
+  const decisions = (() => {
+    try { return JSON.parse(require('node:fs').readFileSync(path.join(projectDir, 'orchestration/decisions.json'), 'utf8')); }
+    catch { return {}; }
+  })();
+  const oneClick = require('./orchestration-decisions.js').isExplicitUserOneClick(decisions);
   for (const row of rows) {
     const request = await readUserAction(projectDir, row.requestId);
-    if (!isCutoverUserAction(request)) requests.push(request);
+    if (!isCutoverUserAction(request) && !(oneClick && require('./mapping-field-inventory-review.js').isFieldInventoryReview(request))) requests.push(request);
   }
   return requests;
 }
@@ -311,7 +322,7 @@ async function answerUserAction(projectDir, requestId, answer, { applyEffect } =
   if (request.status === 'answered') {
     const existing = request.answer && (request.answer.choice ? { choice: request.answer.choice, ...(request.answer.note ? { note: request.answer.note } : {}) } : request.answer.text ? { text: request.answer.text } : { acknowledged: request.answer.acknowledged === true, ...(request.answer.note ? { note: request.answer.note } : {}) });
     if (JSON.stringify(existing) === JSON.stringify(normalized)) {
-      if (request.effect?.kind === 'read-back-omission-ack' && typeof applyEffect === 'function') await applyEffect(request, normalized);
+      if ((request.effect || require('./mapping-field-inventory-review.js').isFieldInventoryReview(request)) && typeof applyEffect === 'function') await applyEffect(request, normalized);
       return request;
     }
     throw new Error('user action already has a different answer');
@@ -319,14 +330,14 @@ async function answerUserAction(projectDir, requestId, answer, { applyEffect } =
   if (request.status !== 'pending') throw new Error(`user action is not pending: ${request.status}`);
   const stale = staleArtifactRefs(projectDir, request);
   const mappingApproval = request.effect?.kind === 'approval' && request.effect.approvalType === 'mapping';
-  const rejectingMapping = mappingApproval && ['declined', 'reject'].includes(normalized.choice);
+  const rejectingMapping = mappingApproval && require('./approval-choices.js').approvalStatus(normalized.choice) === 'rejected';
   // The mapping binder owns census-reference refusal ordering (missing, stale inputs,
   // then stale request). Other pinned artifacts retain the generic freshness gate.
   const unboundStale = mappingApproval && typeof applyEffect === 'function'
     ? stale.filter(entry => !request.artifactRefs.some(ref => ref.kind === 'census-reconciliation' && ref.path === entry.path))
     : stale;
   if (!rejectingMapping && unboundStale.length) throw new UserActionStaleError(requestId, unboundStale);
-  if (request.effect && typeof applyEffect === 'function') await applyEffect(request, normalized);
+  if ((request.effect || require('./mapping-field-inventory-review.js').isFieldInventoryReview(request)) && typeof applyEffect === 'function') await applyEffect(request, normalized);
   request.status = 'answered';
   request.answer = { ...normalized, answeredAt: new Date().toISOString() };
   await writeJsonAtomic(requestPath(projectDir, requestId), request);
@@ -336,6 +347,9 @@ async function answerUserAction(projectDir, requestId, answer, { applyEffect } =
 
 // Every public approval dispatcher uses this disk-bound reference builder.
 async function approvalArtifactRefs(projectDir, { approvalType, status, decidedBy, artifactRefs = [], requireRequestRef = false }) {
+  // Every mapping approval writer binds here: an in-use entity left unmapped without a typed
+  // reason is refused (and counted), whoever approves and in every mode.
+  if (approvalType === 'mapping' && ['approved', 'provisional'].includes(status)) require('./mapping-field-contract.js').assertMappingComplete(projectDir);
   const requestRef = artifactRefs.find(ref => ref && typeof ref === 'object' && ref.kind === 'census-reconciliation') || null;
   const { bindCensusReconciliation } = require('./census-reconciliation.js');
   const bound = await bindCensusReconciliation(projectDir, { approvalType, status, decidedBy, requestRef: requireRequestRef ? requestRef : null });
@@ -345,7 +359,30 @@ async function approvalArtifactRefs(projectDir, { approvalType, status, decidedB
   return bound.ref ? [...refs, bound.ref] : refs;
 }
 
+// A list that grows with the site (plugins, fields, records) never goes inline into a capped
+// field (title 200, prompt and subject 4000). The producer writes the full list to a durable
+// project artifact with this helper and puts only fixed-size fields on the action: `count`, a
+// `summary` (the first names, then "+M more", at most `maxChars`), and `artifactRef` with the
+// file's sha256. Compare `sha256` to de-duplicate, never the inline list.
+async function writeListArtifact(projectDir, relativePath, items, { name = String, maxNames = 10, maxChars = 600 } = {}) {
+  if (!Array.isArray(items)) throw new Error('writeListArtifact requires an array');
+  const ref = normalizeArtifact(projectDir, { path: relativePath, mediaType: 'application/json' });
+  const filePath = path.join(projectDir, ref.path);
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  await writeJsonAtomic(filePath, { schemaVersion: 1, count: items.length, items });
+  const sha256 = hashArtifact(projectDir, ref.path);
+  let summary = '', shown = 0;
+  for (const item of items.slice(0, maxNames)) {
+    const next = `${shown ? ', ' : ''}${name(item)}`;
+    if (summary.length + next.length > maxChars - 20) break;
+    summary += next; shown++;
+  }
+  if (shown < items.length) summary += `${shown ? ', ' : ''}+${items.length - shown} more`;
+  return { count: items.length, summary, sha256, artifactRef: { ...ref, sha256 } };
+}
+
 module.exports = {
+  writeListArtifact,
   approvalArtifactRefs,
   normalizeArtifact,
   SCHEMA_VERSION,

@@ -560,6 +560,29 @@ async function ensureTimeZoneAction(projectDir, { siteId, row, siteValue }) {
   });
 }
 
+// Language and locale discovery inferred (or, in one-click, could not read and kept as the
+// site's own) are confirmed at cutover: one durable task per site + values. Never asked mid-run.
+const LOCALE_CONFIRMATION = 'site-locale-language-confirmation';
+async function ensureLocaleAction(projectDir, { siteId, language, locale, basis }) {
+  const ua = require('./user-actions.js');
+  const subject = { type: LOCALE_CONFIRMATION, siteId, language, locale, basis };
+  for (const listed of await ua.listUserActions(projectDir)) {
+    const request = await ua.readUserAction(projectDir, listed.requestId);
+    if (request.subject && canonical(request.subject) === canonical(subject)) return request;
+  }
+  const kept = basis === 'kept-site-default';
+  return ua.createUserAction(projectDir, {
+    kind: 'manual_action',
+    stage: 'cutover',
+    title: `Confirm the site language (${language || 'site default'}) and regional format (${locale || 'site default'})`,
+    prompt: kept
+      ? `The source store's language could not be read, so the site kept its own language (${language || 'unknown'}) and regional format (${locale || 'unknown'}). Confirm them in Business Manager > Settings > Language & region, or change them there.`
+      : `The source store did not name its language, so the migration set the site to ${language} with regional format ${locale || 'unchanged'} (${basis}). Confirm them in Business Manager > Settings > Language & region, or change them there.`,
+    response: { mode: 'none', required: true },
+    subject,
+  });
+}
+
 // The setup step. `wix` is the capability-bound setup client; `writers` is the shared writers module
 // (injected so a test never touches Wix). Returns the `regional` receipt object, or throws an error carrying
 // `blockerCode` / `recommendedAction` for execute-setup to record.
@@ -568,8 +591,11 @@ async function executeRegionalStep({ projectDir, wix, writers, siteId, requireme
   let source;
   try { source = await sr.readSourceRegional(projectDir); } catch (error) { throw regionalBlocker('INVALID_SOURCE_REGIONAL', error.message); }
   if (!source) throw regionalBlocker('INVALID_SOURCE_REGIONAL', 'discovery/source-locale.json is missing');
-  // An unresolved fixed-offset time zone keeps the site's zone and is confirmed at cutover; never asked.
-  const missing = SETTINGS.filter((field) => sr.settingValue(source, field) === null && !(field === 'timeZone' && sr.keepsSiteTimeZone(source)));
+  // An unresolved fixed-offset time zone keeps the site's zone and is confirmed at cutover; never
+  // asked. In one-click an unknown language or locale does the same (it changes no record).
+  const oneClick = require('./orchestration-decisions.js').isExplicitUserOneClick(readDecisions(projectDir));
+  const keepsSite = (field) => (field === 'timeZone' && sr.keepsSiteTimeZone(source)) || (oneClick && (field === 'language' || field === 'locale'));
+  const missing = SETTINGS.filter((field) => sr.settingValue(source, field) === null && !keepsSite(field));
   if (missing.length) throw regionalBlocker('SOURCE_LOCALE_REQUIRED', `source locale requires supplied values for: ${missing.join(', ')}`);
 
   let properties;
@@ -640,8 +666,8 @@ async function executeRegionalStep({ projectDir, wix, writers, siteId, requireme
       if (stored) { entry.action = 'applied'; entry.verified = true; }
       else throw regionalBlocker('SITE_REGIONAL_READBACK_MISMATCH', `${field}: sent ${row.source}, read back ${entry.after}`);
     } else if (row.action === 'match') { entry.action = 'match'; entry.verified = true; }
-    else if (row.action === 'skip-unknown' && field === 'timeZone' && sr.keepsSiteTimeZone(source)) {
-      // Nothing was sent; the site keeps its own zone, read back unchanged. Confirmed at cutover.
+    else if (row.action === 'skip-unknown' && keepsSite(field)) {
+      // Nothing was sent; the site keeps its own value, read back unchanged. Confirmed at cutover.
       entry.action = 'kept-site-default'; entry.reason = row.reason; entry.verified = sr.sameValue(field, row.current, entry.after);
     } else if (row.action === 'skip-unknown') { entry.action = 'skipped-unknown'; entry.reason = row.reason; }
     else if (row.action === 'kept') { entry.action = 'kept'; entry.verified = sr.sameValue(field, row.current, entry.after); }
@@ -663,6 +689,19 @@ async function executeRegionalStep({ projectDir, wix, writers, siteId, requireme
     const request = await ensureTimeZoneAction(projectDir, { siteId, row: source.timeZone, siteValue: fields.timeZone.after });
     timeZoneConfirmationRequestId = request && request.requestId;
   }
+  let localeConfirmationRequestId = null;
+  const localeRows = ['language', 'locale'].map((field) => fields[field]);
+  const inferredLocale = source.language?.inference || source.locale?.inference;
+  const keptLocale = localeRows.some((entry) => entry?.action === 'kept-site-default');
+  if ((inferredLocale || keptLocale) && localeRows.every((entry) => entry?.verified)) {
+    const request = await ensureLocaleAction(projectDir, {
+      siteId,
+      language: fields.language.after,
+      locale: fields.locale.after,
+      basis: keptLocale ? 'kept-site-default' : inferredLocale.basis,
+    });
+    localeConfirmationRequestId = request && request.requestId;
+  }
   const keptFields = ['currency', 'timeZone'].filter((field) => fields[field]?.action === 'kept');
   let heldCatchUp = priorRegional?.heldCatchUp || null;
   if (keptFields.length) {
@@ -680,6 +719,7 @@ async function executeRegionalStep({ projectDir, wix, writers, siteId, requireme
     ...(heldCatchUp?.refs?.length ? { heldCatchUp } : {}),
     ...(paymentMethodsConfirmationRequestId ? { paymentMethodsConfirmationRequestId } : {}),
     ...(timeZoneConfirmationRequestId ? { timeZoneConfirmationRequestId } : {}),
+    ...(localeConfirmationRequestId ? { localeConfirmationRequestId } : {}),
   };
   return receipt;
 }
@@ -693,6 +733,7 @@ module.exports = {
   ANSWER_EFFECT,
   ANSWER_CHOICES,
   TIME_ZONE_CONFIRMATION,
+  LOCALE_CONFIRMATION,
   MONEY_BEARING_REFS,
   WALL_CLOCK_REFS,
   REGIONAL_NEUTRAL_FAMILIES,

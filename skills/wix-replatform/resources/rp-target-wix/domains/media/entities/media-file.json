@@ -34,6 +34,8 @@
     "surface": "Media Manager Import",
     "endpoint": "POST /site-media/v1/files/import",
     "writerId": "importMedia",
+    "requestInput": "$",
+    "requestFields": ["url", "displayName", "mimeType", "mediaType", "externalInfo"],
     "verification": "verified-live",
     "importSafe": true,
     "bulk": false

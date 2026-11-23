@@ -21,6 +21,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const wixAuth = require('../../../lib/wix-auth.js');
+const { buildCmsArchiveCollectionId } = require('../../../lib/cms-collection-id.js');
 
 const WIXAPIS = 'https://www.wixapis.com';
 const QUOTA_ERROR_CODE = 'WDE0195';
@@ -338,6 +339,7 @@ module.exports = {
   buildGetSiteDataUsageRequest, parseSiteDataUsage, readCmsItemQuota, quotaPlanLine,
   holdPath, readHold, quotaGate, quotaDeferral, cutoverAction, recordArchiveSkip, clearArchiveSkip,
   archiveScope, archivedLocations, packArchiveItems, expectedArchiveRows,
+  buildCmsArchiveCollectionId,
   // Tests only: forget in-process gates so a test can model a fresh run.
   _resetGates: () => gates.clear(),
 };

@@ -37,8 +37,18 @@ function usage() {
 // Credentials come from the operator's existing Wix CLI login. Values stay in memory only.
 async function cliToken(args) {
   const { stdout } = await execFileAsync('npx', [...CLI, 'token', ...args], { timeout: 60_000, maxBuffer: 1024 * 1024 });
-  const token = String(stdout || '').trim().split(/\r?\n/).pop();
-  return token || null;
+  return tokenFromOutput(stdout);
+}
+
+// `wix token` prints the token first. An out-of-date CLI then draws an "update available" box, which can start on
+// the same line as the token. The token is the leading run of printable, space-free characters of the first line
+// that has one, ending at the line's end or at the first non-ASCII character (the box).
+function tokenFromOutput(stdout) {
+  for (const line of String(stdout || '').split(/\r?\n/)) {
+    const match = /^\s*([\x21-\x7e]+)(?=\s*$|[^\x00-\x7f])/.exec(line);
+    if (match) return match[1];
+  }
+  return null;
 }
 
 function defaultCredentials() {
@@ -155,4 +165,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { defaultDeps, exitCodeFor, main, summarize };
+module.exports = { defaultDeps, exitCodeFor, main, summarize, tokenFromOutput };

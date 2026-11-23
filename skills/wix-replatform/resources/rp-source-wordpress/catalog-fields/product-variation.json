@@ -1,0 +1,193 @@
+{
+  "schemaVersion": 1,
+  "entity": "product-variation",
+  "route": "/wc/v3/products/{id}/variations",
+  "note": "WooCommerce REST variation fields (types only, no values), from a live store capture. Used when discovery did not sample the child route.",
+  "fields": {
+    "id": {
+      "type": "integer",
+      "required": true,
+      "identifier": true
+    },
+    "type": {
+      "type": "string",
+      "required": true
+    },
+    "date_created": {
+      "type": "string",
+      "required": true
+    },
+    "date_created_gmt": {
+      "type": "string",
+      "required": true
+    },
+    "date_modified": {
+      "type": "string",
+      "required": true
+    },
+    "date_modified_gmt": {
+      "type": "string",
+      "required": true
+    },
+    "description": {
+      "type": "string",
+      "required": true
+    },
+    "permalink": {
+      "type": "string",
+      "required": true
+    },
+    "sku": {
+      "type": "string",
+      "required": true
+    },
+    "global_unique_id": {
+      "type": "string",
+      "required": true
+    },
+    "price": {
+      "type": "string",
+      "required": true
+    },
+    "regular_price": {
+      "type": "string",
+      "required": true
+    },
+    "sale_price": {
+      "type": "string",
+      "required": true
+    },
+    "date_on_sale_from": {
+      "type": "string|null",
+      "required": true
+    },
+    "date_on_sale_from_gmt": {
+      "type": "string|null",
+      "required": true
+    },
+    "date_on_sale_to": {
+      "type": "string|null",
+      "required": true
+    },
+    "date_on_sale_to_gmt": {
+      "type": "string|null",
+      "required": true
+    },
+    "on_sale": {
+      "type": "boolean",
+      "required": true
+    },
+    "status": {
+      "type": "string",
+      "required": true
+    },
+    "purchasable": {
+      "type": "boolean",
+      "required": true
+    },
+    "virtual": {
+      "type": "boolean",
+      "required": true
+    },
+    "downloadable": {
+      "type": "boolean",
+      "required": true
+    },
+    "downloads": {
+      "type": "array",
+      "required": true
+    },
+    "download_limit": {
+      "type": "integer",
+      "required": true
+    },
+    "download_expiry": {
+      "type": "integer",
+      "required": true
+    },
+    "tax_status": {
+      "type": "string",
+      "required": true
+    },
+    "tax_class": {
+      "type": "string",
+      "required": true
+    },
+    "manage_stock": {
+      "type": "boolean",
+      "required": true
+    },
+    "stock_quantity": {
+      "type": "integer|null",
+      "required": true
+    },
+    "stock_status": {
+      "type": "string",
+      "required": true
+    },
+    "backorders": {
+      "type": "string",
+      "required": true
+    },
+    "backorders_allowed": {
+      "type": "boolean",
+      "required": true
+    },
+    "backordered": {
+      "type": "boolean",
+      "required": true
+    },
+    "low_stock_amount": {
+      "type": "integer|null",
+      "required": true
+    },
+    "weight": {
+      "type": "string",
+      "required": true
+    },
+    "dimensions": {
+      "type": "object",
+      "required": true
+    },
+    "shipping_class": {
+      "type": "string",
+      "required": true
+    },
+    "shipping_class_id": {
+      "type": "integer",
+      "required": true
+    },
+    "image": {
+      "type": "object",
+      "required": true
+    },
+    "gallery_image_ids": {
+      "type": "array",
+      "required": true
+    },
+    "attributes": {
+      "type": "array",
+      "required": true
+    },
+    "menu_order": {
+      "type": "integer",
+      "required": true
+    },
+    "meta_data": {
+      "type": "array",
+      "required": true
+    },
+    "name": {
+      "type": "string",
+      "required": true
+    },
+    "parent_id": {
+      "type": "integer",
+      "required": true
+    },
+    "_links": {
+      "type": "object",
+      "required": true
+    }
+  }
+}

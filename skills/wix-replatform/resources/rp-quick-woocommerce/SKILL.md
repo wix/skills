@@ -34,8 +34,9 @@ capability); re-run `plan` to fix any of these. The summary carries `sourceCover
 
 `plan` also writes `discovery/source-locale.json` through the shared locale writer
 (adapter `quick-woocommerce`) from two bounded public reads: the first Store API product's
-`prices.currency_code` and the storefront home page's `<html lang>`. Time zone and country are not
-public, so they are `unknown`; a read that fails is an explicit `unknown`, never a plan failure.
+`prices.currency_code` and the storefront home page's `<html lang>`. Country is not public, and the time zone
+keeps the site's own zone (an `unknown` row with an `unresolved` inference) and is confirmed at cutover,
+never asked; a read that fails is an explicit `unknown`, never a plan failure.
 The field names come from the Store API schema and HTML, not from a live read of any store.
 
 Setup does block until all four locale values are known. Ask the merchant for each value the
@@ -67,3 +68,8 @@ creates or changes a live artifact: the live completion and final reports, the c
 limit-recovery log, the import-started marker, or the post audit log
 `logs/quick-mode-audit.ndjson`. The router therefore still sends the project to the live import
 after a dry run.
+
+A standalone product create writes no stock record, and Wix shows such a product out of stock. After creating a product
+(or on a resume, for a product whose stock is not yet confirmed) the adapter reads it back and writes its stock in one bulk
+reconcile: a product is in stock unless the store says `is_in_stock: false`. Stock that cannot be confirmed makes the import
+`partial` and is listed in `state/inventory-report.json`.

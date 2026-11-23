@@ -27,6 +27,14 @@
       "scope.group.entityId"
     ]
   },
+  "sourceReferenceLeaves": {
+    "stores/product": [
+      "product_ids[]"
+    ],
+    "stores/category": [
+      "product_categories[]"
+    ]
+  },
   "sourceAliases": [
     {
       "sourceSystem": "woocommerce",
@@ -49,6 +57,10 @@
     "surface": "Coupons",
     "endpoint": "POST /stores/v2/coupons",
     "writerId": "createCoupon",
+    "requestInput": "specification",
+    "requestDirectives": [
+      "usageUnlimited"
+    ],
     "verification": "verified-live",
     "importSafe": true,
     "bulk": true

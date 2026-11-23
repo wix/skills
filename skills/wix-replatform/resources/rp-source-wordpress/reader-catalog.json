@@ -1,0 +1,285 @@
+{
+  "schemaVersion": 1,
+  "id": "woocommerce-full-readers",
+  "version": "1.0.0",
+  "platform": "woocommerce",
+  "description": "Ready-made WooCommerce/WordPress full-API readers. The fixed extractor runs these entries through lib/wp-http.js. Routes never include /wp-json (buildApiUrl adds it). A run adds entries only for routes discovery found that are not here (plugins, custom post types); every status is read by default (drafts, scheduled, private); operator choices such as skipping drafts or a date window come from the plan's sourceFilter, limited to each entry's filterParams.",
+  "defaults": {
+    "keyField": "id",
+    "responseShape": "array",
+    "paging": { "kind": "pages", "perPage": 100 },
+    "auth": "store"
+  },
+  "auth": {
+    "store": "WooCommerce consumer key and secret when configured, else the WordPress application password; a 401/403 on one route retries that route once with the application password.",
+    "wordpress": "WordPress application password only (wp/v2 routes, and wc/v3 settings and taxes where narrowly scoped consumer keys get 401)."
+  },
+  "entities": [
+    {
+      "id": "product-category",
+      "route": "/wc/v3/products/categories",
+      "namespace": "wc/v3",
+      "query": {},
+      "target": "stores/category",
+      "hierarchy": { "parentField": "parent" },
+      "dependsOn": []
+    },
+    {
+      "id": "product-tag",
+      "route": "/wc/v3/products/tags",
+      "namespace": "wc/v3",
+      "query": {},
+      "target": "stores/product-tag",
+      "dependsOn": []
+    },
+    {
+      "id": "product-brand",
+      "route": "/wc/v3/products/brands",
+      "namespace": "wc/v3",
+      "query": {},
+      "target": "stores/brand",
+      "dependsOn": [],
+      "optional": true
+    },
+    {
+      "id": "product-attribute",
+      "route": "/wc/v3/products/attributes",
+      "namespace": "wc/v3",
+      "query": {},
+      "paging": { "kind": "none" },
+      "target": null,
+      "targetNote": "Read for option display names and attribute order; product options are written with the product.",
+      "dependsOn": []
+    },
+    {
+      "id": "product",
+      "route": "/wc/v3/products",
+      "namespace": "wc/v3",
+      "query": { "status": "any" },
+      "filterParams": ["status", "after", "before", "modified_after", "category", "type", "include", "exclude"],
+      "target": "stores/product",
+      "dependsOn": ["product-category", "product-tag", "product-brand"],
+      "children": [
+        {
+          "id": "product-variation",
+          "route": "/wc/v3/products/{id}/variations",
+          "when": { "field": "type", "equals": "variable" },
+          "query": {},
+          "parentField": "parent_id",
+          "target": "stores/product-variant"
+        }
+      ]
+    },
+    {
+      "id": "product-review",
+      "route": "/wc/v3/products/reviews",
+      "namespace": "wc/v3",
+      "query": { "status": "all" },
+      "filterParams": ["status", "after", "before"],
+      "target": "stores/review",
+      "dependsOn": ["product"],
+      "optional": true
+    },
+    {
+      "id": "customer",
+      "route": "/wc/v3/customers",
+      "namespace": "wc/v3",
+      "query": { "role": "customer" },
+      "filterParams": ["role", "include", "exclude"],
+      "target": "crm/contact",
+      "dependsOn": [],
+      "referencedRecords": {
+        "from": "order",
+        "field": "customer_id",
+        "route": "/wc/v3/customers/{id}",
+        "choice": "order-referenced-users",
+        "readWhen": "import-as-contacts",
+        "note": "The role=customer list leaves out every other WordPress role (administrators, shop managers) even when the user placed orders. When the plan's customer choice order-referenced-users is import-as-contacts (the one-click default), each order customer_id the list did not return is read by id after the orders and appended to customer.ndjson, so those orders link to a contact instead of being held mid-import."
+      }
+    },
+    {
+      "id": "order",
+      "route": "/wc/v3/orders",
+      "namespace": "wc/v3",
+      "query": { "status": "any" },
+      "filterParams": ["status", "after", "before", "modified_after", "customer", "include", "exclude"],
+      "target": "ecom/order",
+      "dependsOn": ["product", "customer"]
+    },
+    {
+      "id": "refund",
+      "route": "/wc/v3/refunds",
+      "namespace": "wc/v3",
+      "query": {},
+      "filterParams": ["after", "before"],
+      "target": "ecom/order-refund",
+      "targetNote": "Order refunds also ride on each order's refunds[]; this collection route exists from WooCommerce 9.x.",
+      "dependsOn": ["order"],
+      "optional": true
+    },
+    {
+      "id": "coupon",
+      "route": "/wc/v3/coupons",
+      "namespace": "wc/v3",
+      "query": { "status": "any" },
+      "filterParams": ["status", "after", "before", "modified_after", "code"],
+      "target": "stores/coupon",
+      "dependsOn": ["product", "product-category"]
+    },
+    {
+      "id": "shipping-zone",
+      "route": "/wc/v3/shipping/zones",
+      "namespace": "wc/v3",
+      "query": {},
+      "paging": { "kind": "none" },
+      "target": "ecom/delivery-profile",
+      "dependsOn": [],
+      "enrich": [
+        { "field": "locations", "route": "/wc/v3/shipping/zones/{id}/locations" },
+        { "field": "methods", "route": "/wc/v3/shipping/zones/{id}/methods" }
+      ]
+    },
+    {
+      "id": "shipping-class",
+      "route": "/wc/v3/products/shipping_classes",
+      "namespace": "wc/v3",
+      "query": {},
+      "target": null,
+      "targetNote": "No Wix shipping-class entity; read so product shipping_class values resolve and the loss is reported.",
+      "dependsOn": []
+    },
+    {
+      "id": "shipping-method",
+      "route": "/wc/v3/shipping_methods",
+      "namespace": "wc/v3",
+      "query": {},
+      "paging": { "kind": "none" },
+      "target": null,
+      "targetNote": "Method types available on the store; zone methods are read with shipping-zone.",
+      "dependsOn": []
+    },
+    {
+      "id": "tax-class",
+      "route": "/wc/v3/taxes/classes",
+      "namespace": "wc/v3",
+      "query": {},
+      "keyField": "slug",
+      "paging": { "kind": "none" },
+      "auth": "wordpress",
+      "target": "tax/tax-group",
+      "dependsOn": []
+    },
+    {
+      "id": "tax-rate",
+      "route": "/wc/v3/taxes",
+      "namespace": "wc/v3",
+      "query": {},
+      "auth": "wordpress",
+      "target": "tax/tax-region",
+      "dependsOn": ["tax-class"]
+    },
+    {
+      "id": "store-settings-tax",
+      "route": "/wc/v3/settings/tax",
+      "namespace": "wc/v3",
+      "query": {},
+      "paging": { "kind": "none" },
+      "auth": "wordpress",
+      "target": "tax/tax-settings",
+      "targetNote": "Prices entered with tax (woocommerce_prices_include_tax); the tax-rate import copies it to each new tax region and to the site's tax settings.",
+      "extractWith": "tax-rate",
+      "dependsOn": []
+    },
+    {
+      "id": "store-settings-general",
+      "route": "/wc/v3/settings/general",
+      "namespace": "wc/v3",
+      "query": {},
+      "paging": { "kind": "none" },
+      "auth": "wordpress",
+      "target": "site/business-contact",
+      "targetNote": "Business address, currency and selling countries; mapped by rp-target-wix/lib/store-config-build.js.",
+      "dependsOn": []
+    },
+    {
+      "id": "category",
+      "route": "/wp/v2/categories",
+      "namespace": "wp/v2",
+      "query": { "context": "edit" },
+      "auth": "wordpress",
+      "target": "blog/category",
+      "dependsOn": []
+    },
+    {
+      "id": "tag",
+      "route": "/wp/v2/tags",
+      "namespace": "wp/v2",
+      "query": { "context": "edit" },
+      "auth": "wordpress",
+      "target": "blog/tag",
+      "dependsOn": []
+    },
+    {
+      "id": "post",
+      "route": "/wp/v2/posts",
+      "namespace": "wp/v2",
+      "query": { "context": "edit", "status": "any", "_embed": "1" },
+      "filterParams": ["status", "after", "before", "modified_after", "categories", "tags", "author"],
+      "auth": "wordpress",
+      "target": "blog/post",
+      "dependsOn": ["category", "tag"]
+    },
+    {
+      "id": "page",
+      "route": "/wp/v2/pages",
+      "namespace": "wp/v2",
+      "query": { "context": "edit", "status": "any" },
+      "filterParams": ["status", "after", "before", "modified_after"],
+      "auth": "wordpress",
+      "target": null,
+      "targetNote": "Site pages are rebuilt by the website flow; the extract keeps their content and URLs for redirects.",
+      "dependsOn": []
+    },
+    {
+      "id": "media",
+      "route": "/wp/v2/media",
+      "namespace": "wp/v2",
+      "query": { "context": "edit" },
+      "filterParams": ["after", "before", "media_type", "mime_type", "parent"],
+      "auth": "wordpress",
+      "target": "media/media-file",
+      "dependsOn": []
+    },
+    {
+      "id": "comment",
+      "route": "/wp/v2/comments",
+      "namespace": "wp/v2",
+      "query": { "context": "edit", "status": "all" },
+      "filterParams": ["status", "after", "before", "post"],
+      "auth": "wordpress",
+      "target": "blog/comment",
+      "dependsOn": ["post"]
+    },
+    {
+      "id": "guest-buyer-contact",
+      "kind": "derived",
+      "from": "order",
+      "deriver": "guest-buyer-contacts",
+      "target": "crm/contact",
+      "targetNote": "Buyers of guest orders, derived locally from order.ndjson by rp-target-wix/lib/order-buyer.js guestBuyerContactRows; never read from the source.",
+      "dependsOn": ["order"]
+    },
+    {
+      "id": "guest-review-contact",
+      "kind": "derived",
+      "from": "product-review",
+      "deriver": "guest-review-contacts",
+      "target": "crm/contact",
+      "targetNote": "Reviewers whose email no customer or guest buyer has, derived locally from product-review.ndjson by rp-target-wix/lib/review-import.js guestReviewContactRows; never read from the source. Bind on the contact task with role derived-guest-review-contact.",
+      "dependsOn": ["product-review", "customer", "order"]
+    }
+  ],
+  "neverRead": {
+    "/wc/v3/payment_gateways": "Returns live gateway credentials; wp-http.js refuses it. Use fetchGatewaySummary()."
+  }
+}

@@ -213,7 +213,7 @@ function summarizeCoupons({ restCoupons = [], postsByStatus = null, now = Date.n
     });
     const zoneAssumed = mappings.filter((m) => m && (m.findings || []).some((f) => f.code === 'coupon-plugin-start-date-timezone-assumed')).map((m) => String(m.specification.code)).sort();
     if (zoneAssumed.length > 0) {
-      findings.push({ code: 'coupon-plugin-start-date-timezone-assumed', coupons: zoneAssumed.length, couponCodes: zoneAssumed, note: 'plugin start dates read as UTC midnight because the shop\'s UTC offset was not supplied; pass utcOffsetMinutes to mapCouponToWix' });
+      findings.push({ code: 'coupon-plugin-start-date-timezone-assumed', coupons: zoneAssumed.length, couponCodes: zoneAssumed, note: 'plugin start dates read as UTC midnight because the shop\'s time zone was not captured; pass projectDir (or timeZone / utcOffsetMinutes) to mapCouponToWix' });
     }
     for (const row of [...unrecognized.values()].sort((a, b) => b.coupons - a.coupons || a.metaKey.localeCompare(b.metaKey))) {
       findings.push({ code: 'coupon-meta-unrecognized', ...row, note: 'coupon meta no plugin profile names; the coupon was mapped from its core fields. If a plugin enforces this key as a rule, add it to that plugin profile\'s couponRules[]' });
@@ -305,7 +305,29 @@ function validOffset(utcOffsetMinutes) {
   return Number.isInteger(utcOffsetMinutes) && utcOffsetMinutes >= -840 && utcOffsetMinutes <= 840;
 }
 
-function startOfDayInstant(value, utcOffsetMinutes = null) {
+// The shop zone's UTC offset (minutes) at one instant, from its IANA name. DST-aware. Null when
+// the name is not a zone this runtime knows.
+function zoneOffsetMinutes(timeZone, atMillis) {
+  try {
+    const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', {
+      timeZone, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit',
+    }).formatToParts(new Date(atMillis)).map((part) => [part.type, part.value]));
+    const wall = Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day), Number(parts.hour), Number(parts.minute), Number(parts.second));
+    return Math.round((wall - Math.floor(atMillis / 1000) * 1000) / 60000);
+  } catch {
+    return null;
+  }
+}
+
+// H41: the shop's IANA time zone from the captured source locale (discovery writes it from WP
+// `timezone_string` / `gmt_offset`), or null when it was not captured.
+function shopTimeZone(projectDir) {
+  if (!projectDir) return null;
+  const { readSourceRegionalSync, settingValue } = require('../../../lib/source-regional.js');
+  try { return settingValue(readSourceRegionalSync(projectDir), 'timeZone'); } catch { return null; }
+}
+
+function startOfDayInstant(value, { utcOffsetMinutes = null, timeZone = null } = {}) {
   const text = String(value).trim();
   if (/^\d{9,13}$/.test(text)) return { at: Number(text) * (text.length <= 10 ? 1000 : 1), zoneAssumed: false };
   if (/Z$|[+-]\d{2}:\d{2}$/.test(text)) return { at: toInstant(text), zoneAssumed: false };
@@ -313,11 +335,19 @@ function startOfDayInstant(value, utcOffsetMinutes = null) {
   const asUtc = toInstant(wallClock);
   if (asUtc === null) return { at: null, zoneAssumed: false };
   if (validOffset(utcOffsetMinutes)) return { at: asUtc - utcOffsetMinutes * 60000, zoneAssumed: false };
+  if (timeZone) {
+    // The offset that applies at that wall-clock moment: guess, then correct once across a DST edge.
+    const first = zoneOffsetMinutes(timeZone, asUtc);
+    if (first !== null) {
+      const second = zoneOffsetMinutes(timeZone, asUtc - first * 60000);
+      return { at: asUtc - (second === null ? first : second) * 60000, zoneAssumed: false };
+    }
+  }
   return { at: asUtc, zoneAssumed: true };
 }
 
 // One coupon's meta, judged against the rules. Pure.
-function evaluateCouponPluginRules(coupon, rules, { utcOffsetMinutes = null } = {}) {
+function evaluateCouponPluginRules(coupon, rules, { utcOffsetMinutes = null, timeZone = null } = {}) {
   if (utcOffsetMinutes !== null && !validOffset(utcOffsetMinutes)) throw new Error(`utcOffsetMinutes must be an integer between -840 and 840 (the shop's offset), got ${utcOffsetMinutes}`);
   const byKey = new Map((rules || []).map((rule) => [rule.metaKey, rule]));
   const notCarried = [];
@@ -342,7 +372,7 @@ function evaluateCouponPluginRules(coupon, rules, { utcOffsetMinutes = null } = 
       continue;
     }
     if (rule.meaning === 'start-date') {
-      const { at, zoneAssumed } = startOfDayInstant(value, utcOffsetMinutes);
+      const { at, zoneAssumed } = startOfDayInstant(value, { utcOffsetMinutes, timeZone });
       if (at === null) notCarried.push(describe('restriction'));
       else { startTime = at; startDateRule = describe('start-date'); startZoneAssumed = zoneAssumed; }
       continue;
@@ -538,8 +568,10 @@ function mapCouponToWixCore(coupon, { now = Date.now(), resolveProduct = null, r
 // mapping. `couponRules` defaults to every bundled profile's rules (a key is plugin-specific, so
 // applying a rule whose plugin is not installed can only switch a coupon off, never widen it).
 function mapCouponToWix(coupon, options = {}) {
-  const { couponRules = null, utcOffsetMinutes = null } = options;
-  const pluginRules = evaluateCouponPluginRules(coupon, Array.isArray(couponRules) ? couponRules : defaultCouponRules(), { utcOffsetMinutes });
+  // The shop's offset, else its time zone (passed, or read from the project's source locale).
+  const { couponRules = null, utcOffsetMinutes = null, projectDir = null } = options;
+  const timeZone = options.timeZone || shopTimeZone(projectDir);
+  const pluginRules = evaluateCouponPluginRules(coupon, Array.isArray(couponRules) ? couponRules : defaultCouponRules(), { utcOffsetMinutes, timeZone });
   const result = mapCouponToWixCore(coupon, options);
   result.pluginRules = pluginRules;
   if (result.outcome !== OUTCOMES.MAPPED || !result.specification) return result;
@@ -548,7 +580,7 @@ function mapCouponToWix(coupon, options = {}) {
     result.specification.startTime = pluginRules.startTime;
     result.findings.push({ code: 'coupon-plugin-start-date-carried', couponCode: code, metaKey: pluginRules.startDateRule.metaKey, plugin: pluginRules.startDateRule.plugin, startTime: new Date(pluginRules.startTime).toISOString() });
     if (pluginRules.startZoneAssumed) {
-      result.findings.push({ code: 'coupon-plugin-start-date-timezone-assumed', couponCode: code, metaKey: pluginRules.startDateRule.metaKey, value: pluginRules.startDateRule.value, note: 'the shop\'s UTC offset was not supplied; the start date was read as UTC midnight and may be off by the shop\'s offset' });
+      result.findings.push({ code: 'coupon-plugin-start-date-timezone-assumed', couponCode: code, metaKey: pluginRules.startDateRule.metaKey, value: pluginRules.startDateRule.value, note: 'the shop\'s time zone was not captured; the start date was read as UTC midnight and may be off by the shop\'s offset' });
     }
   }
   if (pluginRules.notCarried.length > 0) {
@@ -570,6 +602,32 @@ function mapCouponToWix(coupon, options = {}) {
 // Merge by `code` into the createCompletionReport() input's operatorActions.
 // One row; affectedIds are the coupon CODES, which is what the operator finds in Business Manager.
 function couponOperatorActions({ mappings = [] } = {}) {
+  return [...heldRuleActions(mappings), ...zoneAssumedActions(mappings)];
+}
+
+// H41: a start date read as UTC midnight because the shop's zone was unknown is never silent.
+function zoneAssumedActions(mappings) {
+  const rows = (mappings || []).filter((m) => m && m.specification && (m.findings || []).some((f) => f.code === 'coupon-plugin-start-date-timezone-assumed'));
+  if (rows.length === 0) return [];
+  const codes = [...new Set(rows.map((m) => String(m.specification.code)))].sort();
+  return [{
+    code: 'coupon-plugin-start-date-timezone-assumed',
+    actionId: 'coupon-plugin-start-date-timezone-assumed',
+    severity: 'low',
+    entity: 'stores/coupon',
+    role: 'cutover-operator',
+    action: 'The old store\'s time zone was not found, so these coupons\' plugin start dates were set as midnight UTC. In Business Manager → Marketing → Coupons, check each start date and correct it to the store\'s local midnight if needed.',
+    consequence: 'A coupon may start a few hours early or late.',
+    deadlineReason: 'Before the first listed start date.',
+    resolutionEvidence: 'Each listed coupon\'s start date on Wix is the intended local date, or the operator dismisses it.',
+    affectedCount: codes.length,
+    affectedIds: codes,
+    artifactRefs: ['discovery/source-locale.json#timeZone'],
+    prerequisites: [],
+  }];
+}
+
+function heldRuleActions(mappings) {
   const held = (mappings || []).filter((m) => m && m.hold && m.hold.reason === 'plugin-rule-not-carried' && m.specification);
   if (held.length === 0) return [];
   const codes = [...new Set(held.map((m) => String(m.specification.code)))].sort();
@@ -635,4 +693,4 @@ async function sweepCoupons(fetchPage, { perPage = 100, maxPages = 1000 } = {}) 
   return { coupons: unique, headerTotal, duplicatesDropped: all.length - unique.length };
 }
 
-module.exports = { OUTCOMES, TYPE_MAP, FINDINGS, RULE_NOT_CARRIED_TAG, classifyCoupon, summarizeCoupons, mapCouponToWix, evaluateCouponPluginRules, couponOperatorActions, sweepCoupons, tallyCouponWriteOutcomes };
+module.exports = { OUTCOMES, TYPE_MAP, FINDINGS, RULE_NOT_CARRIED_TAG, classifyCoupon, summarizeCoupons, mapCouponToWix, evaluateCouponPluginRules, couponOperatorActions, sweepCoupons, tallyCouponWriteOutcomes, shopTimeZone, zoneOffsetMinutes };

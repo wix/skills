@@ -26,6 +26,7 @@
     "surface": "Stores Catalog V3 Customizations",
     "endpoint": "POST /stores/v3/customizations",
     "writerId": "createStoresCustomization",
+    "requestInput": "customization",
     "verification": "verified-live",
     "importSafe": true,
     "bulk": true

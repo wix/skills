@@ -18,4 +18,15 @@ function verificationKind({ verificationKind, entity, targetEntityType } = {}) {
   }
   return 'required';
 }
-module.exports = { VERIFICATION_KINDS, opaqueId, contactId, verificationKind };
+// The policy of a row the toolkit's own completion step builds for an import task's target ref.
+// A task may declare it (`verificationKind`, as the source-archive task does). Otherwise a contact or
+// product ref keeps its receipt kind, and every other ref is `none`: those writers verify each write
+// themselves (their unverified writes count as unresolved) and no receipt kind exists for them, so
+// `required` could never be met: every such kind of the completion report said "verification not
+// recorded".
+function importVerificationKind(ref, task = null) {
+  if (task && task.verificationKind !== undefined) return verificationKind({ verificationKind: task.verificationKind });
+  const kind = verificationKind({ targetEntityType: ref });
+  return kind === 'required' ? 'none' : kind;
+}
+module.exports = { VERIFICATION_KINDS, opaqueId, contactId, verificationKind, importVerificationKind };

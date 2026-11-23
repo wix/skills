@@ -18,7 +18,8 @@
     "media/media-file"
   ],
   "dependencyModes": {
-    "forms/form": "per-record"
+    "forms/form": "per-record",
+    "crm/contact": "task-complete"
   },
   "dependencyReferenceFields": {
     "forms/form": [

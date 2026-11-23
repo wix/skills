@@ -149,6 +149,17 @@ function mediaItemNameMatches(item, child) {
   const stored = sent.replace(/"/g, '_');
   return filename === sent || stem === sent || stem === stored || filename === stored || filename === sentUrlFileName(item.url);
 }
+// Live run 09895795 (11-17): a url-set item Wix has not ingested yet reads back as
+// { url, mediaType: 'UNKNOWN_MEDIA_TYPE', uploadId } -- no image/video id, no filename. Its name
+// cannot match yet, which is not a mismatch: the check is `pending` (counted as matching), the
+// receipt carries `mediaPending`, and the product loop records its media step `media-pending`, so
+// a later pass checks the gallery again. The item count is still checked; an ingested item with a
+// wrong name still fails.
+function mediaProcessing(child) {
+  return Boolean(child) && typeof child === 'object' && child.mediaType === 'UNKNOWN_MEDIA_TYPE' && !child.image?.id && !child.video?.id
+    && !child.image?.filename && !child.video?.filename && Boolean(child.uploadId || child.url);
+}
+const pendingMediaCheck = path => ({ path, matches: true, pending: 'media-processing' });
 // LIVE-VERIFIED (2026-10-21): a PHYSICAL product is created with the required empty
 // product-level physicalProperties, and Stores V3 reads it back with a shippingWeightRange it
 // derives from the variant weights. Only that server-derived key is tolerated beside an empty
@@ -243,7 +254,8 @@ function pairUnordered(wanted, actual, matches) {
 function compareProjection(expected, actual, options = {}) {
   assertProjection(expected);
   const checks = projectionChecks(expected, actual, options);
-  return { verified: checks.length > 0 && checks.every(c => c.matches), checks };
+  const mediaPending = checks.some(c => c.pending === 'media-processing');
+  return { verified: checks.length > 0 && checks.every(c => c.matches), checks, ...(mediaPending ? { mediaPending } : {}) };
 }
 // The comparison itself, also used to pair one unordered item with its own rules.
 function projectionChecks(expected, actual, { kind = '', path = '' } = {}) {
@@ -289,6 +301,13 @@ function projectionChecks(expected, actual, { kind = '', path = '' } = {}) {
       // assumption is undocumented and has not been independently live-verified either; if Wix's
       // rehost does not preserve order, the existing altText/displayName checks below could
       // already be comparing against the wrong item, not just this count check.
+      // Live run 09895795: 7 products read back with no media item at all (the files were in the
+      // site's Media Manager; the product gallery had not filled yet). Nothing listed is the same
+      // not-yet-landed state as a processing item: pending, the media step stays owed.
+      if (e.length && (a === undefined || (Array.isArray(a) && a.length === 0))) {
+        checks.push(pendingMediaCheck(p));
+        return;
+      }
       checks.push({ path: p, matches: Array.isArray(a) && e.length === a.length });
       e.forEach((item, i) => {
         const child = Array.isArray(a) ? a[i] : undefined;
@@ -300,7 +319,7 @@ function projectionChecks(expected, actual, { kind = '', path = '' } = {}) {
           // falsy value, which is what "only check the field when non-empty" means everywhere else
           // in this comparator (see isBlank-style checks in wix-build.js).
           const actualAlt = child?.altText || child?.image?.altText;
-          checks.push({ path: `${p}[${i}].altText`, matches: Boolean(child) && actualAlt === alt });
+          checks.push(mediaProcessing(child) ? pendingMediaCheck(`${p}[${i}].altText`) : { path: `${p}[${i}].altText`, matches: Boolean(child) && actualAlt === alt });
         }
         // wix-build.js's buildMedia writes displayName on every media item it constructs whenever
         // the source record has one (domains/stores/entities/product.json: displayName "must not
@@ -310,7 +329,7 @@ function projectionChecks(expected, actual, { kind = '', path = '' } = {}) {
         // not echo displayName; see mediaItemNameMatches for what stands in for it on read.
         const displayName = item && typeof item === 'object' ? item.displayName : undefined;
         if (typeof displayName === 'string' && displayName.trim() !== '') {
-          checks.push({ path: `${p}[${i}].displayName`, matches: Boolean(child) && mediaItemNameMatches(item, child) });
+          checks.push(mediaProcessing(child) ? pendingMediaCheck(`${p}[${i}].displayName`) : { path: `${p}[${i}].displayName`, matches: Boolean(child) && mediaItemNameMatches(item, child) });
         }
       });
     } else if (Array.isArray(e) && kind === 'contact' && p === 'addresses') {
@@ -373,6 +392,15 @@ function verifySubscriptionEvidence(evidence) {
     return { verified: checks.every(c => c.matches), checks };
   } catch { return { verified: false, checks: [{ path: 'evidence', matches: false }] }; }
 }
+// Paths the product's target knowledge marks Wix-owned (readBackProjection.serverOwned): ids Wix
+// assigns and the connected customization's server defaults, which the product read never echoes as
+// sent. The read-back gate reports them unverifiable (lib/read-back-comparison.js); the create
+// verification skips them the same way. An array's length is still checked, so a lost choice fails.
+let productServerOwned;
+function productServerOwnedPath(p) {
+  productServerOwned ||= new Set((require('./read-back-contract').domainContract('product').readBackProjection?.serverOwned || []).map(row => row.path.replace(/^product\./, '')));
+  return productServerOwned.has(p.replace(/\[\d+\]/g, '[]'));
+}
 function verifyProduct(expected, actual, id, { marker, variants = [] } = {}) {
   const checks = [{ path: 'id', matches: opaqueId(id) && actual?.id === id && !actual?._dryRunPlaceholder }];
   // Marker must have been selected from the source, not filled from the returned entity.
@@ -381,7 +409,7 @@ function verifyProduct(expected, actual, id, { marker, variants = [] } = {}) {
     const value = marker.path.split('.').reduce((v, k) => v?.[k], actual);
     checks.push({ path: marker.path, matches: isDeepStrictEqual(marker.value, value) });
   }
-  checks.push(...compareProjection(expected, actual).checks);
+  checks.push(...compareProjection(expected, actual).checks.filter(c => !productServerOwnedPath(c.path)));
   const targetVariants = actual?.variantsInfo?.variants;
   const seen = new Set();
   for (const v of variants) {
@@ -390,7 +418,8 @@ function verifyProduct(expected, actual, id, { marker, variants = [] } = {}) {
     seen.add(v.variantId);
     checks.push(...compareProjection(v.expected, variantComparisonView(matches[0], actual)).checks);
   }
-  return { verified: checks.every(c => c.matches), checks };
+  const mediaPending = checks.some(c => c.pending === 'media-processing');
+  return { verified: checks.every(c => c.matches), checks, ...(mediaPending ? { mediaPending } : {}) };
 }
 const CONTRACT_DIGEST = digest({ version: 1, contact: 'source-key/externalId+email/exact-values', product: 'source-marker/variant-id/exact-values' });
 function receipt({ siteId, sourceKey, kind, expected, targetId, actual, marker, variants, operation, attempts = 1, dryRun = false }) {
@@ -405,5 +434,5 @@ function validReceipt(r, context = {}) {
   for (const key of ['siteId', 'sourceKey', 'targetId', 'payloadDigest', 'kind']) if (context[key] !== undefined && r[key] !== context[key]) return false;
   try { return receipt(r).verified; } catch { return false; }
 }
-module.exports = { assertProjection, email, digest, compareProjection, pairUnordered, correlateProductMedia, variantComparisonView, onlyServerPhysical, mediaTitleLanded, contactIdentity, verifyContact, subscriptionExpected,
+module.exports = { mediaProcessing, assertProjection, email, digest, compareProjection, pairUnordered, correlateProductMedia, variantComparisonView, onlyServerPhysical, mediaTitleLanded, contactIdentity, verifyContact, subscriptionExpected,
   verifySubscriptionEvidence, verifyProduct, receipt, validReceipt, CONTRACT_DIGEST };

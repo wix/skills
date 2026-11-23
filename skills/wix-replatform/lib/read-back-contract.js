@@ -22,20 +22,37 @@ const INVENTORY_SCHEMA_VERSION = 2;
 const canonical = p => L.canonicalize(String(p));
 const digest = value => crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const populated = L.populated;
+const { assertContactAddressShape } = require('./contact-address-contract.js');
 const compareKeys = (a, b) => Buffer.compare(Buffer.from(String(a)), Buffer.from(String(b)));
-function entityKey(entity) {
-  if (!Object.hasOwn(DOMAINS, entity)) throw new Error('Unsupported read-back entity');
-  return entity;
+// A read-back unit key: the gated entity (`contact`), or `<entity>.<plan row>` when several plan
+// rows write that entity (lib/mapping-field-contract.js readBackKeys). Returns the gated entity.
+function entityKey(key) {
+  const parts = require('./mapping-field-contract').splitReadBackKey(key);
+  if (!parts || !Object.hasOwn(DOMAINS, parts.entity)) throw new Error('Unsupported read-back entity');
+  return parts.entity;
+}
+// The gated entity of a unit key, or null when the key is not a read-back unit.
+function domainOf(key) {
+  try { return entityKey(key); } catch { return null; }
 }
 function domainPath(entity) {
-  return path.join(__dirname, '../resources/rp-target-wix/domains', DOMAINS[entityKey(entity)], 'entities', `${entity}.json`);
+  const domain = entityKey(entity);
+  return path.join(__dirname, '../resources/rp-target-wix/domains', DOMAINS[domain], 'entities', `${domain}.json`);
+}
+// Wix-owned paths are never compared with the sent body: the entity's readBackProjection.serverOwned
+// rows, plus every path its fieldContracts[].readback marks "server-assigned".
+function serverOwnedPaths(d) {
+  const rows = (d.readBackProjection?.serverOwned || []).map(row => typeof row === 'string' ? { path: row, reason: 'server-owned' } : row);
+  for (const contract of d.fieldContracts || []) for (const [p, mark] of Object.entries(contract.readback || {}))
+    if (mark === 'server-assigned' && !rows.some(row => row.path === p)) rows.push({ path: p, reason: 'server-assigned (target knowledge readback)' });
+  return rows;
 }
 function domainContract(entity) {
   const file = domainPath(entity);
   const d = JSON.parse(fs.readFileSync(file, 'utf8'));
   return {
     intendedFields: d.intendedFields,
-    readBackProjection: d.readBackProjection,
+    readBackProjection: d.readBackProjection && { ...d.readBackProjection, serverOwned: serverOwnedPaths(d) },
     domainDigest: hashArtifact(path.dirname(file), path.basename(file))
   };
 }
@@ -73,8 +90,7 @@ function leafPaths(value, { templates = [] } = {}) {
 }
 const valuesAt = (value, location) => L.valuesAt(value, location);
 function planEntity(plan, entity) {
-  const fields = require('./mapping-field-contract');
-  return fields.entityRows(plan || {}).find(row => fields.entityKeyMatches(row, entity)) || null;
+  return require('./mapping-field-contract').readBackRow(plan || {}, entity);
 }
 // Selector templates come only from the reviewed coverage's dynamic entries. Two different
 // templates for one array are ambiguous and fail closed.
@@ -130,8 +146,9 @@ function assertPureBuilder(sourceText) {
 const templateKey = templates => templates.map(t => ({ path: t.path, keyPath: t.keyPath }));
 // Declared output applicability: the exact predicates an inventory was measured
 // under. A change to any of them makes that inventory stale.
-const applicabilityKey = rows => rows.filter(r => r.appliesWhen !== undefined)
-  .map(r => [String(r.canonicalField), canonical(r.writePath), r.appliesWhen]).sort((a, b) => compareKeys(a[0], b[0]));
+// A gate-supplied row carries a marker, so an inventory measured before that exemption is stale.
+const applicabilityKey = (rows, entity = null) => rows.filter(r => r.appliesWhen !== undefined)
+  .map(r => [String(r.canonicalField), canonical(r.writePath), r.appliesWhen, ...(suppliedElsewhere(entity, rows, r) ? ['supplied-elsewhere'] : [])]).sort((a, b) => compareKeys(a[0], b[0]));
 function assertApplicabilityShape(rows) {
   const A = require('./output-applicability');
   for (const r of rows) if (r.appliesWhen !== undefined) {
@@ -143,16 +160,67 @@ function assertApplicabilityShape(rows) {
 // and which it must not write (every row at that write path declares appliesWhen and none
 // applies). Rows without appliesWhen keep the former rule: always applicable. Outputs sharing a
 // write path are judged together; writer-guard paths are excluded by the caller.
-function outputApplicability(rows, record, expected, { guarded = [], declaredOnly = false } = {}) {
-  const A = require('./output-applicability'), groups = new Map(), states = [], missing = [], unexpected = [];
+// Source-archive rows (`cms/data-item`, the entity's ImportArchive_* collection) are written by the
+// archive step, never by the entity's builder: they are outside the builder's output
+// applicability, in the inventory and in the canary alike.
+const archiveRow = row => row?.targetRef === 'cms/data-item';
+// A reference the dependency gate fills in (order buyer, line-item product/variant, product
+// tag ids) or a reviewed post-create step writes (Stores category membership) is never the pure
+// builder's output. The test is the one verifyGrant uses (dependency-readiness
+// gateSuppliedReferences over target knowledge), so the canary and the send-time check cannot drift.
+const suppliedCache = new WeakMap();
+function suppliedElsewhere(unit, rows, row) {
+  const entity = domainOf(unit);
+  if (!entity) return false;
+  if (!suppliedCache.has(rows)) suppliedCache.set(rows, new Map());
+  const cache = suppliedCache.get(rows), key = entity + '\0' + row.writePath;
+  if (!cache.has(key)) {
+    const p = String(row.writePath), relative = p.startsWith(entity + '.') ? p.slice(entity.length + 1) : p;
+    cache.set(key, require('./dependency-readiness').gateSuppliedReferences([`${DOMAINS[entity]}/${entity}`], relative).length > 0);
+  }
+  return cache.get(key);
+}
+// An output another toolkit stage writes, never the pure builder's body, read from target knowledge:
+// - a row for an entity written inside this entity's task (knowledge `writtenInTaskOf`: an order's
+//   payments and refunds, which the order composite's stages write after the order exists);
+// - a path written only together with a gate-filled reference (knowledge `referenceCompanionFields`:
+//   a line's catalogReference.appId comes with its catalogItemId, which the gate fills).
+// Neither is demanded of nor refused in the builder's output.
+const ownedCache = new WeakMap();
+function ownedElsewhere(unit, rows, row) {
+  const entity = domainOf(unit);
+  if (!entity) return false;
+  if (!ownedCache.has(rows)) ownedCache.set(rows, new Map());
+  const cache = ownedCache.get(rows), key = entity + '\0' + row.targetRef + '\0' + row.writePath;
+  if (!cache.has(key)) {
+    const host = `${DOMAINS[entity]}/${entity}`;
+    let owned = Boolean(row.targetRef && row.targetRef !== host && require('./target-import-support').writtenInTaskOf(row.targetRef) === host);
+    if (!owned) {
+      const p = String(row.writePath), relative = canonical(p.startsWith(entity + '.') ? p.slice(entity.length + 1) : p);
+      const companions = JSON.parse(fs.readFileSync(domainPath(entity), 'utf8')).referenceCompanionFields || {};
+      const { pathMatches } = require('./dependency-readiness');
+      owned = Object.entries(companions).some(([ref, templates]) => !ref.startsWith('_') && Array.isArray(templates) && templates.some(t => t === relative || pathMatches(t, relative)));
+    }
+    cache.set(key, owned);
+  }
+  return cache.get(key);
+}
+function outputApplicability(rows, record, expected, { guarded = [], declaredOnly = false, entity = null, choices = {} } = {}) {
+  const A = require('./output-applicability'), groups = new Map(), states = [], missing = [], unexpected = [], supplied = [], emittedSupplied = [], owned = [];
   for (const row of rows) {
-    if (guarded.includes(row.writePath)) continue;
+    if (guarded.includes(row.writePath) || archiveRow(row)) continue;
+    if (ownedElsewhere(entity, rows, row)) { owned.push(row); continue; }
+    if (suppliedElsewhere(entity, rows, row)) {
+      supplied.push(row);
+      if (valuesAt(expected, row.writePath).some(populated)) emittedSupplied.push(row);
+      continue;
+    }
     if (!groups.has(row.writePath)) groups.set(row.writePath, []);
     groups.get(row.writePath).push(row);
   }
   for (const [writePath, group] of groups) {
     const at = group.map(row => ({ row, declared: row.appliesWhen !== undefined,
-      applies: row.appliesWhen === undefined || A.evaluate(row.appliesWhen, record),
+      applies: row.appliesWhen === undefined || A.evaluate(row.appliesWhen, record, { choices }),
       fed: (row.sourcePaths || []).some(p => valuesAt(record, p).some(populated)) }));
     const emitted = valuesAt(expected, writePath).some(populated);
     const required = at.filter(s => s.applies && s.fed && (!declaredOnly || s.declared));
@@ -160,7 +228,7 @@ function outputApplicability(rows, record, expected, { guarded = [], declaredOnl
     if (emitted && at.every(s => s.declared && !s.applies)) unexpected.push(...at.map(s => s.row));
     for (const s of at) states.push({ ...s, emitted });
   }
-  return { states, missing, unexpected };
+  return { states, missing, unexpected, suppliedElsewhere: supplied, emittedSupplied, ownedElsewhere: owned };
 }
 // A decided hold: the generated pure builder returns `{ status: 'held', holds: [{ decisionId,
 // code }] }` for a record it will not write. Returns the sorted `decisionId:code` reasons, or
@@ -186,6 +254,12 @@ function retiredHolds(body) {
 // 1 has none, so it cannot hold a record.
 function planDecisionIds(plan, entity) {
   return new Set(plan?.fieldContractVersion === 1 ? (planEntity(plan, entity)?.fieldMappings || []).map(d => d.id).filter(Boolean) : []);
+}
+// A canary must represent a write the importer can actually attempt. Held rows are
+// deliberately retained in source coverage and reporting, but they are outside the
+// writable output universe and cannot prove the entity's write contract.
+function canaryEligible(row) {
+  return Boolean(row && !Object.hasOwn(row, 'held') && Array.isArray(row.writePaths) && row.writePaths.length);
 }
 const HELD_START = entity => `<!-- read-back-held:${entity}:start -->`, HELD_END = entity => `<!-- read-back-held:${entity}:end -->`;
 // The held set the approver reviews: one section per entity in both mapping review files, rewritten
@@ -241,7 +315,8 @@ async function approvedHeldRecords(projectDir, entity, plan) {
 // Human-approved policy (2026-11-01): in a run the user chose as 1-click (automationMode one_click,
 // source user), the agent-decided mapping approval counts for the held set; 1-click asks no
 // mid-run questions, so it has no identified request. It binds the held set through what it pins
-// instead: it must name this inventory and the plan, its census reference must be current (that
+// instead: if it names inventories it must name this one and the plan (a toolkit-recorded approval
+// names none; see below), its census reference must be current (that
 // reconciliation pins the mapping-plan digest), the inventory must pin its builder (checked above)
 // and its recorded extract must be unchanged. The held summary and reviewed held block were
 // checked above. Normal mode and an inferred one_click still need the identified user approval.
@@ -251,8 +326,16 @@ async function oneClickHeldApproval(projectDir, approval, file, inv) {
     if (approval?.status !== 'approved' || approval.decidedBy !== 'agent') return false;
     if (!require('./orchestration-decisions').isExplicitUserOneClick(await state.readJson(projectDir, 'orchestration/decisions.json', {}) || {})) return false;
     const refs = (approval.artifactRefs || []).map(r => typeof r === 'string' ? r : r?.path);
-    if (!refs.includes(file) || !refs.includes('mapping/mapping-plan.json') || !inv.builder || !inv.extract?.path) return false;
+    // The toolkit records the one-click approval itself (stage entry, `auto-approve` with no refs):
+    // it names no inventory, and inventories the toolkit builds at codegen exist only after it. Its
+    // census reference pins the plan (checked below), and the inventory pins its current builder
+    // (checked by the caller) and its unchanged extract (here), so that held set is honored (Elad,
+    // 11-21). An approval that names inventories still binds by name: it must name this one and the plan.
+    const namesInventories = refs.some(r => typeof r === 'string' && r.startsWith('execution/read-back-inventory/'));
+    if (namesInventories && (!refs.includes(file) || !refs.includes('mapping/mapping-plan.json'))) return false;
+    if (!inv.builder || !inv.extract?.path) return false;
     if (await require('./extract-ledger').fileDigest(projectDir, inv.extract.path) !== inv.extract.sha256) return false;
+    for (const child of inv.extract.children || []) if (await require('./extract-ledger').fileDigest(projectDir, child.path).catch(() => null) !== child.sha256) return false;
     return await require('./census-reconciliation').mappingApprovalBound(projectDir, approval);
   } catch { return false; }
 }
@@ -265,14 +348,17 @@ async function inventory(projectDir, entity, records, {
   rows = [],
   templates = [],
   builder = null,
-  extract = null
+  extract = null,
+  inputs = null
 } = {}) {
   entityKey(entity);
   assertApplicabilityShape(rows);
-  const declared = applicabilityKey(rows), applicability = declared.length ? Object.create(null) : null;
+  const declared = applicabilityKey(rows, entity), applicability = declared.length ? Object.create(null) : null;
   for (const r of rows) if (applicability && r.appliesWhen !== undefined) applicability[r.canonicalField] = { writePath: canonical(r.writePath), applicable: 0, notApplicable: 0, missing: 0, unexpected: 0 };
   const preparationStarted = performance.now();
-  const decisionIds = planDecisionIds(await state.readJson(projectDir, 'mapping/mapping-plan.json', {}), entity);
+  const planJson = await state.readJson(projectDir, 'mapping/mapping-plan.json', {});
+  const decisionIds = planDecisionIds(planJson, entity);
+  const choices = require('./output-applicability').planChoiceValues(planEntity(planJson, entity));
   const sourcePaths = Object.create(null),
     writePaths = Object.create(null),
     members = new Map(),
@@ -285,8 +371,9 @@ async function inventory(projectDir, entity, records, {
     const id = sourceKey(record);
     if (id === undefined || id === null || String(id) === '' || seen.has(String(id))) throw new Error('Read-back inventory requires unique stable source keys');
     seen.add(String(id));
-    const body = await buildWrite(record),
-      source = leafPaths(record, { templates }),
+    const body = await buildWrite(record);
+    if (domainOf(entity) === 'contact') assertContactAddressShape(body?.contact || body, 'generated contact builder');
+    const source = leafPaths(record, { templates }),
       held = builderHold(body, decisionIds);
     for (const p of source) {
       sourcePaths[p] = (sourcePaths[p] || 0) + 1;
@@ -305,7 +392,7 @@ async function inventory(projectDir, entity, records, {
     const sent = leafPaths(body);
     // A non-applicable output is outside this record's coverage unless the builder emits it
     // (then the gate refuses that canary, and validation reports it first).
-    const judged = applicability ? outputApplicability(rows, record, body) : null;
+    const judged = applicability ? outputApplicability(rows, record, body, { entity, choices }) : null;
     const applies = row => !judged || judged.states.find(s => s.row === row)?.applies !== false;
     const fields = [...new Set(rows.filter(row => applies(row) && (row.sourcePaths || []).some(p => valuesAt(record, p).some(populated)) || sent.has(canonical(row.writePath))).map(row => canonical(row.writePath)))].sort(compareKeys);
     if (judged) for (const s of judged.states) {
@@ -338,6 +425,8 @@ async function inventory(projectDir, entity, records, {
     selectorTemplates: templateKey(templates),
     builder,
     ...(extract ? { extract } : {}),
+    // The CLI options that are not paths, so the gate can rebuild a stale inventory the same way.
+    ...(inputs && Object.keys(inputs).length ? { inputs } : {}),
     sourcePaths,
     sourceIdsDigests,
     writePaths,
@@ -361,8 +450,12 @@ function cover(inv, {
   exclude = []
 } = {}) {
   if (!Number.isInteger(ceiling) || ceiling < 10 || ceiling > 30) throw new Error('Canary ceiling must be a recorded user integer from 10 to 30');
+  // An array or a Set; a Set keeps a large exclusion (a retry selection, records not ready) linear.
+  const excluded = exclude instanceof Set ? exclude : new Set(exclude);
   const records = [...inv.records].sort((a, b) => compareKeys(a.sourceId, b.sourceId));
-  const universe = Object.keys(inv.writePaths).sort(compareKeys),
+  const eligible = records.filter(canaryEligible),
+    // Do not let a stale or hand-carried held row add a path that no writable row can cover.
+    universe = [...new Set(eligible.flatMap(r => r.writePaths))].sort(compareKeys),
     left = new Set(universe),
     selected = [],
     coveredBy = {};
@@ -370,13 +463,14 @@ function cover(inv, {
     selected.push(r.sourceId);
     for (const p of r.writePaths) if (left.delete(p)) coveredBy[p] = r.sourceId;
   };
-  for (const id of existing.filter(id => !exclude.includes(id))) {
+  for (const id of existing.filter(id => !excluded.has(id))) {
     const row = records.find(r => r.sourceId === id);
     if (!row) throw new Error('A previously written canary is missing from the inventory');
+    if (!canaryEligible(row)) continue;
     add(row);
   }
   while (left.size) {
-    const candidates = records.filter(r => !selected.includes(r.sourceId) && !exclude.includes(r.sourceId)).map(r => ({
+    const candidates = eligible.filter(r => !selected.includes(r.sourceId) && !excluded.has(r.sourceId)).map(r => ({
       row: r,
       gain: r.writePaths.filter(p => left.has(p)).length
     })).sort((a, b) => b.gain - a.gain || compareKeys(a.row.sourceId, b.row.sourceId));
@@ -402,8 +496,7 @@ function mappingRows(plan, entity) {
     sourceEntity: key,
     ...v
   }));
-  const fields = require('./mapping-field-contract');
-  const entry = entities.find(e => fields.entityKeyMatches(e, entity));
+  const entry = require('./mapping-field-contract').readBackRow(entities, entity);
   const rows = entry?.fieldMappings || entry?.fields || entry?.mappingRows || [];
   if (plan.fieldContractVersion !== 1) return rows;
   // Derive the approved verification projection from canonical outputs. Never
@@ -434,7 +527,9 @@ async function validate(projectDir, entity, {
   const errors = [],
     contract = domainContract(entity),
     copied = decision.readBackContract;
-  if (!copied || copied.domainDigest !== contract.domainDigest || digest(copied.intendedFields) !== digest(contract.intendedFields) || digest(copied.readBackProjection) !== digest(contract.readBackProjection)) errors.push('read-back domain contract stale or missing');
+  // The contract is the checked-in domain contract. An exact plan need not copy it (the toolkit
+  // runs this check at codegen, after the plan is approved); a copy must still be current.
+  if (!copied && plan?.fieldContractVersion !== 1 || copied && (copied.domainDigest !== contract.domainDigest || digest(copied.intendedFields) !== digest(contract.intendedFields) || digest(copied.readBackProjection) !== digest(contract.readBackProjection))) errors.push('read-back domain contract stale or missing');
   if (!inv || inv.entity !== entity || !Array.isArray(inv.records)) errors.push('read-back inventory missing; check not run');
   // Fail closed on an inventory written under another location encoding or selector set,
   // or by a builder that has since changed: its paths/counts no longer mean the same thing.
@@ -452,6 +547,10 @@ async function validate(projectDir, entity, {
     if (inv.extract) {
       const current = await require('./extract-ledger').fileDigest(projectDir, inv.extract.path).catch(() => null);
       if (current !== inv.extract.sha256) errors.push(`source_extract_changed_since_inventory:${inv.extract.path}: rerun inventory`);
+      for (const child of inv.extract.children || []) {
+        const now = await require('./extract-ledger').fileDigest(projectDir, child.path).catch(() => null);
+        if (now !== child.sha256) errors.push(`source_extract_changed_since_inventory:${child.path}: rerun inventory`);
+      }
     }
   }
   const loc = p => {
@@ -473,7 +572,7 @@ async function validate(projectDir, entity, {
     }
   }
   if (inv && Array.isArray(inv.records) && (declaredRows.length || inv.applicabilityDigest !== undefined)) {
-    if (inv.applicabilityDigest !== idsDigestOf(applicabilityKey(rows))) errors.push('read-back inventory stale (output applicability changed); rerun inventory');
+    if (inv.applicabilityDigest !== idsDigestOf(applicabilityKey(rows, entity))) errors.push('read-back inventory stale (output applicability changed); rerun inventory');
     else for (const [field, c] of Object.entries(inv.outputApplicability || {}).sort(([a], [b]) => compareKeys(a, b))) {
       if (c.missing) errors.push(`Builder omits an applicable output: ${field} at ${c.writePath} (${c.missing} records)`);
       if (c.unexpected) errors.push(`Builder emits a non-applicable output: ${field} at ${c.writePath} (${c.unexpected} records)`);
@@ -509,8 +608,17 @@ async function validate(projectDir, entity, {
   })), ...(contract.intendedFields || []).filter(f => f.sourcePaths.some(p => inventoried.some(k => L.isPrefix(p, k)))).map(f => ({
     kind: 'intended',
     path: loc(f.targetPath),
-    requiredSubpaths: f.requiredSubpaths || []
+    requiredSubpaths: f.requiredSubpaths || [],
+    sourcePaths: f.sourcePaths
   }))].filter(r => r.path !== null);
+  // Source locations the plan drops on purpose (excluded decisions that record their choice).
+  // An intended field fed only by such locations is not expected (design v2: checks follow the plan).
+  const planRow = plan.fieldContractVersion === 1 ? planEntity(plan, entity) : null;
+  const droppedOnPurpose = (planRow?.fieldMappings || []).filter(d => require('./mapping-field-contract').deliberateDrop(d)).flatMap(d => d.sourcePaths || []).map(loc).filter(Boolean);
+  const droppedByPlan = requirement => {
+    const fed = inventoried.map(loc).filter(k => k && requirement.sourcePaths.some(p => L.isPrefix(p, k)));
+    return fed.length > 0 && fed.every(k => droppedOnPurpose.some(d => L.within(d, k)));
+  };
   // An intended item list ([]) is covered by rows writing the list itself or fields inside each item.
   const coversIntended = (writePath, p) => L.within(p, writePath) && (p.endsWith('[]') || L.within(writePath, p));
   const samePath = (x, p) => L.within(p, x) && L.within(x, p);
@@ -523,6 +631,9 @@ async function validate(projectDir, entity, {
   } catch (e) {
     errors.push(e.message);
   }
+  const declarationGaps = new Set();
+  const archived = rows.filter(archiveRow).flatMap(r => Array.isArray(r.sourcePaths) ? r.sourcePaths.filter(Boolean) : []);
+  const archivedAncestor = p => { let general; try { general = L.base(p); } catch { return false; } return archived.some(a => L.within(a, general)); };
   const omissionMode=require('./mapping-omission-approval').mode(await state.readJson(projectDir,'orchestration/decisions.json',{}));
   for (const requirement of requirements) {
     const matches = dispositions.filter(d => {
@@ -531,6 +642,10 @@ async function validate(projectDir, entity, {
     // No disposition for the intended item list itself: the item-field dispositions inside it
     // answer for it together, all from one write operation and at most one per item field.
     const inside = requirement.kind === 'intended' && !matches.length ? dispositions.filter(d => d.kind === 'intended' && coversIntended(d.path || d.targetPath, requirement.path)) : [];
+    if (requirement.kind === 'intended' && !matches.length && !inside.length && droppedByPlan(requirement)) continue;
+    // A selector-qualified leaf (meta_data[key="x"].value[].name) under a location the source
+    // archive keeps whole (meta_data[].value) is kept by the archive step: covered, not missing.
+    if (requirement.kind === 'source' && !matches.length && archivedAncestor(requirement.path)) continue;
     if (!inside.length && matches.length !== 1) {
       errors.push(`Disposition missing or duplicate: ${requirement.kind}:${requirement.path}`);
       continue;
@@ -551,16 +666,27 @@ async function validate(projectDir, entity, {
         const mapped = Array.isArray(refs) ? refs.map(ref => ref === undefined || ref === null ? null : rows.find((r, i) =>
           (plan.fieldContractVersion === 1 ? r.canonicalField === ref : r.id !== undefined && r.id === ref) || plan.fieldContractVersion !== 1 &&
           (r.mappingRef !== undefined && r.mappingRef === ref || String(i) === String(ref)))) : [];
-        if (!mapped.length || mapped.some(row => !row ||
-          (requirement.kind === 'source' ? !row.sourcePaths?.includes(requirement.path) : !coversIntended(row.writePath, requirement.path) || plan.fieldContractVersion===1 && row.writeOperation!==d.writeOperation) ||
-          !row.readPath && !row.unverifiableReason)) errors.push(`Mapping does not cover ${requirement.path}`);
-        else covering.push(...mapped);
+        // Declaration gaps are the toolkit's plan shape, not a lost field (Elad 11-21): a source
+        // location an exact decision reads only as a condition (no output names it), or a covering
+        // output with no read path or reason. They are reported (declarationGaps), never errors.
+        if (!mapped.length && plan.fieldContractVersion === 1 && requirement.kind === 'source' && Array.isArray(refs) && d.decisionRefs?.length) declarationGaps.add(`condition-only source location: ${requirement.path}`);
+        else if (!mapped.length || mapped.some(row => !row ||
+          (requirement.kind === 'source' ? !row.sourcePaths?.includes(requirement.path) : !coversIntended(row.writePath, requirement.path) || plan.fieldContractVersion===1 && row.writeOperation!==d.writeOperation))) errors.push(`Mapping does not cover ${requirement.path}`);
+        else {
+          for (const row of mapped) if (!row.readPath && !row.unverifiableReason && !archiveRow(row)) declarationGaps.add(`output without a read path: ${row.canonicalField || row.id || row.writePath}`);
+          covering.push(...mapped);
+        }
       } else if (d.status === 'deferred') {
         if (!require('./mapping-recovery').permitsDisposition(projectDir, plan, planEntity(plan, entity), d)) errors.push(`Invalid recoverable deferral: ${requirement.path}`);
         if (history.some(h => (!h.entity || h.entity === entity) && historyHas(h, requirement.path))) errors.push(`Attempted or observed-loss path cannot become a deferred field: ${requirement.path}`);
       } else if (d.status === 'notMigrated') {
         if (history.some(h => (!h.entity || h.entity === entity) && historyHas(h, requirement.path))) errors.push(`Attempted or observed-loss path cannot be omitted: ${requirement.path}`);
-        if (!current || !validApproval(approval, current, request) || omissionMode==='one_click' || approval?.omissionApprovalContext?.automationMode!=='interactive' || request?.omissionApprovalContext?.automationMode!=='interactive') errors.push(`Identified exact-binding approval missing: ${requirement.path}`);
+        // Design v2: a drop the plan records (an excluded decision with its choice) is its own
+        // authorization in every mode; it becomes a cutover action. Any other omission needs the
+        // identified interactive approval.
+        const entry = plan.fieldContractVersion === 1 ? planEntity(plan, entity) : null;
+        const recorded = entry && d.decisionRefs?.length && d.decisionRefs.every(id => require('./mapping-field-contract').deliberateDrop((entry.fieldMappings || []).find(x => x.id === id)));
+        if (!recorded && (!current || !validApproval(approval, current, request) || omissionMode==='one_click' || approval?.omissionApprovalContext?.automationMode!=='interactive' || request?.omissionApprovalContext?.automationMode!=='interactive')) errors.push(`Identified exact-binding approval missing: ${requirement.path}`);
       } else errors.push(`Unknown disposition: ${requirement.path}`);
     }
     // The item fields the target contract requires (product images: url). Answered field by field,
@@ -577,7 +703,7 @@ async function validate(projectDir, entity, {
   if (plan.fieldContractVersion === 1) {
     const writes = new Map();
     for (const row of rows) {
-      const key = canonical(row.writePath), binding = JSON.stringify([row.targetRef,row.writeOperation,row.writeInput]);
+      const key = canonical(row.writePath), binding = JSON.stringify([row.targetRef,row.writeOperation]);
       if (writes.has(key) && writes.get(key) !== binding) errors.push(`Ambiguous read-back operation: ${key}`);
       writes.set(key,binding);
     }
@@ -587,18 +713,26 @@ async function validate(projectDir, entity, {
   }
   const serverOwned = contract.readBackProjection?.serverOwned || [];
   for (const f of contract.intendedFields || []) if (serverOwned.some(p => (typeof p === 'string' ? p : p.path) === f.targetPath)) errors.push(`Intended field cannot be server-owned: ${f.targetPath}`);
-  for (const r of rows) if (!r.sourcePaths?.length || !r.writePath || !r.readPath && !r.unverifiableReason) errors.push('Mapping row missing read-back declaration');
+  // A source-archive row is verified by the archive step (its journal and crosswalk), not by this read-back.
+  for (const r of rows) {
+    if (!r.writePath) errors.push('Mapping row missing read-back declaration');
+    else if (!r.sourcePaths?.length) declarationGaps.add(`output without its own source locations: ${r.canonicalField || r.id || r.writePath}`);
+    else if (!r.readPath && !r.unverifiableReason && !archiveRow(r)) declarationGaps.add(`output without a read path: ${r.canonicalField || r.id || r.writePath}`);
+  }
   return {
     valid: !errors.length,
     fieldContractVersion:plan.fieldContractVersion,
     errors,
     contract,
     rows,
+    // The plan's choices, for conditions that read them (output-applicability facts).
+    choices: require('./output-applicability').planChoiceValues(planEntity(plan, entity)),
     inventory: inv,
     decision,
     approval,
     bindingDigests: current,
-    heldRecords
+    heldRecords,
+    declarationGaps: [...declarationGaps].sort(compareKeys)
   };
 }
 module.exports = {
@@ -606,6 +740,7 @@ module.exports = {
   retiredHoldCodes,
   approvedHeldRecords,
   entityKey,
+  domainOf,
   canonical,
   digest,
   populated,
@@ -625,6 +760,7 @@ module.exports = {
   outputApplicability,
   builderHold,
   planDecisionIds,
+  canaryEligible,
   INVENTORY_SCHEMA_VERSION,
   inventory,
   cover,

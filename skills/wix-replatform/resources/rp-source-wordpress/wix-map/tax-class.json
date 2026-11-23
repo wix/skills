@@ -1,0 +1,213 @@
+{
+  "schemaVersion": 1,
+  "kind": "wix-map-suggestion",
+  "sourcePlatform": "woocommerce",
+  "primaryKey": "slug",
+  "sourceEntity": "tax-class",
+  "targetRef": "tax/tax-group",
+  "targetEntity": "tax-group",
+  "preferredWrite": "createTaxGroup",
+  "requiredSourceEntityRefs": [],
+  "provenance": [
+    "store T and P 11-10 plans"
+  ],
+  "whenUsed": "Only when the store has tax rates (tax-build shouldSkipTaxDomain).",
+  "holdCodes": {
+    "tax-class-standard-uses-default-groups": {
+      "role": "cutover-operator",
+      "severity": "low",
+      "action": "The WooCommerce standard tax class uses Wix's default tax groups. Nothing to do.",
+      "resolutionEvidence": "Confirmed."
+    },
+    "tax-class-name-missing": {
+      "role": "site-owner",
+      "severity": "low",
+      "action": "A tax class without a name was not imported. Create it in Business Manager > Settings > Tax if needed.",
+      "resolutionEvidence": "Created or confirmed unwanted."
+    }
+  },
+  "fieldMappings": [
+    {
+      "id": "tax-class-name",
+      "sourcePaths": [
+        "name",
+        "slug"
+      ],
+      "disposition": "native",
+      "reason": "Each custom tax class becomes a Wix tax group; \"standard\" is Wix's existing default groups.",
+      "evidence": [
+        "resources/rp-target-wix/lib/tax-build.js buildTaxGroupInput",
+        "store T and P 11-10 plans (tax-class -> tax/tax-group)"
+      ],
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/tax.builder.js#taxGroupName",
+        "revision": "rp-source-wordpress/wix-map/tax.builder.js",
+        "arguments": {}
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "tg-1",
+          "input": {
+            "slug": "reduced-rate",
+            "name": "Reduced rate"
+          },
+          "expected": [
+            {
+              "outputId": "name",
+              "writeOperation": "createTaxGroup",
+              "value": "Reduced rate"
+            }
+          ]
+        },
+        {
+          "id": "tg-2",
+          "input": {
+            "slug": "standard",
+            "name": "Standard rate"
+          },
+          "expected": [
+            {
+              "outputId": "name",
+              "writeOperation": "createTaxGroup",
+              "noWrite": true,
+              "findingCodes": [
+                "tax-class-standard-uses-default-groups"
+              ]
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "name",
+          "sourcePaths": [
+            "name",
+            "slug"
+          ],
+          "targetRef": "tax/tax-group",
+          "writeOperation": "createTaxGroup",
+          "targetPath": "name",
+          "verification": {
+            "readPath": "taxGroup.name"
+          },
+          "writeInput": "taxGroup"
+        }
+      ],
+      "choice": {
+        "name": "tax-standard-class",
+        "value": "use the default Wix groups",
+        "default": "use the default Wix groups",
+        "reason": "Wix sites already have them; creating a second \"standard\" group would split products.",
+        "decidedBy": "suggestion"
+      }
+    },
+    {
+      "id": "source-archive",
+      "sourcePaths": [
+        "_links.collection[].href"
+      ],
+      "disposition": "cms",
+      "reason": "Every other tax class field is kept in the private source-archive collection.",
+      "evidence": [
+        "resources/rp-target-wix/lib/source-archive.js PACKED_ARCHIVE_FIELDS",
+        "store T 11-15 run plan (source-archive rows)"
+      ],
+      "transform": {
+        "kind": "helper",
+        "name": "source-archive.buildArchiveRecord",
+        "revision": "source-archive-retention-v1",
+        "arguments": {
+          "sourceEntity": "tax-class",
+          "sourceKeyPath": "id",
+          "collectionId": "ImportArchive_tax-class_f605e60c"
+        }
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "archive-as-is"
+        },
+        "invalid": {
+          "action": "archive-as-is"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "tax-class-archive-1",
+          "input": {
+            "id": 3
+          },
+          "expected": [
+            {
+              "outputId": "records",
+              "writeOperation": "insertDataItem",
+              "values": [
+                {
+                  "3": {
+                    "fields": {}
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "records",
+          "sourcePaths": [
+            "_links.collection[].href"
+          ],
+          "targetRef": "cms/data-item",
+          "writeOperation": "insertDataItem",
+          "targetPath": "data.records",
+          "storage": {
+            "collectionId": "ImportArchive_tax-class_f605e60c"
+          },
+          "verification": {
+            "unverifiableReason": "Packed archive items are verified by the archive step read-back."
+          }
+        }
+      ],
+      "choice": {
+        "name": "leftover-fields",
+        "value": "source archive",
+        "default": "source archive",
+        "reason": "No native Wix field holds them; nothing is dropped silently.",
+        "decidedBy": "suggestion"
+      }
+    }
+  ]
+}

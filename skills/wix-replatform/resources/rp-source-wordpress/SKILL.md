@@ -17,12 +17,12 @@ This is not a stage in the migration flow — it is a reference consulted by two
 
 - **`rp-discovery`** consults the *Capture* section to sample the source and produce the
   canonical `source-profile.md` + `source-schema.json`.
-- **`rp-import-codegen`** consults the *Read contract* section to generate a reader that
-  bulk-extracts WordPress data correctly (auth, pagination, `wc/v3` vs `wp/v2`) into
-  durable project-local files for the later import step.
+- **`rp-import-codegen`** consults the *Read contract* section. The extract is **fixed code**: it
+  installs the catalog extractor (`scripts/wp-catalog-extract.js --install`) and adds catalog
+  entries only for what discovery found outside the catalog.
 
 `rp-execute-import` never consults this skill — by the time execution runs, the
-WordPress-specific knowledge is already baked into the generated reader code. Keeping the
+WordPress-specific knowledge is already in the reader catalog and the project's extra entries. Keeping the
 WordPress knowledge here is what lets the rest of the workflow stay platform-agnostic.
 
 For app routing and internal-link reconciliation, the generated reader also enumerates the captured source roots, declared
@@ -83,11 +83,6 @@ This choice is mandatory and must be explicit. Do not ask for `WP_USERNAME`,
 `WP_APPLICATION_PASSWORD`, or WooCommerce keys until the user chooses `also include
 private/authenticated data`. Collect every sensitive
 value through the secure Secrets Manager flow; do not ask the user to paste it into chat.
-
-Source requests go through `lib/wp-http.js` (`fetchSource`): it never contacts cloud-metadata or
-link-local addresses, follows redirects itself and refuses one to a private or loopback address, and
-sends the credentials only to the base site (a redirect to another host carries none). If a site
-answers with a redirect to another host and then 401, give the canonical base URL.
 
 One credential covers both private WordPress/WooCommerce REST (`wp/v2`, `wc/v3`) and
 `wix-wp-plugin-v2` bridge reads: a WordPress Application Password (`WP_USERNAME` +
@@ -150,8 +145,8 @@ missing/blank/placeholder key or parser-loaded credentials still fail authentica
    credential-bearing config because it loads values with the toolkit parser and avoids shell
    sourcing of secret-bearing files.
    Pass direct auth options only when there is no project-local config yet.
-   For long runs, pass `--progress-log <path>` and poll it per
-   `CONVENTIONS.md#progress-log-polling`.
+   For long runs, pass `--progress-log execution/progress.ndjson` (the runner's file) and wait for it with
+   `node <toolkit>/scripts/wait-background.js --project <dir>` (`CONVENTIONS.md#waiting-for-background-work`), never a loop of your own.
 
 2. If the user chose `public content only`, run unauthenticated and keep the scope framed
    as public-only. Do not pivot into asking for credentials unless the user changes scope.
@@ -378,7 +373,7 @@ A real WooCommerce site is mostly plugins. Handling them is deterministic and ha
 knowledge base: `plugins/` (profiles + `no-migration-needed.json` + `README.md`), read through
 `scripts/plugin-knowledge.js`, detected by `scripts/wp-plugin-inventory.js`.
 
-**Every installed plugin lands in exactly one of the four statuses, and every status
+**Every installed plugin lands in exactly one of the five statuses, and every status
 produces a row the user sees. Nothing is silently ignored.**
 
 | Population | Evidence | Result |
@@ -389,6 +384,15 @@ produces a row the user sees. Nothing is silently ignored.**
 | named only | detected, no read channel | *Pending* with its reason, resolved by the no-migration-needed list or at the review gate |
 
 A plugin therefore does not need a profile to migrate — it needs one to migrate *natively*.
+
+The shared status and output contract is `plugin-coverage-contract.json`. Its `perPlugin[]`
+rows always include `plugin`, `displayName`, `version`, `active`, `does`, `status`, `via`,
+`mappingConfidence`, `consequence`, `manualSteps`, `cutoverTask`, `recognized`,
+`inventoryBasis`, `statusBasis`, `confidence`, `signals`, `capabilities`, `channels`,
+`channelStatuses`, `targetRefs`, `profileVersion`, `blocked`, `blockers`, and `prerequisite`.
+Its customer labels are *Migration planned*, *No need to migrate*, *Pending*, *Requires development*,
+and *Manual mapping available*. `rp-discovery` consumes the same definition;
+do not create a second status or metadata vocabulary there.
 
 ### Detection
 
@@ -649,9 +653,10 @@ Non-Yoast SEO plugins have no evidence contract: their product SEO is `unknown`.
 
 ### Coverage statuses
 
-The four statuses, and only the four: `migration-planned` (via `api` or `cms`,
+The five statuses, and only the five: `migration-planned` (via `api` or `cms`,
 confidence `confirmed` or `proposed`), `no-need-to-migrate`, `pending`,
-`requires-development`. A failed or unavailable read is never a status — it attaches to the
+`requires-development`, and `manual-mapping` (via `manual`, with its decided `manualSteps`).
+A failed or unavailable read is never a status — it attaches to the
 row as `blocked[]` (`user-file` / `surface-changed`, with a `declined` flag).
 
 **Checked, not guessed.** A profile may declare `dataPresence` checks (product meta
@@ -799,8 +804,42 @@ run `node scripts/product-videos.js plan --project <dir>`. It writes `execution/
 
 ## Read contract (codegen-time)
 
-What a generated WordPress reader must get right. Capture the operational facts below into
-`source-profile.md` during discovery so codegen has them without re-deriving.
+**The extract is fixed toolkit code. Do not write a reader, a paging loop or `run-extract.js`.**
+
+- `reader-catalog.json` (this folder) lists the core WooCommerce/WordPress readers: route, default
+  query (every status), paging, variations as children, shipping-zone enrich, auth, Wix target,
+  dependency order and the params a plan filter may set. `lib/catalog-extractor.js` runs it
+  through `lib/wp-http.js`. It writes `data/source-extract` (ndjson, `manifest.json`,
+  `<entity>.manifest.json`, the extract ledger and the derived `guest-buyer-contact`).
+- **Before mapping, the toolkit runs it itself:** the capture's end starts it in the background with
+  `--all` (every reader, optional ones included; `lib/source-extract-background.js`, status in
+  `execution/source-extract-background.json`), and the mapping entry waits for it.
+- **Install it at codegen:** `node <toolkit>/resources/rp-source-wordpress/scripts/wp-catalog-extract.js --project <dir> --install`.
+  This vendors the extractor (nested under `src/`) and writes the fixed `src/extract/run-extract.js`
+  (`--entity`, `--sample`). When the plugin handoff owns `run-extract.js` (bridge entities), its extract path
+  uses the same extractor.
+- **The AI writes only leftovers:** for each discovered entity the mapping selects that the
+  catalog lacks (plugin or custom routes), add an entry to `src/extract/reader-catalog.extra.json`
+  (`{"schemaVersion":1,"entities":[{id, route, namespace, query, paging, auth, target, dependsOn}]}`,
+  the same format as the catalog). Only when the route is not a plain collection, also write a
+  small `src/extract/readers/<id>.js` exporting `read({ get, pages, query, sample })` and
+  returning records. An extra may not reuse a catalog id. To change a core reader, open a toolkit PR.
+- **Operator filters** (skip drafts, orders since a date) go in the plan as
+  `entities[].sourceFilter.query`, limited to that entry's `filterParams`. The default is no filter,
+  which reads every record. Records a filter leaves out become the `source-filter-excluded` cutover task.
+- **Order buyers who are not WooCommerce customers.** The customer list reads `role=customer`
+  only, so a shop manager or admin who placed orders is missing. The customer entry's
+  `referencedRecords` reads each such order `customer_id` by id after the orders and appends it to
+  `customer.ndjson` (manifest `referencedRecords.ids`, `notFound`), when the plan's customer choice
+  `order-referenced-users` is `import-as-contacts`. That is the contact suggestion's default, so
+  one-click imports them without asking; `not-imported` keeps today's import-time question.
+- **An entity with no reader is not a stop.** It is written to the manifest as `unread: "no-reader"`,
+  and the completion report lists it as `source-entity-unread` (an Import Operator task) until a run
+  extra reads it. `scripts/wp-catalog-extract.js --project <dir> --list` shows what will be read.
+
+The notes below are the operational facts the catalog and extractor already encode. Use them
+when writing an extra entry or a reader module. Capture new facts into `source-profile.md`
+during discovery.
 
 The generated reader is an **extractor**, not an in-memory bulk loader. It should fetch
 WordPress/WooCommerce records page by page and write them to project-local files (for
@@ -945,8 +984,10 @@ that shared core:
 
 ## Schema shape
 
-`source-schema.example.json` (in this skill folder) is the template `rp-discovery` follows
-when emitting `migrations/<project>/source-schema.json`. It is a shape to follow, not a
+`scripts/wp-source-schema.js <projectDir>` builds `migrations/<project>/source-schema.json`
+from the capture (`lib/source-schema-builder.js`); run it instead of writing a synthesis
+script. The rules below are what it applies. `source-schema.example.json` (in this skill
+folder) is the shape it emits and the template for any key the agent adds by hand. It is a shape to follow, not a
 strict schema to validate against. Keep the platform-agnostic core stable; push WordPress
 quirks (`restNamespace`, statuses, etc.) into each entity's open `sourceMeta` blob.
 
@@ -1006,12 +1047,16 @@ rules. Read `lib/coupon-discovery.js` and `lib/currency-gate.js`; both are pure.
   `coupon-usage-surface`. The target side (`rp-target-wix/lib/order-applied-discount-build.js`)
   turns the lines into `appliedDiscounts` through the coupon crosswalk; an unresolved code writes
   nothing and is reported.
-- **Currency halts before any order write.** `currency-gate.js` `evaluateCurrencyGate({
-  settingsCurrency, orderCurrencies, targetSiteCurrency })` — settings from
+- **Currency is checked before any order write, per order.** `currency-gate.js`
+  `scopeOrderCurrencyHold({ settingsCurrency, targetSiteCurrency, orders })` — settings from
   `wc/v3/settings/general` through `store-currency.js`, order currencies through
-  `resolveOrderCurrency` (which decodes `&#8362;` and refuses a contradicting symbol). One
-  currency matching the site proceeds with `currency-validated`; a mismatch or a history spanning
-  two currencies is a **halt**, and unresolved orders halt too. Two configured currencies with a
+  `resolveOrderCurrency` (which decodes `&#8362;` and refuses a contradicting symbol). When the
+  store and site currency are known and equal, orders in that currency import and each other order
+  (another currency, or unresolved) is held on its own: a final deferral plus one cutover item
+  `order-currency-not-site-currency` naming the orders, saying they stay in the source store and
+  order extract, and asking for no action (no option exists yet). Foreign-currency orders stay
+  held (money policy, pending an owner decision), though Import Order takes a per-order `currency`. Only an unknown store or site currency, or a site currency other than the
+  store's, holds the whole task (`evaluateCurrencyGate`'s halt). Two configured currencies with a
   single-currency history proceeds, with the configuration reported.
 - **Plan-shaped sources are gated by row counts** (`B1` subscription products, `B2` membership
   CPT, `B3` recurring-plan meta), never by plugin detection. Zero rows on all three reports "no pricing plans found". The gate and the plan body live target-side

@@ -58,3 +58,26 @@ It is skipped on a dry run and never rewritten on resume; concurrent first attem
 one marker (temp file, then a no-replace hard link). It writes
 `state/quick-import-started.json`, which the router reads as evidence of an interrupted import.
 `validateQuickExecutionManifest` is the router's check of the manifest that `plan` writes.
+
+## One command for the whole quick path
+
+For a Shopify or WooCommerce source and a new site, run the whole quick path as one command, with no
+model turn between its steps. It needs only the source address, the platform and the site type, asks
+nothing else, and ends with a short review of what was imported. **On a new project, ask the rights
+question first** (start telemetry, ask, log the answer; `resources/rp-project-intake/`), and run
+this command only after the user confirms:
+
+```bash
+node skills/wix-replatform/scripts/quick-run.js <projectDir> --source-url <url> --platform shopify|woocommerce --site-type <type>
+```
+
+The import step ends by writing `execution/review/migration-handoff.json` through the shared handoff writer (the apps
+that landed, and the names of the products the run wrote under `onSite`), so a front-end copy that follows can see what is
+on the site. It is best effort: if it cannot be written the command still succeeds and prints a `warning`. A `no-data` run
+and a dry run write none.
+
+It runs to the end with no time limit. From a tool that has its own time ceiling, pass `--budget-seconds <n>` (under that ceiling): the command then stops cleanly with `in_progress` and the same command continues it. Its JSON `status` and exit code say what to do next: `completed` (0) and `completed_with_issues` (16) end
+the run (report `counts` and `message`; this is not an acceptance); `needs_input` (11) names the missing
+flag; `blocked` (12) and `failed` (13) carry the reason; `in_progress` (15, only with `--budget-seconds`) means run the same command
+again; `auth_expired` (75) needs the Wix login renewed first; `needs_agent` (14) means continue with the
+step-by-step path from the router's own answer; the step-by-step commands stay the fallback.

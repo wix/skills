@@ -25,7 +25,7 @@ It prints a JSON outcome and never prints credentials:
 
 - `awaiting_site_type` — no `targetSiteType` is recorded. It raised the one required
   site-type request (`headless`, `studio`, `harmony_store`, `harmony_bookings`,
-  `harmony_other`, or `harmony` = "not sure, start blank"). In chat, ask that combined
+  `harmony_other`, `harmony` = "not sure, start blank", or `studio2`). In chat, ask that combined
   question once; in one-click, group it with the other missing intake; in `replatform`
   runs, end the turn — the request is the question. Record a chat answer with
   `orchestration-state.js decide --key targetSiteType --value <type> [--business-type
@@ -61,6 +61,9 @@ What the coordinator does:
 - Holds `orchestration/destination.lock`, rechecks the receipt and `config/wix.env`, and
   writes an attempt marker before any create. Studio and Harmony use their blank templates
   through `POST /msm/v1/meta-site/create-from-template` with the Wix CLI account login.
+  Studio 2 uses the same call; its blank template is looked up on every create and is never
+  stored, and if it cannot be found nothing is created (no other template is ever used). A
+  verified Studio 2 site (`STUDIO_TWO`) gets its website from the `wix-studio2-editor` skill.
   Harmony's AI site generation runs on a private Wix service with no stability promise, so it
   is not used for any business type. Headless delegates once to
   `wix-headless-scaffold.js` (below).

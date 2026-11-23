@@ -34,6 +34,12 @@
     "surface": "Blog Categories",
     "endpoint": "POST /blog/v3/categories",
     "writerId": "createBlogCategory",
+    "requestInput": "category",
+    "requestFields": [
+      "label",
+      "slug",
+      "description"
+    ],
     "verification": "verified-live",
     "importSafe": true,
     "bulk": false

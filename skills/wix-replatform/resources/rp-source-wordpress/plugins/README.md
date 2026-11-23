@@ -29,10 +29,14 @@ A plugin does not need a profile to migrate; it needs one to migrate *natively*.
 | derived (bridge) | no profile, but the plugin's own tables were read under a project-local plan ([PLUGIN-READ-PLANS.md](../PLUGIN-READ-PLANS.md)); the mapping is `proposed` (native on a domain-KB match, with `cms/data-item` offered beside it) |
 | named only | detected with no readable channel — lands in *Pending* or on the no-migration-needed list, reported, never silent |
 
-The invariant: **every installed plugin lands in exactly one of the four statuses**
-(migration-planned · no-need-to-migrate · pending · requires-development). Authoring a
+The invariant: **every installed plugin lands in exactly one of the five statuses**
+(migration-planned · no-need-to-migrate · pending · requires-development · manual-mapping).
+Authoring a
 profile is always an upgrade from a working baseline, never the difference between working
 and broken.
+
+These IDs and their customer labels, together with the required `perPlugin[]` metadata fields,
+come from `../plugin-coverage-contract.json`; this README does not define a second vocabulary.
 
 ### Two states automation may assign, and one only a human may
 

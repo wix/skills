@@ -89,7 +89,7 @@ function runtimeOptions(args) {
   if (args.managementImportMode !== undefined && !['standard', 'quick'].includes(args.managementImportMode)) throw new Error('invalid management-import-mode');
   if (args.destination !== undefined && !(args.destination === 'new' || /^existing:[A-Za-z0-9_-]+$/.test(args.destination))) throw new Error('destination must be new or existing:<site-id>');
   // An explicit new-site type, and Harmony's optional business type.
-  if (args.siteType !== undefined && !['headless', 'studio', 'harmony'].includes(args.siteType)) throw new Error('site-type must be headless, studio, or harmony');
+  if (args.siteType !== undefined && !['headless', 'studio', 'harmony', 'studio2'].includes(args.siteType)) throw new Error('site-type must be headless, studio, harmony, or studio2');
   if (args.siteBusinessType !== undefined && !['store', 'bookings', 'other'].includes(args.siteBusinessType)) throw new Error('site-business-type must be store, bookings, or other');
   if (args.siteBusinessType !== undefined && args.siteType !== 'harmony') throw new Error('site-business-type is valid only with --site-type harmony');
   if (args.siteType !== undefined && args.destination !== undefined && args.destination !== 'new') throw new Error('site-type applies only to --destination new');
@@ -99,13 +99,13 @@ function runtimeOptions(args) {
   return {
     agent: args.agent || 'auto', agentPath: args.agentPath, sourceUrl: args.sourceUrl, sourceMode: args.sourceMode,
     deliveryMode: args.deliveryMode, destination: args.destination, managementImportMode: args.managementImportMode,
-    siteType: args.siteType, siteBusinessType: args.siteBusinessType, notificationMute: args.notificationMute,
+    siteType: args.siteType, siteBusinessType: args.siteBusinessType, notificationMute: args.notificationMute, wixAccount: args.wixAccount,
     fileInputPaths: args.file?.length ? args.file.map((filePath) => path.resolve(filePath)) : undefined,
     oneClick: args.oneClick, dryRun: args.dryRun, eventsFile: args.eventsFile ? path.resolve(args.eventsFile) : null, vendorEvents: args.vendorEvents ? path.resolve(args.vendorEvents) : null,
     statusIntervalMs, wallTimeoutMs: duration(args.wallTimeout || 'off', { allowOff: true, min: 60000, max: 7 * 86400000 }),
-    idleTimeoutMs: duration(args.idleTimeout || '15m', { min: 60000, max: 2 * 3600000 }),
+    idleTimeoutMs: duration(args.idleTimeout || '60m', { min: 60000, max: 2 * 3600000 }),
     workerStartupTimeoutMs: duration(args.workerStartupTimeout || '120s', { min: 1000, max: 3600000 }),
-    maxAgentTurns: positive(args.maxAgentTurns, 'max-agent-turns', 12),
+    maxAgentTurns: positive(args.maxAgentTurns, 'max-agent-turns', 60),
     maxNoProgressContinuations: positive(args.maxNoProgressContinuations, 'max-no-progress-continuations', 1),
     format,
   };
@@ -118,7 +118,7 @@ function applyApproval(projectDir, request, answer) {
 async function runCommand(args, { resume = false, resumeBlocked = resume, internalRunId = null } = {}) {
   const target = await resolveProject(projectArg(args));
   const options = runtimeOptions(args);
-  if (resume && [args.sourceUrl, args.sourceMode, args.file, args.deliveryMode, args.destination, args.managementImportMode, args.siteType, args.siteBusinessType, args.notificationMute, args.oneClick].some((value) => value !== undefined)) throw new Error('resume does not accept intake mutation options');
+  if (resume && [args.sourceUrl, args.sourceMode, args.file, args.deliveryMode, args.destination, args.managementImportMode, args.siteType, args.siteBusinessType, args.notificationMute, args.wixAccount, args.oneClick].some((value) => value !== undefined)) throw new Error('resume does not accept intake mutation options');
   const controller = new RunController(target.projectDir, { ...options, resume, resumeBlocked, runId: internalRunId || undefined, onEvent: (event) => {
     if (options.format === 'jsonl') process.stdout.write(`${JSON.stringify(event)}\n`);
   } });
@@ -144,7 +144,7 @@ async function statusCommand(args) {
   const target = await resolveProject(projectArg(args));
   const active = await readActive(target.projectDir);
   const artifacts = await loadArtifacts(target.projectDir);
-  const router = artifacts.run ? await determineNextStep(target.projectDir, artifacts) : null;
+  const router = artifacts.run ? await determineNextStep(target.projectDir, artifacts, { observeOnly: true }) : null;
   const historyDir = path.join(target.projectDir, 'state', 'runner', 'runs');
   let latestRun = target.runId ? await findRun(rootDir(), target.runId) : null;
   if (!latestRun) {
@@ -296,7 +296,7 @@ async function projectsCommand(args) {
     const projectDir = path.join(root, entry.name); const artifacts = await loadArtifacts(projectDir);
     if (!artifacts.run && !fssync.existsSync(path.join(projectDir, 'state', 'runner'))) continue;
     const active = await readActive(projectDir);
-    const router = artifacts.run ? await determineNextStep(projectDir, artifacts) : null;
+    const router = artifacts.run ? await determineNextStep(projectDir, artifacts, { observeOnly: true }) : null;
     projects.push({ project: entry.name, activeRun: active ? { runId: active.runId, status: active.status } : null, orchestration: artifacts.run ? { status: artifacts.run.status, state: artifacts.run.currentState } : null, router: router ? { state: router.nextState, reason: router.reason } : null });
   }
   projects.sort((a, b) => a.project.localeCompare(b.project));
@@ -334,9 +334,9 @@ function addRuntimeOptions(command, { intake = false } = {}) {
     .option('--events-file <path>', 'write normalized JSONL events to this file')
     .option('--vendor-events <path>', 'write raw vendor events to this diagnostic file')
     .option('--wall-timeout <duration>', 'whole-run deadline; use off to disable')
-    .option('--idle-timeout <duration>', 'maximum time without observed progress')
+    .option('--idle-timeout <duration>', 'maximum time without agent output or progress-log growth (default 60m)')
     .option('--worker-startup-timeout <duration>', 'maximum time a vendor sub-worker may show no activity before one retry')
-    .option('--max-agent-turns <count>', 'maximum agent turns in this supervisor run')
+    .option('--max-agent-turns <count>', 'maximum agent turns in this supervisor run (default 60)')
     .option('--max-no-progress-continuations <count>', 'maximum same-route retries')
     .option('--detach', 'start the supervisor in the background')
     .option('--no-resume-agent-session', 'do not reuse an adapter session when supported');
@@ -347,10 +347,11 @@ function addRuntimeOptions(command, { intake = false } = {}) {
       .option('--file <path>', 'input file for files_only mode; repeat for each source file', (value, previous) => [...(previous || []), value])
       .addOption(new Option('--delivery-mode <mode>', 'management migrates backend data; website migrates the frontend only; management_and_website performs both.').choices(['management', 'website', 'management_and_website']))
       .option('--destination <strategy>', 'new creates a site; existing:<site-id> adopts the named existing site')
-      .addOption(new Option('--site-type <type>', 'type of a new destination site: headless (website in code), studio or harmony (website designed in a Wix editor). Required before a new site is created; never defaulted.').choices(['headless', 'studio', 'harmony']))
+      .addOption(new Option('--site-type <type>', 'type of a new destination site: headless (website in code), studio, harmony or studio2 (website designed in a Wix editor). Required before a new site is created; never defaulted.').choices(['headless', 'studio', 'harmony', 'studio2']))
       .addOption(new Option('--site-business-type <type>', 'with --site-type harmony only: store, bookings or other records the business context for the run. It does not change how the site is created: Harmony always starts from the blank template.').choices(['store', 'bookings', 'other']))
       .addOption(new Option('--notification-mute <answer>', 'with --destination existing:<site-id> only: on mutes all site notifications (including customer emails) until someone unmutes; off leaves them on, so customers and the owner may get emails for imported records. Asked before the first write when not given; never defaulted.').choices(['on', 'off']))
       .addOption(new Option('--management-import-mode <mode>', 'standard uses the full discovery/mapping flow; quick uses a public adapter and bounded plan.').choices(['standard', 'quick']))
+      .option('--wix-account <login>', 'the Wix account the user named for a new site; with --one-click it is confirmed without asking when it is the Wix CLI login (stored hashed)')
       .option('--one-click', 'record an explicit user one-click decision')
       .option('--dry-run', 'request the existing dry-run execution path');
   }

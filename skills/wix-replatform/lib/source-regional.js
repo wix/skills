@@ -106,6 +106,14 @@ function validValue(field, value) {
   }
 }
 
+// ISO 4217 national codes start with the ISO 3166 country (ILS -> IL, GBP -> GB). Shared
+// (EUR) and supranational (X..) codes name no single country.
+function countryFromCurrency(code) {
+  if (!knownCurrency(code) || code === 'EUR' || code.startsWith('X')) return null;
+  const country = code.slice(0, 2);
+  return knownCountry(country) ? country : null;
+}
+
 const validInference = (value) => Boolean(value && typeof value === 'object' && !Array.isArray(value) && typeof value.basis === 'string');
 // An unknown time zone the adapter already recorded as "keep the site's zone, confirm at cutover"
 // (no named zone at the source and none inferable). Setup does not ask for it.
@@ -142,8 +150,14 @@ function buildSourceRegional({ adapter, generatedAt, ...inputs } = {}) {
   const languageInput = inputs.language ?? inputs.primaryLanguage;
   file.language = normalizeField('language', languageInput);
   let localeInput = inputs.locale;
+  // An inferred language or country keeps its `suppliedBy` / `inference` on the derived locale,
+  // so setup confirms both at cutover.
+  const carried = (...rows) => {
+    const row = rows.find((item) => item && item.state === 'supplied' && item.suppliedBy && item.suppliedBy !== 'intake');
+    return row ? { suppliedBy: row.suppliedBy, ...(validInference(row.inference) ? { inference: row.inference } : {}) } : {};
+  };
   if (!localeInput && knownLocaleTag(languageInput?.locale) && languageInput.locale.slice(0, 2) === languageInput.value) {
-    localeInput = { state: languageInput.state, value: languageInput.locale, evidence: languageInput.evidence };
+    localeInput = { state: languageInput.state, value: languageInput.locale, evidence: languageInput.evidence, ...carried(languageInput) };
   }
   if (!localeInput) {
     const country = normalizeField('country', inputs.country);
@@ -152,6 +166,7 @@ function buildSourceRegional({ adapter, generatedAt, ...inputs } = {}) {
         state: file.language.state === 'supplied' || country.state === 'supplied' ? 'supplied' : 'known',
         value: `${file.language.value}-${country.value}`,
         evidence: [file.language.evidence, country.evidence].filter(Boolean).join('; '),
+        ...carried(file.language, country),
       };
     } else {
       localeInput = { state: 'unknown', reason: !isSet(file.language) ? file.language.reason : country.reason, evidence: country.evidence || file.language.evidence };
@@ -186,6 +201,86 @@ function validateSourceRegional(file) {
   const allowed = new Set(['schemaVersion', 'adapter', ...FIELDS, 'generatedAt']);
   for (const key of Object.keys(file)) if (!allowed.has(key)) errors.push(`${key}: is not part of the source locale record`);
   return { ok: errors.length === 0, errors };
+}
+
+// --- time zone inference (shared by the WordPress capture and both quick adapters) -----------
+
+// The UTC offsets (hours) a zone uses in the given year: standard and summer time.
+function zoneOffsets(zone, year) {
+  const offsets = new Set();
+  for (const month of [0, 6]) {
+    try {
+      const name = new Intl.DateTimeFormat('en', { timeZone: zone, timeZoneName: 'longOffset' })
+        .formatToParts(new Date(Date.UTC(year, month, 15))).find((part) => part.type === 'timeZoneName').value;
+      const match = /^GMT(?:([+-])(\d{2}):(\d{2}))?$/.exec(name);
+      if (match) offsets.add(match[1] ? (match[1] === '-' ? -1 : 1) * (Number(match[2]) + Number(match[3]) / 60) : 0);
+    } catch { /* runtime does not know the zone */ }
+  }
+  return [...offsets];
+}
+
+// The named zones the runtime lists for a country (`IL` -> [`Asia/Jerusalem`]); [] when it cannot say.
+function countryZones(country) {
+  try {
+    const locale = new Intl.Locale(`und-${country}`);
+    const zones = typeof locale.getTimeZones === 'function' ? locale.getTimeZones() : locale.timeZones;
+    return Array.isArray(zones) ? zones.filter((zone) => knownTimeZone(zone)) : [];
+  } catch {
+    return [];
+  }
+}
+
+const formatOffset = (hours) => {
+  if (hours === 0) return 'UTC+0';
+  const minutes = Math.round(Math.abs(hours) * 60);
+  return `UTC${hours < 0 ? '-' : '+'}${Math.floor(minutes / 60)}${minutes % 60 ? `:${String(minutes % 60).padStart(2, '0')}` : ''}`;
+};
+
+// A named zone for a store with no named zone: from the store country, then the fixed offset.
+// Returns the source-regional input: `supplied` + `inference` when one zone fits, else `unknown`
+// (`ambiguous` / `not-exposed`) + `inference` with `basis: unresolved`, which setup turns into
+// "keep the site's zone and confirm it at cutover" instead of a question.
+function inferTimeZone({ country, gmtOffset, evidence, now = new Date() }) {
+  const zones = country ? countryZones(country) : [];
+  const offsetText = gmtOffset === null ? 'no fixed offset readable' : `fixed offset ${formatOffset(gmtOffset)}`;
+  let value = null;
+  let basis = null;
+  let matching = [];
+  if (zones.length === 1) {
+    value = zones[0];
+    basis = 'single-zone-country';
+  } else if (zones.length > 1 && gmtOffset !== null) {
+    matching = zones.filter((zone) => zoneOffsets(zone, now.getUTCFullYear()).includes(gmtOffset));
+    if (matching.length === 1) { value = matching[0]; basis = 'country-zone-matching-offset'; }
+  }
+  if (!value) {
+    const why = !country ? 'store country unknown'
+      : zones.length === 0 ? `no time zone listed for store country ${country}`
+        : gmtOffset === null ? `store country ${country} has ${zones.length} time zones and no offset to choose by`
+          : matching.length === 0 ? `no ${country} time zone uses ${formatOffset(gmtOffset)}`
+            : `${matching.length} ${country} time zones use ${formatOffset(gmtOffset)}`;
+    return {
+      reason: country && zones.length > 1 ? 'ambiguous' : 'not-exposed',
+      evidence: `${evidence}; ${offsetText}, no named zone; ${why}`,
+      inference: { basis: 'unresolved', country: country || null, gmtOffset, reason: why, confirm: 'cutover' },
+    };
+  }
+  const why = basis === 'single-zone-country'
+    ? `store country ${country} has one time zone`
+    : `the only ${country} time zone that uses ${formatOffset(gmtOffset)}`;
+  return {
+    state: 'supplied',
+    value,
+    suppliedBy: 'discovery-inference',
+    evidence: `${evidence}; ${offsetText}, no named zone; ${value}: ${why}`,
+    inference: {
+      basis,
+      country,
+      gmtOffset,
+      offsetMatches: gmtOffset === null ? null : zoneOffsets(value, now.getUTCFullYear()).includes(gmtOffset),
+      confirm: 'cutover',
+    },
+  };
 }
 
 // --- what a consumer reads -----------------------------------------------------------------------
@@ -323,6 +418,7 @@ module.exports = {
   knownLanguage,
   knownCountry,
   knownLocaleTag,
+  countryFromCurrency,
   parseLocale,
   sameValue,
   knownField,
@@ -334,6 +430,8 @@ module.exports = {
   unknownReason,
   isSet,
   keepsSiteTimeZone,
+  inferTimeZone,
+  countryZones,
   writeAdapterSourceRegional,
   writeSourceRegional,
   promoteSourceRegional,

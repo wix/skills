@@ -88,8 +88,8 @@ There is **no acquisition-mode fork and no credentials request** for a CSV run.
    ```
 
    `--file` is repeatable; pass the **whole file set in one run** so roles and split files
-   are resolved together. For long runs, pass `--progress-log <path>` and poll it per
-   `CONVENTIONS.md#progress-log-polling`.
+   are resolved together. For long runs, pass `--progress-log execution/progress.ndjson` (the runner's file) and wait for it with
+   `node <toolkit>/scripts/wait-background.js --project <dir>` (`CONVENTIONS.md#waiting-for-background-work`), never a loop of your own.
 
    Useful options: `--vendor` (override detection), `--delimiter` / `--encoding` (override
    detection), `--role <path>:<role>` (name a file's entity when the script cannot),
@@ -407,6 +407,15 @@ honest question.
 halt.
 
 ## Read contract (codegen-time)
+
+**Fixed reader.** `lib/csv-extractor.js` (CLI `scripts/csv-extract.js --project <dir>`) already
+does everything below for the files in `sourceMeta.sourceFiles`. For a vendor role listed in
+`reader-catalog.json` (data, not code) it writes the same entity files and field names the
+platform's API reader writes (a WooCommerce product export becomes `product`,
+`product-variation`, `product-category` and `product-tag` with WooCommerce REST field names;
+unmapped columns ride along under `_csv`). Any other file is read by its generic reader: one
+record per row group, columns verbatim. Extend the catalog for a new vendor or role instead of
+writing a reader; the rules below are what the fixed reader implements.
 
 What a generated CSV reader must get right. Codegen selects it when
 `source-schema.json.platform === "csv"`.

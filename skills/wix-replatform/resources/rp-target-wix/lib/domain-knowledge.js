@@ -300,6 +300,9 @@ function validateDependsOn(domainsDir, errors) {
       }
       graph.set(`${domain}/${entityId}`, entity.dependsOn);
       for (const [ref, mode] of Object.entries(entity.dependencyModes || {})) {
+        // `task-complete` opts an edge out of the per-record default: the whole
+        // producer step must finish first. `per-record` set explicitly names the paths the gate fills.
+        if (mode === 'task-complete') { if (!entity.dependsOn.includes(ref)) errors.push(`dependency_mode_invalid:${domain}/${entityId}:${ref}`); continue; }
         if (mode !== 'per-record' || !entity.dependsOn.includes(ref) || !Array.isArray(entity.dependencyReferenceFields?.[ref]) || !entity.dependencyReferenceFields[ref].length) errors.push(`dependency_mode_invalid:${domain}/${entityId}:${ref}`);
         const [producerDomain, producerEntity] = ref.split('/');
         if (fs.existsSync(path.join(domainsDir, producerDomain || '', 'entities', `${producerEntity}.json`)) && loadEntity(domainsDir, producerDomain, producerEntity).target?.classification === 'setup-config') errors.push(`dependency_mode_invalid:${domain}/${entityId}:${ref}`);
@@ -570,6 +573,7 @@ function validateEntity(entity, domain, entityId, label, errors) {
   if (!RELIABILITY.has(entity.reliability && entity.reliability.status)) errors.push(`${label}: invalid reliability.status`);
   if (!Array.isArray(entity.reliability && entity.reliability.flags)) errors.push(`${label}: reliability.flags must be an array`);
   validateImportSafe(entity, label, errors);
+  validateRequestShape(entity.preferredWrite || {}, label, errors);
   if (entity.preferredWrite && entity.preferredWrite.writerId !== null && !WRITER_IDS.has(entity.preferredWrite.writerId)) {
     errors.push(`${label}: writerId ${entity.preferredWrite.writerId} is not exported by wix-writers.js`);
   }
@@ -637,6 +641,20 @@ function validateBlockedSourceDependencies(entity, label, errors) {
 
 // importSafe: true unless the writer has a non-notification side effect site mute cannot cover
 // (e.g. moving stock or money). A false value must say why, so the import gate can tell the agent.
+// The reviewed writer's request shape, which a mapping output's writeInput/targetPath must match:
+// requestInput is the body key holding one record ("$" when the record is the body or, with
+// requestItems, each item of that body array); requestFields, when given, is the closed set of
+// record fields the writer sends.
+const REQUEST_KEY = /^(?:\$|[A-Za-z_][A-Za-z0-9_]*)$/;
+function validateRequestShape(pw, label, errors) {
+  const declared = ['requestInput', 'requestItems', 'requestFields'].filter(k => pw[k] !== undefined);
+  if (!declared.length) return;
+  if (typeof pw.writerId !== 'string' || !pw.writerId) errors.push(`${label}: preferredWrite.${declared[0]} requires a writerId`);
+  if (typeof pw.requestInput !== 'string' || !REQUEST_KEY.test(pw.requestInput)) errors.push(`${label}: preferredWrite.requestInput must be a body key or "$"`);
+  if (pw.requestItems !== undefined && (typeof pw.requestItems !== 'string' || pw.requestItems === '$' || !REQUEST_KEY.test(pw.requestItems))) errors.push(`${label}: preferredWrite.requestItems must be a body key`);
+  if (pw.requestFields !== undefined && (!Array.isArray(pw.requestFields) || !pw.requestFields.length || pw.requestFields.some(f => typeof f !== 'string' || f === '$' || !REQUEST_KEY.test(f)) || new Set(pw.requestFields).size !== pw.requestFields.length)) errors.push(`${label}: preferredWrite.requestFields must be distinct field names`);
+}
+
 function validateImportSafe(entity, label, errors) {
   const pw = entity.preferredWrite || {};
   if (entity.target && entity.target.classification === 'manual-mapping') return;

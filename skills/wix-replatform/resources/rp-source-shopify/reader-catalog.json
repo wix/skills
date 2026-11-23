@@ -1,0 +1,408 @@
+{
+  "schemaVersion": 1,
+  "id": "shopify-full-readers",
+  "version": "1.0.0",
+  "platform": "shopify",
+  "description": "Ready-made Shopify full-mode readers: one Admin GraphQL bulk query each, run in this order by lib/shopify-bulk.js (one bulk operation at a time). children maps a child row __typename to the parent field it folds into (into: an inline object of the parent); rootFields start as [] so an empty connection reads as empty; supplement folds an item-scope query into its discount row. Several entries can write one entity file (entity). Changing a reader is a toolkit change; quick mode has its own catalog.",
+  "entities": [
+    {
+      "id": "products",
+      "entity": "products",
+      "query": "queries/products.graphql",
+      "rootFields": [
+        "variants",
+        "media",
+        "metafields"
+      ],
+      "children": {
+        "ProductVariant": {
+          "field": "variants"
+        },
+        "MediaImage": {
+          "field": "media"
+        },
+        "Video": {
+          "field": "media"
+        },
+        "ExternalVideo": {
+          "field": "media"
+        },
+        "Model3d": {
+          "field": "media"
+        },
+        "GenericFile": {
+          "field": "media"
+        },
+        "Metafield": {
+          "field": "metafields"
+        }
+      },
+      "target": "stores/product",
+      "dependsOn": []
+    },
+    {
+      "id": "collections",
+      "entity": "collections",
+      "query": "queries/collections.graphql",
+      "rootFields": [
+        "products",
+        "metafields"
+      ],
+      "children": {
+        "Product": {
+          "field": "products"
+        },
+        "Metafield": {
+          "field": "metafields"
+        }
+      },
+      "target": "stores/category",
+      "dependsOn": [
+        "products"
+      ]
+    },
+    {
+      "id": "customers",
+      "entity": "customers",
+      "query": "queries/customers.graphql",
+      "rootFields": [
+        "metafields"
+      ],
+      "children": {
+        "Metafield": {
+          "field": "metafields"
+        }
+      },
+      "target": "crm/contact",
+      "dependsOn": []
+    },
+    {
+      "id": "orders-core",
+      "entity": "orders",
+      "query": "queries/orders-core.graphql",
+      "rootFields": [
+        "lineItems",
+        "shippingLines",
+        "discountApplications",
+        "metafields"
+      ],
+      "children": {
+        "LineItem": {
+          "field": "lineItems"
+        },
+        "ShippingLine": {
+          "field": "shippingLines"
+        },
+        "DiscountCodeApplication": {
+          "field": "discountApplications"
+        },
+        "AutomaticDiscountApplication": {
+          "field": "discountApplications"
+        },
+        "ManualDiscountApplication": {
+          "field": "discountApplications"
+        },
+        "ScriptDiscountApplication": {
+          "field": "discountApplications"
+        },
+        "Metafield": {
+          "field": "metafields"
+        }
+      },
+      "target": "ecom/order",
+      "dependsOn": [
+        "products",
+        "customers"
+      ]
+    },
+    {
+      "id": "orders-refunds",
+      "entity": "orders",
+      "query": "queries/orders-refunds.graphql",
+      "children": {},
+      "target": "ecom/order",
+      "dependsOn": [
+        "orders-core"
+      ]
+    },
+    {
+      "id": "orders-fulfillments",
+      "entity": "orders",
+      "query": "queries/orders-fulfillments.graphql",
+      "children": {},
+      "target": "ecom/order",
+      "dependsOn": [
+        "orders-core"
+      ]
+    },
+    {
+      "id": "gift-cards",
+      "entity": "gift-cards",
+      "query": "queries/gift-cards.graphql",
+      "children": {},
+      "target": "gift-cards/gift-card",
+      "dependsOn": []
+    },
+    {
+      "id": "discounts",
+      "entity": "discounts",
+      "query": "queries/discounts.graphql",
+      "children": {
+        "DiscountRedeemCode": {
+          "field": "codes",
+          "into": "discount"
+        }
+      },
+      "target": "stores/coupon",
+      "targetNote": "Codes map to stores/coupon; automatic discounts to ecom/discount-rule.",
+      "dependsOn": [
+        "products",
+        "collections"
+      ]
+    },
+    {
+      "id": "discounts-gets-products",
+      "entity": "discounts",
+      "query": "queries/discounts-gets-products.graphql",
+      "rootFields": [
+        "products"
+      ],
+      "children": {
+        "Product": {
+          "field": "products"
+        }
+      },
+      "supplement": {
+        "parent": [
+          "discount",
+          "customerGets",
+          "items"
+        ],
+        "fields": [
+          "products"
+        ]
+      },
+      "target": "stores/coupon",
+      "dependsOn": [
+        "discounts"
+      ]
+    },
+    {
+      "id": "discounts-gets-variants",
+      "entity": "discounts",
+      "query": "queries/discounts-gets-variants.graphql",
+      "rootFields": [
+        "productVariants"
+      ],
+      "children": {
+        "ProductVariant": {
+          "field": "productVariants"
+        }
+      },
+      "supplement": {
+        "parent": [
+          "discount",
+          "customerGets",
+          "items"
+        ],
+        "fields": [
+          "productVariants"
+        ]
+      },
+      "target": "stores/coupon",
+      "dependsOn": [
+        "discounts"
+      ]
+    },
+    {
+      "id": "discounts-gets-collections",
+      "entity": "discounts",
+      "query": "queries/discounts-gets-collections.graphql",
+      "rootFields": [
+        "collections"
+      ],
+      "children": {
+        "Collection": {
+          "field": "collections"
+        }
+      },
+      "supplement": {
+        "parent": [
+          "discount",
+          "customerGets",
+          "items"
+        ],
+        "fields": [
+          "collections"
+        ]
+      },
+      "target": "stores/coupon",
+      "dependsOn": [
+        "discounts"
+      ]
+    },
+    {
+      "id": "discounts-buys-items",
+      "entity": "discounts",
+      "query": "queries/discounts-buys-items.graphql",
+      "rootFields": [
+        "products",
+        "collections"
+      ],
+      "children": {
+        "Product": {
+          "field": "products"
+        },
+        "Collection": {
+          "field": "collections"
+        }
+      },
+      "supplement": {
+        "parent": [
+          "discount",
+          "customerBuys",
+          "items"
+        ],
+        "fields": [
+          "products",
+          "collections"
+        ]
+      },
+      "target": "stores/coupon",
+      "dependsOn": [
+        "discounts"
+      ]
+    },
+    {
+      "id": "discounts-buys-variants",
+      "entity": "discounts",
+      "query": "queries/discounts-buys-variants.graphql",
+      "rootFields": [
+        "productVariants"
+      ],
+      "children": {
+        "ProductVariant": {
+          "field": "productVariants"
+        }
+      },
+      "supplement": {
+        "parent": [
+          "discount",
+          "customerBuys",
+          "items"
+        ],
+        "fields": [
+          "productVariants"
+        ]
+      },
+      "target": "stores/coupon",
+      "dependsOn": [
+        "discounts"
+      ]
+    },
+    {
+      "id": "delivery-profiles",
+      "entity": "delivery-profiles",
+      "query": "queries/delivery-profiles.graphql",
+      "children": {},
+      "target": "ecom/delivery-profile",
+      "dependsOn": []
+    },
+    {
+      "id": "inventory",
+      "entity": "inventory-items",
+      "query": "queries/inventory.graphql",
+      "rootFields": [
+        "inventoryLevels"
+      ],
+      "children": {
+        "InventoryLevel": {
+          "field": "inventoryLevels"
+        }
+      },
+      "target": "stores/inventory-item",
+      "dependsOn": [
+        "products",
+        "locations"
+      ]
+    },
+    {
+      "id": "pages",
+      "entity": "pages",
+      "query": "queries/pages.graphql",
+      "children": {},
+      "target": null,
+      "targetNote": "Site pages are rebuilt by the website flow; kept for content and redirects.",
+      "dependsOn": []
+    },
+    {
+      "id": "blogs",
+      "entity": "blogs",
+      "query": "queries/blogs.graphql",
+      "children": {},
+      "target": null,
+      "targetNote": "Wix Blog has one blog; blog titles and handles feed post URLs.",
+      "dependsOn": []
+    },
+    {
+      "id": "articles",
+      "entity": "articles",
+      "query": "queries/articles.graphql",
+      "children": {},
+      "target": "blog/post",
+      "dependsOn": [
+        "blogs"
+      ]
+    },
+    {
+      "id": "menus",
+      "entity": "menus",
+      "query": "queries/menus.graphql",
+      "children": {},
+      "target": null,
+      "targetNote": "Navigation is rebuilt by the website flow.",
+      "dependsOn": []
+    },
+    {
+      "id": "url-redirects",
+      "entity": "url-redirects",
+      "query": "queries/url-redirects.graphql",
+      "children": {},
+      "target": null,
+      "targetNote": "Applied by the URL preservation step, not imported as records.",
+      "dependsOn": []
+    },
+    {
+      "id": "locations",
+      "entity": "locations",
+      "query": "queries/locations.graphql",
+      "children": {},
+      "target": null,
+      "targetNote": "Inventory and fulfillment locations; read for inventory levels and pickup.",
+      "dependsOn": []
+    },
+    {
+      "id": "metaobjects",
+      "entity": "metaobjects",
+      "query": "queries/metaobjects.graphql",
+      "rootFields": [
+        "metaobjects"
+      ],
+      "children": {
+        "Metaobject": {
+          "field": "metaobjects"
+        }
+      },
+      "target": "cms/data-item",
+      "dependsOn": []
+    },
+    {
+      "id": "files",
+      "entity": "files",
+      "query": "queries/files.graphql",
+      "children": {},
+      "target": "media/media-file",
+      "dependsOn": []
+    }
+  ]
+}

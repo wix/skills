@@ -106,7 +106,7 @@ async function inputDigests(projectDir, options = {}) {
   }
   return {
     census: await census.fileDigest(projectDir, census.CENSUS_FILE),
-    mappingPlan: await census.fileDigest(projectDir, 'mapping/mapping-plan.json'),
+    mappingPlan: require('./mapping-plan-digest').current(projectDir),
     mappingGaps: await census.fileDigest(projectDir, 'mapping/review/mapping-gaps.json'),
     finalizedAssignments: await census.fileDigest(projectDir, ASSIGNMENTS),
     sourceCoverageDecisions: Object.keys(selectedDecisions).length ? census.digestJson(selectedDecisions) : null,
@@ -171,7 +171,9 @@ async function buildReconciliation(projectDir, options = {}) {
     const named = planCensusIds(row, c && c.rows || []);
     const details = named.implicitFrom ? { implicitFrom: named.implicitFrom, ...(named.ambiguous ? { ambiguous: named.ambiguous } : {}) } : {};
     const ids = [...named.ids, ...(links.get(index) || [])];
-    const state = row.targetClassification === 'manual-mapping' ? 'manual' : 'planned';
+    // A plan row that measured no source records writes nothing: its census row is no-data, not
+    // planned (the same rule the dependency graph applies, dependency-proofs noRecordRefsOf).
+    const state = row.targetClassification === 'manual-mapping' ? 'manual' : row.inUse === false && row.sourceRecordCount === 0 ? 'no-data' : 'planned';
     const linkedEntities = ids.filter(id => byId.has(id) && ['entity', 'sub-part'].includes(byId.get(id).kind));
     for (const id of ids) if (named.ambiguous && named.ids.includes(id)) addError('unknown_census_id', id, { assignedBy: `mapping-plan#${index}`, ...details }); else assign(id, {
       state,
@@ -217,7 +219,7 @@ async function buildReconciliation(projectDir, options = {}) {
     if (planRow) {
       if (state === 'manual' && !stepsShown(planRow.manualSteps)) return false;
       if (row.kind === 'capability' && state === 'planned') {
-        if (!item.relatedEntityIds.length || item.relatedEntityIds.some(id => !['planned', 'manual'].includes(resolvedStates.get(id)))) return false;
+        if (!item.relatedEntityIds.length || item.relatedEntityIds.some(id => !['planned', 'manual', 'no-data'].includes(resolvedStates.get(id)))) return false;
       }
       return true;
     }
@@ -399,15 +401,20 @@ async function bindCensusReconciliation(projectDir, {
   const freshness = await censusReconciliationFreshness(projectDir, reconciliation, options);
   if (!freshness.ok) return fail('census_reconciliation_stale', freshness);
   if (!(await dependencyRulesShown(projectDir, reconciliation))) return fail('dependency_rules_not_shown');
-  if (reconciliation.errors.length) return fail('census_reconciliation_blocking', {
-    errors: reconciliation.errors
+  // Errors and coverage failures the run settled after the pass limit (lib/route-settlement.js)
+  // no longer refuse the approval; the router skips the same ones.
+  const settlement = require('./route-settlement');
+  const censusErrors = settlement.unsettledErrors(projectDir, 'census', reconciliation.errors);
+  if (censusErrors.length) return fail('census_reconciliation_blocking', {
+    errors: censusErrors
   });
   const gate = await reconcileSourceCoverageForMapping(projectDir, {
     mappingStatus: status,
     registers: options.registers
   });
-  if (!gate.ok) return fail('source_coverage_unreconciled', {
-    failures: gate.failures
+  const coverageFailures = gate.ok ? [] : settlement.unsettledErrors(projectDir, 'source-coverage', gate.failures);
+  if (coverageFailures.length) return fail('source_coverage_unreconciled', {
+    failures: coverageFailures
   });
   // Interactive runs ask every pending question first. A one-click run never asks mid-run
   // (also after an owner joins to approve): pending rows stay unimported and not approved,
@@ -417,7 +424,11 @@ async function bindCensusReconciliation(projectDir, {
   // re-checks its pinned artifacts after this, and the preflight review file is one of them.
   if (status === 'approved' && (await census.readJson(projectDir, 'mapping/mapping-plan.json'))?.dependencyBindings) {
     const preflight = await require('./dependency-readiness').preflightMappingDependencies(projectDir, { write: false });
-    if (!preflight.structuralReady) return fail('dependency_preflight_blocking', { errors: preflight.errors });
+    // A one-click refusal the run settled after its pass limit (lib/route-settlement.js) is a
+    // toolkit gap: the approval records, and the import's dependency gate holds the affected task.
+    const named = (preflight.errors || []).map(d => (typeof d === 'string' ? d : [d.code, d.detail].filter(Boolean).join(':') || JSON.stringify(d)));
+    const settled = decidedBy === 'agent' ? require('./route-settlement').settledApprovalErrors(projectDir) : new Set();
+    if (!preflight.structuralReady && !(named.length && named.every(e => settled.has(e)))) return fail('dependency_preflight_blocking', { errors: preflight.errors });
   }
   const sha256 = await census.fileDigest(projectDir, FILE);
   if (requestRef && (!validCensusReference(requestRef) || requestRef.sha256 !== sha256)) return fail('approval_reference_stale');

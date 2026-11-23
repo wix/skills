@@ -34,6 +34,11 @@
     "surface": "Blog Tags",
     "endpoint": "POST /blog/v3/tags",
     "writerId": "createBlogTag",
+    "requestInput": "$",
+    "requestFields": [
+      "label",
+      "language"
+    ],
     "verification": "verified-live",
     "importSafe": true,
     "bulk": false

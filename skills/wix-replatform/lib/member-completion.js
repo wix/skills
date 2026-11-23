@@ -306,7 +306,7 @@ function notSentError(error) {
 // An `ensure` that throws an error marked requestSent false (refused before anything was sent)
 // ends that record as member-failed, not sent, and the pass goes on. Any other throw stops the
 // pass and leaves the started row dangling (unresolved), because its outcome is unknown.
-async function runMemberPass({
+async function runMemberPassUnlocked({
   projectDir,
   records,
   runId,
@@ -370,6 +370,13 @@ async function runMemberPass({
     await localState.appendAttempt(projectDir, terminal, journalOptions);
   }
   return { ok: true, gate, snapshot, mode: selection, selected: selected.length };
+}
+
+// Members use a hand-written composite loop rather than runRecordTask. Keep direct member-task
+// commands under the same project writer exclusion as generated imports.
+async function runMemberPass(options = {}) {
+  requireString(options.projectDir, 'projectDir');
+  return localState.withStateLock(options.projectDir, () => runMemberPassUnlocked(options), { script: 'member-completion.js', reentrant: true });
 }
 
 // --- projection --------------------------------------------------------------------------

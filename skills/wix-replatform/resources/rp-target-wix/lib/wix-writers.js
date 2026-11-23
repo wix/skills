@@ -12,7 +12,8 @@
 // by dry-runs) and an executor that sends it via the injected client.
 //
 // READ/RETURN CONTRACT for `query*` executors — every one of them (`queryStoresProducts`,
-// `queryStoresCategories`, `queryContacts`, `queryCoupons`, `queryOrders`) UNWRAPS the
+// `queryStoresProductVariants`, `queryStoresCategories`, `queryContacts`, `queryCoupons`,
+// `queryOrders`) UNWRAPS the
 // response to the entity array and returns ONE PAGE, discarding `pagingMetadata`. Two
 // consequences that generated code has repeatedly got wrong:
 //   1. **The returned value IS the array.** Reading `.products` / `.categories` off it a
@@ -39,6 +40,7 @@ const crypto = require('node:crypto');
 const paymentMapping = require('./order-payment-mapping.js');
 const dataExtensionSchema = require('./data-extension-schema.js');
 const { normalizeCmsCollectionDefinition } = require('../../../lib/cms-collection-request.js');
+const { assertWixCollectionId, buildCmsArchiveCollectionId } = require('../../../lib/cms-collection-id.js');
 const contactExtendedFields = require('./contact-extended-fields.js');
 const invoiceContract = require('./order-invoice-contract.js');
 const documentUrlGuard = require('../../../lib/document-url-guard.js');
@@ -67,6 +69,14 @@ function markRequest(request, mark) {
   requestMarks.set(request, { ...mark, digest: executionCapability.digest(JSON.stringify([request.method, request.url, request.body, request.headers])) });
   return request;
 }
+// Entities a host task may also write as part of its own records (H34): the shipping stage
+// (shipping-option-stage.js) runs inside the shipping-zone → ecom/delivery-profile task. A
+// separate ecom/shipping-option task stays allowed too.
+// A WooCommerce tax rate's region is found or created inside the rate's own task
+// (lib/import-composites-tax.js), right before its first mapping; the same task copies the
+// source's "prices include tax" to the site's tax settings.
+const TASK_COMPANION_HOSTS = Object.freeze({ 'ecom/shipping-option': 'ecom/delivery-profile', 'tax/tax-region': 'tax/manual-tax-mapping', 'tax/tax-settings': 'tax/manual-tax-mapping' });
+
 function requestMark(request) {
   const mark = requestMarks.get(request);
   return mark && mark.digest === executionCapability.digest(JSON.stringify([request.method, request.url, request.body, request.headers])) ? mark : null;
@@ -166,6 +176,7 @@ function responseShapeFromRequest(request) {
   const url = String(request.url || '');
   const method = String(request.method || '').toUpperCase();
   if (url.includes('/ricos/v1/ricos-document/convert/to-ricos')) return { type: 'object', field: 'document' };
+  if (url.includes('/site-media/v1/files/search')) return { type: 'array', field: 'files' };
   if (url.includes('/site-media/v1/files/import')) return { type: 'object', field: 'file' };
   if (url.includes('/site-media/v1/files/generate-upload-url')) return { type: 'upload-url', field: 'file' };
   if (url.includes('/site-media/v1/files/') && method === 'GET') return { type: 'object', field: 'file' };
@@ -176,8 +187,10 @@ function responseShapeFromRequest(request) {
   if (url.includes('/blog/v3/draft-posts') && url.includes('/publish')) return { type: 'raw' };
   if (url.includes('/blog/v3/draft-posts')) return { type: 'object', field: 'draftPost' };
   if (url.includes('/wix-data/v2/items/query')) return { type: 'array', field: 'dataItems' };
-  if (url.includes('/wix-data/v2/items')) return { type: 'object', field: 'dataItem', idFields: ['id', '_id'] };
+  if (url.includes('/wix-data/v2/bulk/items/insert') || url.includes('/wix-data/v2/bulk/items/save')) return { type: 'bulk-data-items' };
+  if (url.includes('/wix-data/v2/items')) return { type: 'object', field: 'dataItem', idFields: ['id'] };
   if (url.includes('/stores/v3/bulk/products-with-inventory/create')) return { type: 'bulk-products-with-inventory' };
+  if (url.includes('/stores/v3/products/query-variants')) return { type: 'array', field: 'variants' };
   if (url.includes('/stores/v3/products/query')) return { type: 'array', field: 'products' };
   if (url.includes('/stores/v3/products/slug/') || (url.includes('/stores/v3/products/') && method === 'GET')) return { type: 'object', field: 'product' };
   if (url.includes('/stores/v3/products')) return { type: 'object', field: 'product' };
@@ -285,6 +298,11 @@ function placeholderPayload(shape, request, context) {
     const contacts = (request.body && Array.isArray(request.body.contacts)) ? request.body.contacts : [];
     const results = bulkPlaceholderResults(contacts, request, context, { withAction: true });
     return { results, bulkActionMetadata: { totalSuccesses: results.length, totalFailures: 0, undetailedFailures: 0 } };
+  }
+  if (shape.type === 'bulk-data-items') {
+    const items = (request.body && Array.isArray(request.body.dataItems)) ? request.body.dataItems : [];
+    const results = bulkPlaceholderResults(items, request, context);
+    return { results, bulkActionMetadata: { totalSuccesses: results.length, totalFailures: 0 } };
   }
   // Generate File Upload URL answers `{ uploadUrl }`. A dry run must still hand the caller a URL
   // and a file id, but nothing is ever uploaded to it (the caller skips the PUT when dry-running).
@@ -428,6 +446,7 @@ function createWixCaptureClient({ requestCapturePath, runId } = {}) {
 // Stores inventory read (Get Product V3 returns no variant inventory).
 const BOUNDED_READ_QUERY_PATHS = new Set([
   '/members/v1/members/query',
+  '/stores/v3/products/query-variants',
   '/stores/v3/products/query',
   '/stores/v3/inventory-items/query',
   '/stores/v3/locations/query',
@@ -611,8 +630,12 @@ function createWixClient(config) {
             if (authority.task.adoptOnly === true) executionCapability.fail('ADOPT_ONLY_TASK_WRITE_REFUSED');
             if (!mark?.entity) executionCapability.fail('DEPENDENCY_READINESS_REQUIRED');
             const productTask = authority.task.entityRefs.includes('stores/product');
-            if (mark?.entity && !mark.auxiliary && !authority.task.entityRefs.includes(mark.entity)) executionCapability.fail('DEPENDENCY_TASK_MISMATCH');
-            if (mark?.partial && !productTask && !authority.task.entityRefs.includes('bookings/service-add-on') || mark?.productMembership && !productTask && !authority.task.entityRefs.includes('stores/category-membership') || mark?.inventoryOperation && !productTask && !authority.task.entityRefs.includes('stores/inventory-item') || mark?.auxiliary && ['ecom/order', 'forms/form-submission', 'stores/back-in-stock-request', 'stores/review'].includes(mark.entity) && !authority.task.entityRefs.includes(mark.entity)) executionCapability.fail('DEPENDENCY_TASK_MISMATCH');
+            // H34: the toolkit's shipping stage writes a zone's options inside the zone's
+            // delivery-profile task, under that zone's grant. Those writes are the task's own.
+            const inHostTask = (entity) => { const host = entity && (TASK_COMPANION_HOSTS[entity] || require('../../../lib/target-import-support').writtenInTaskOf(entity)); return Boolean(host) && authority.task.entityRefs.includes(host); };
+            if (mark?.entity && !mark.auxiliary && !authority.task.entityRefs.includes(mark.entity) && !inHostTask(mark.entity)) executionCapability.fail('DEPENDENCY_TASK_MISMATCH');
+            if (mark?.partial && !productTask && !authority.task.entityRefs.includes('bookings/service-add-on') && !(mark.entity === 'blog/post' && authority.task.entityRefs.includes('blog/post')) || mark?.productMembership && !productTask && !authority.task.entityRefs.includes('stores/category-membership') || mark?.inventoryOperation && !productTask && !authority.task.entityRefs.includes('stores/inventory-item') || mark?.auxiliary && ['ecom/order', 'forms/form-submission', 'stores/back-in-stock-request', 'stores/review'].includes(mark.entity) && !authority.task.entityRefs.includes(mark.entity)
+              || mark?.auxiliary && mark.entity === 'stores/product-customization' && !(mark.productCustomization && productTask) && !authority.task.entityRefs.includes(mark.entity)) executionCapability.fail('DEPENDENCY_TASK_MISMATCH');
             if (authority.task.entityRefs.includes('stores/product') && /\/stores\/v3\/(?:bulk\/)?inventory-items(?:\/|$)/.test(request.url) && !mark?.inventoryOperation) executionCapability.fail('CAPABILITY_ENTITY_MISMATCH');
             if (mark?.productMembership && authority.task.entityRefs.includes('stores/product') && (!recordProductMatches(client, request, request.body?.item?.catalogItemId) || !require('../../../lib/dependency-readiness').verifyReferenceTargets(request.readinessGrant, authority, request.sourceStableKey, 'stores/category', request.body?.categoryIds))) executionCapability.fail('CAPABILITY_ENTITY_MISMATCH');
             if (mark?.partial && authority.task.entityRefs.includes('stores/product') && !recordProductMatches(client, request, mark.productId)) executionCapability.fail('CAPABILITY_ENTITY_MISMATCH');
@@ -631,7 +654,7 @@ function createWixClient(config) {
             // A member's own contact, updated from the member task: only the contact of the member
             // this record created (or already owns), as named by that member's own response.
             if (mark?.memberContact && (!authority.task.entityRefs.includes('members/member') || !recordMemberContactMatches(client, request, decodeURIComponent(new URL(request.url).pathname.split('/')[4] || '')))) executionCapability.fail('CAPABILITY_ENTITY_MISMATCH');
-            if (request.entity && !authority.task.entityRefs.includes(request.entity) && !(mark?.inventoryOperation && authority.task.entityRefs.includes('stores/product'))) executionCapability.fail('DEPENDENCY_TASK_MISMATCH');
+            if (request.entity && !authority.task.entityRefs.includes(request.entity) && !inHostTask(request.entity) && !(mark?.inventoryOperation && authority.task.entityRefs.includes('stores/product'))) executionCapability.fail('DEPENDENCY_TASK_MISMATCH');
             const gate = require('../../../lib/dependency-readiness'), gateOptions = { auxiliary: mark?.auxiliary === true, partial: mark?.partial === true || mark?.siteTags === true };
             // A bulk request names one source key per item; each item is checked against its own key.
             if (request.sourceStableKeys !== undefined ? !gate.verifyBulkGrant(request.readinessGrant, authority, request.sourceStableKeys, request, gateOptions) : !gate.verifyGrant(request.readinessGrant, authority, request.sourceStableKey, request, gateOptions)) executionCapability.fail('DEPENDENCY_READINESS_REQUIRED');
@@ -1095,12 +1118,20 @@ function rewriteInlineMedia(ricosDocument, mediaBySourceUrl) {
 // keep the wait there (README Part 5 item 20). The blog importer IS the second case:
 // its failure policy keeps a post pending until every medium is READY, so it settles
 // through blog-post-media.js rather than writing on a PENDING id.
+// H30: a source URL with non-ASCII characters (a Hebrew file name) is sent as a valid URL. The
+// WHATWG parser percent-encodes the path and query and punycodes the host. A URL that is already
+// ASCII is sent byte-for-byte, so an encoded URL is never encoded twice.
+function encodeSourceUrl(url) {
+  if (typeof url !== 'string' || !/[^\x21-\x7e]/.test(url)) return url;
+  try { return new URL(url.trim()).href; } catch { return url; }
+}
+
 function _buildImportMediaRequest({ sourceUrl, displayName, mimeType, mediaType, wpId }) {
   return {
     method: 'POST',
     url: `${WIXAPIS}/site-media/v1/files/import`,
     body: {
-      url: sourceUrl,
+      url: encodeSourceUrl(sourceUrl),
       displayName,
       mimeType: mimeType || undefined,
       mediaType: mediaType ? String(mediaType).toUpperCase() : undefined, // IMAGE | AUDIO | VIDEO | DOCUMENT
@@ -1111,6 +1142,37 @@ function _buildImportMediaRequest({ sourceUrl, displayName, mimeType, mediaType,
 async function importMedia(wix, payload) {
   const { file } = await wix.send(buildImportMediaRequest(payload));
   return file; // { id, url, operationStatus, ... }
+}
+// A media import whose reply was lost: find the file it may have created. Media Manager cannot
+// filter by `externalInfo` (webhook-only), but every descriptor returns `sourceUrl`, the URL the
+// import fetched. Search Files by display name narrows the candidates; an exact `sourceUrl` match
+// identifies ours. Returns { targetId } for exactly one match, and undefined otherwise: an empty
+// search does not prove the import never landed (the search index may lag a fresh import).
+function buildSearchMediaFilesRequest({ search, mediaTypes, limit = 100 } = {}) {
+  return markRequest({
+    method: 'POST',
+    url: `${WIXAPIS}/site-media/v1/files/search`,
+    body: {
+      search: String(search || '').slice(0, 200),
+      rootFolder: 'MEDIA_ROOT',
+      ...(Array.isArray(mediaTypes) && mediaTypes.length ? { mediaTypes } : {}),
+      paging: { limit },
+    },
+  }, { read: true });
+}
+function comparableUrl(value) {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  try { return new URL(value.trim()).href; } catch (_) { return value.trim(); }
+}
+async function findImportedMediaFile(wix, payload = {}) {
+  const want = comparableUrl(payload.sourceUrl);
+  const name = typeof payload.displayName === 'string' ? payload.displayName.trim() : '';
+  if (!want || !name) return undefined;
+  const mediaTypes = payload.mediaType ? [String(payload.mediaType).toUpperCase()] : undefined;
+  const response = await wix.send(buildSearchMediaFilesRequest({ search: name, mediaTypes }));
+  const files = Array.isArray(response?.files) ? response.files : [];
+  const hits = files.filter(file => file && file.state !== 'DELETED' && comparableUrl(file.sourceUrl) === want);
+  return hits.length === 1 && hits[0].id ? { targetId: String(hits[0].id) } : undefined;
 }
 // VERIFIED: GET /site-media/v1/files/{id} returns the descriptor; poll until ready.
 async function waitUntilFileReady(wix, fileId, { tries = 10, delayMs = 1500 } = {}) {
@@ -1387,8 +1449,8 @@ async function provisionContactExtendedFields(wix, { requirement, dryRun = false
 }
 
 // One entry point so a requirement is routed by its own declared surface: data-extension-schema
-// (orders, products, contacts-v5) or crm-contact-extended-field (contacts-v4). Neither route is
-// attempted for the other's requirement, and there is no fallback between them.
+// (orders, products and contacts-v5) or crm-contact-extended-field (contacts-v4). Neither route
+// is attempted for the other's requirement, and there is no fallback between them.
 async function provisionExtendedFieldRequirement(wix, { requirement, ...options } = {}) {
   if (requirement && requirement.schemaKind === contactExtendedFields.SCHEMA_KIND) {
     return provisionContactExtendedFields(wix, { requirement, dryRun: options.dryRun, priorVerification: options.priorVerification });
@@ -1429,7 +1491,7 @@ function _buildImportPrivateDocumentRequest({ sourceUrl, invoiceNumber, orderId 
     method: 'POST',
     url: `${WIXAPIS}/site-media/v1/files/import`,
     body: {
-      url: sourceUrl,
+      url: encodeSourceUrl(sourceUrl),
       private: true,
       mediaType: 'DOCUMENT',
       // A FOLDER, not the root. The Media Manager is the merchant's ACTUAL way in to these
@@ -1976,14 +2038,14 @@ function buildCreateBuildDraftPostRequest(draftPost) {
 function buildUpdateBuildDraftPostRequest(id, projection) {
   if (!id) throw new Error('buildUpdateBuildDraftPostRequest: draft id is required');
   return markRequest({ method: 'PATCH', url: `${WIXAPIS}/blog/v3/draft-posts/${encodeURIComponent(id)}`,
-    body: { action: 'UPDATE', draftPost: { id, ...projection }, fieldsets: [...BLOG_BUILD_FIELDSETS] } }, { entity: 'blog/post' });
+    body: { action: 'UPDATE', draftPost: { id, ...projection }, fieldsets: [...BLOG_BUILD_FIELDSETS] } }, { entity: 'blog/post', partial: true });
 }
 function buildBlogBuildReadRequest(url) {
   if (!/^https:\/\/www\.wixapis\.com\/blog\/v3\/(?:draft-posts|posts)(?:[/?]|$)/.test(String(url))) throw new Error('buildBlogBuildReadRequest: not a Blog draft-posts or posts read');
   return markRequest({ method: 'GET', url }, { read: true });
 }
 async function publishDraftPost(wix, draftPostId) {
-  return wix.send(markRequest({ method: 'POST', url: `${WIXAPIS}/blog/v3/draft-posts/${draftPostId}/publish`, body: {} }, { entity: 'blog/post' }));
+  return wix.send(markRequest({ method: 'POST', url: `${WIXAPIS}/blog/v3/draft-posts/${draftPostId}/publish`, body: {} }, { entity: 'blog/post', partial: true }));
 }
 
 // VERIFIED-TRAP (2026-10-05, live test matrix): Wix's own docs say DELETE
@@ -2076,6 +2138,7 @@ async function bulkCreateDraftPosts(wix, payloads) {
 // `dataItem.id` is ALSO set to that same value — `dataItem.id` is the authoritative item id;
 // `data._id` alone is not enough. Every insert failed on this until fixed here.
 function _buildInsertItemRequest(collectionId, data) {
+  assertWixCollectionId(collectionId, 'dataCollectionId');
   const dataItem = { data };
   if (data && typeof data === 'object' && !Array.isArray(data) && data._id != null && String(data._id).trim() !== '') {
     dataItem.id = String(data._id);
@@ -2092,6 +2155,7 @@ function _buildInsertItemRequest(collectionId, data) {
 // spends no CMS item quota and the quota hold does not refuse it. Use it to re-save an item whose id
 // the crosswalk already holds; insert would create it twice and `save` would re-create a deleted one.
 function _buildUpdateDataItemRequest(collectionId, id, data) {
+  assertWixCollectionId(collectionId, 'dataCollectionId');
   if (id == null || String(id).trim() === '') throw new Error('buildUpdateDataItemRequest: an existing item id is required');
   const itemId = String(id);
   if (data && typeof data === 'object' && !Array.isArray(data) && data._id != null && String(data._id) !== itemId) {
@@ -2112,18 +2176,64 @@ const buildGetSiteDataUsageRequest = (options) => markRequest(cmsItemQuota.build
 async function insertDataItem(wix, collectionId, data) {
   return (await wix.send(buildInsertItemRequest(collectionId, data))).dataItem;
 }
+async function insertArchiveDataItem(wix, sourceEntityName, data) {
+  return insertDataItem(wix, buildCmsArchiveCollectionId(sourceEntityName), data);
+}
 // VERIFIED: POST /wix-data/v2/items/query with { dataCollectionId, query }. Paginates via
 // query.paging {limit,offset}; returns dataItems[] (we return their `.data`). Required for
 // optional CMS mirror fetch: only for pre-execution seeding when an existing-site flow has
 // site-local reference data and valid local crosswalk state does not already exist. Runtime
 // resume/idempotency is owned by state/crosswalk/crosswalk.ndjson, not CMS.
+function _buildQueryDataItemsRequest(collectionId, { filter, limit = 100, offset = 0, consistentRead = false } = {}) {
+  if (!collectionId) throw new Error('buildQueryDataItemsRequest: collectionId is required');
+  if (!Number.isInteger(limit) || limit < 1 || limit > 1000) throw new Error('buildQueryDataItemsRequest: limit must be an integer from 1 to 1000');
+  if (!Number.isInteger(offset) || offset < 0) throw new Error('buildQueryDataItemsRequest: offset must be a non-negative integer');
+  return {
+    method: 'POST',
+    url: `${WIXAPIS}/wix-data/v2/items/query`,
+    body: {
+      dataCollectionId: collectionId,
+      query: {
+        ...(filter ? { filter } : {}),
+        paging: { limit, offset },
+        ...(consistentRead ? { consistentRead: true } : {}),
+      },
+    },
+  };
+}
+function dataItemId(item) {
+  // `id` is the Wix Data v2 DataItem identity. `_id` is only the read-only field
+  // mirrored inside `data`; accepting it here keeps old read-back fixtures useful,
+  // but callers must never read `_id` from the insert response.
+  const id = item && (item.id || item.data?._id);
+  return id == null || String(id).trim() === '' ? null : String(id);
+}
+async function queryDataItems(wix, collectionId, options = {}) {
+  const response = await wix.send(buildQueryDataItemsRequest(collectionId, options));
+  return Array.isArray(response?.dataItems) ? response.dataItems : [];
+}
+async function queryDataItemsBySourceKey(wix, collectionId, sourceKey, { sourceField = 'sourceKey' } = {}) {
+  if (sourceKey == null || String(sourceKey).trim() === '') throw new Error('queryDataItemsBySourceKey: sourceKey is required');
+  const items = await queryDataItems(wix, collectionId, { filter: { [sourceField]: String(sourceKey) }, limit: 2, consistentRead: true });
+  return items;
+}
 async function queryAllDataItems(wix, collectionId, { pageSize = 100 } = {}) {
   const out = [];
   let offset = 0;
   for (;;) {
-    const r = await wix.send({ method: 'POST', url: `${WIXAPIS}/wix-data/v2/items/query`,
-      body: { dataCollectionId: collectionId, query: { paging: { limit: pageSize, offset } } } });
+    const r = await wix.send(buildQueryDataItemsRequest(collectionId, { limit: pageSize, offset }));
     const items = (r.dataItems || []).map((d) => d.data);
+    out.push(...items);
+    if (items.length < pageSize) break;
+    offset += pageSize;
+  }
+  return out;
+}
+async function queryAllDataItemsWithIds(wix, collectionId, { pageSize = 100 } = {}) {
+  const out = [];
+  let offset = 0;
+  for (;;) {
+    const items = await queryDataItems(wix, collectionId, { limit: pageSize, offset });
     out.push(...items);
     if (items.length < pageSize) break;
     offset += pageSize;
@@ -2134,7 +2244,18 @@ async function queryAllDataItems(wix, collectionId, { pageSize = 100 } = {}) {
 // creates, a not-yet-existing id creates WITH that id, an existing id is FULLY REPLACED (not
 // merged) -- callers that need a merge must read-then-write, this helper does not.
 const CMS_BULK_SAVE_MAX = 1000;
+const CMS_BULK_INSERT_MAX = 1000;
+function _buildBulkInsertDataItemsRequest(collectionId, items, { returnEntity = false } = {}) {
+  if (!Array.isArray(items) || items.length === 0) throw new Error('buildBulkInsertDataItemsRequest: items must be a non-empty array');
+  if (items.length > CMS_BULK_INSERT_MAX) throw new Error(`buildBulkInsertDataItemsRequest: ${items.length} exceeds the per-request limit of ${CMS_BULK_INSERT_MAX} -- batch upstream`);
+  return {
+    method: 'POST',
+    url: `${WIXAPIS}/wix-data/v2/bulk/items/insert`,
+    body: { dataCollectionId: collectionId, dataItems: items, ...(returnEntity ? { returnEntity: true } : {}) },
+  };
+}
 function _buildBulkSaveDataItemsRequest(collectionId, items, { returnEntity = false } = {}) {
+  assertWixCollectionId(collectionId, 'dataCollectionId');
   if (!Array.isArray(items) || items.length === 0) {
     throw new Error('buildBulkSaveDataItemsRequest: items must be a non-empty array');
   }
@@ -2150,6 +2271,10 @@ function _buildBulkSaveDataItemsRequest(collectionId, items, { returnEntity = fa
       ...(returnEntity ? { returnEntity: true } : {}),
     },
   };
+}
+async function bulkInsertDataItems(wix, collectionId, items, options) {
+  const response = await wix.send(buildBulkInsertDataItemsRequest(collectionId, items, options));
+  return { results: response.results || [], bulkActionMetadata: response.bulkActionMetadata || {} };
 }
 async function bulkSaveDataItems(wix, collectionId, items, options) {
   const response = await wix.send(buildBulkSaveDataItemsRequest(collectionId, items, options));
@@ -2197,6 +2322,7 @@ function buildImportCrosswalkItem({ entityType, sourceId, sourceStableKey, targe
   };
 }
 async function syncImportCrosswalk(wix, rows, { collectionId = 'ImportCrosswalk' } = {}) {
+  assertWixCollectionId(collectionId, 'crosswalk dataCollectionId');
   const items = rows.map(buildImportCrosswalkItem);
   let totalSuccesses = 0;
   let totalFailures = 0;
@@ -2673,6 +2799,55 @@ function _buildQueryStoresProductsRequest(query = { paging: { limit: 100 } }, fi
   if (fields) body.fields = fields;
   return { method: 'POST', url: `${WIXAPIS}/stores/v3/products/query`, body };
 }
+// Read-Only Variants V3. Query Products deliberately omits variant data; this exact read-only
+// POST supplies the target variant ids needed by catalog-linked records without granting a raw
+// POST or any Stores mutation authority. ONE PAGE, unwrapped to the variants array, with cursor
+// metadata discarded under the module-level READ/RETURN CONTRACT.
+function _buildQueryStoresProductVariantsRequest(query = { cursorPaging: { limit: 1000 } }, fields) {
+  const body = { query };
+  if (fields) body.fields = fields;
+  return { method: 'POST', url: `${WIXAPIS}/stores/v3/products/query-variants`, body };
+}
+// The Read-Only Variants index is eventually consistent. A query made immediately after a
+// product write can omit every variant -- or only the variants for one requested product -- and
+// that provisional miss must not become an unresolved catalog reference. Retry only an empty
+// result or a missing exact id requested by the supported product/variant id filters. The fixed
+// delays cap recovery at four reads and six seconds of waiting; callers may inject only the sleep
+// implementation, never the policy. A populated unfiltered page, or a complete filtered page,
+// still costs one request. Exhaustion throws instead of making a still-provisional miss look like
+// confirmed absence.
+const QUERY_VARIANTS_CONSISTENCY_RETRY_DELAYS_MS = Object.freeze([500, 1500, 4000]);
+function exactQueryVariantFilterIds(filterValue) {
+  if (typeof filterValue === 'string' && filterValue) return [filterValue];
+  if (!filterValue || typeof filterValue !== 'object') return [];
+  if (typeof filterValue.$eq === 'string' && filterValue.$eq) return [filterValue.$eq];
+  return Array.isArray(filterValue.$in) ? filterValue.$in.filter(id => typeof id === 'string' && id) : [];
+}
+function queryVariantsHasProvisionalMiss(query, variants) {
+  if (!variants.length) return true;
+  const filter = query && query.filter;
+  if (!filter || typeof filter !== 'object') return false;
+  const expectedProducts = exactQueryVariantFilterIds(filter['productData.productId']);
+  const expectedVariants = exactQueryVariantFilterIds(filter.variantId);
+  const seenProducts = new Set(variants.map(variant => variant?.productData?.productId).filter(Boolean));
+  const seenVariants = new Set(variants.map(variant => variant?.variantId).filter(Boolean));
+  return expectedProducts.some(id => !seenProducts.has(id)) || expectedVariants.some(id => !seenVariants.has(id));
+}
+async function queryStoresProductVariants(wix, query, fields, { sleep } = {}) {
+  for (let attempt = 0; ; attempt += 1) {
+    const variants = (await wix.send(buildQueryStoresProductVariantsRequest(query, fields))).variants || [];
+    if (wix?.dryRun === true || !queryVariantsHasProvisionalMiss(query, variants)) return variants;
+    if (attempt >= QUERY_VARIANTS_CONSISTENCY_RETRY_DELAYS_MS.length) {
+      throw Object.assign(new Error('queryStoresProductVariants: variant index remained inconclusive after four reads; retry the record later'), {
+        code: 'QUERY_VARIANTS_INCONCLUSIVE',
+        retryable: true,
+        attempts: attempt + 1,
+        consistencyWaitMs: QUERY_VARIANTS_CONSISTENCY_RETRY_DELAYS_MS.reduce((sum, ms) => sum + ms, 0),
+      });
+    }
+    await pauseFor(wix, sleep)(QUERY_VARIANTS_CONSISTENCY_RETRY_DELAYS_MS[attempt]);
+  }
+}
 // ONE PAGE, unwrapped to the products array, pagingMetadata discarded — see the READ/RETURN
 // CONTRACT at the top of this file. Do not build a dedupe index or a safety net on this.
 async function queryStoresProducts(wix, query, fields) {
@@ -2894,6 +3069,10 @@ async function patchStoresProductMediaVerified(
     // observed ingest both need about a minute.
     retryDelayMs = STORES_MEDIA_INGEST_SETTLE_MS,
     rounds = STORES_MEDIA_INGEST_ROUNDS,
+    // The settle wait polls instead of sleeping the whole window: one read every pollMs (the
+    // create observer's reviewed spacing), up to settleMs. A gallery that lands early stops the
+    // wait early; one that never lands waits exactly as long as before.
+    pollMs = STORES_MEDIA_CREATE_OBSERVATION.minSpacingMs,
     sleep = (ms) => new Promise((res) => setTimeout(res, ms)),
   } = {},
 ) {
@@ -2903,6 +3082,18 @@ async function patchStoresProductMediaVerified(
   const guardedMedia = buildStoresProductMedia(items);
   const expected = guardedMedia?.itemsInfo?.items?.length || 0;
   if (expected === 0) throw new Error(`patchStoresProductMediaVerified: refusing to replace ${productId}'s gallery with nothing`);
+  const { correlateProductMedia } = require('../../../lib/write-verification');
+  // Tuti 11-18: the import resumes a product whose create sent the gallery and Wix finished
+  // ingesting it after the create's read. Re-sending it and sleeping 60s cost ~4.4 h for ~240
+  // products. When the gallery already on the product IS the intended one (slot by slot, the same
+  // correlation the create observer uses), there is nothing to write. A gallery we cannot
+  // correlate (no altText or displayName to match on) is still re-sent, as before.
+  const alreadyLanded = (product) => {
+    const correlation = correlateProductMedia(guardedMedia.itemsInfo.items, product?.media?.itemsInfo?.items);
+    return correlation.correlatable && correlation.verified;
+  };
+  const pause = pauseFor(wix, sleep);
+  const polls = wix && wix.dryRun === true ? 1 : Math.max(1, Math.ceil(settleMs / Math.max(1, pollMs)));
 
   const attempts = [];
   for (let round = 1; round <= rounds; round += 1) {
@@ -2917,10 +3108,18 @@ async function patchStoresProductMediaVerified(
       // Re-read the revision every round. An accepted-but-not-ingested write still incremented it,
       // so reusing the previous round's value 400s on the retry that was supposed to save us.
       const before = await getStoresProductWithMedia(wix, productId);
+      if (alreadyLanded(before)) {
+        attempts.push({ round, landed: true, alreadyLanded: true });
+        return { productId, landed: true, alreadyLanded: true, rounds: round, attempts, product: before };
+      }
       await patchStoresProductMedia(wix, { productId, revision: before.revision, items });
-      await pauseFor(wix, sleep)(settleMs);
-      const after = await getStoresProductWithMedia(wix, productId);
-      const landed = storesProductMediaLanded(after, expected);
+      let after = null, landed = false;
+      for (let poll = 1, waited = 0; poll <= polls && !landed; poll += 1) {
+        const step = poll === polls ? Math.max(0, settleMs - waited) : Math.min(pollMs, settleMs - waited);
+        await pause(step); waited += step;
+        after = await getStoresProductWithMedia(wix, productId);
+        landed = storesProductMediaLanded(after, expected);
+      }
       attempts.push({ round, landed });
       if (landed) return { productId, landed: true, rounds: round, attempts, product: after };
     } catch (error) {
@@ -3214,7 +3413,11 @@ async function setItemSeoTags(wix, { itemType = 'BLOG_POST', entries = [] } = {}
     const perEntry = new Map(((response && response.results) || []).map(r => [r && r.itemMetadata && r.itemMetadata.originalIndex, r]));
     for (const [i, p] of chunk.entries()) {
       const meta = perEntry.get(i) && perEntry.get(i).itemMetadata;
-      if (!failure && meta && meta.success === false) { Object.assign(results[p.index], { outcome: 'failed', error: meta.error || null }); continue; }
+      if (!failure && meta && meta.success === false) {
+        const itemError = meta.error && typeof meta.error === 'object' ? meta.error : {};
+        Object.assign(results[p.index], { outcome: 'failed', errorCode: itemError.code || itemError.applicationErrorCode || null, errorMessage: itemError.message || itemError.description || null, error: meta.error || null });
+        continue;
+      }
       // Success, a missing result, or an unknown outcome: only the read-back decides.
       let readBack = null;
       try { readBack = await getItemSeoTags(wix, itemType, p.entry.itemId); } catch (error) { rethrowRunStop(error); Object.assign(results[p.index], { outcome: failure ? 'unknown' : 'unverified-after-success', error: memberErrorFields(error) }); continue; }
@@ -3512,12 +3715,22 @@ function normalizeV5AddressTag(tag) {
   if (!normalized) return undefined;
   return V5_CONTACT_ADDRESS_TAGS.has(normalized) ? normalized : 'OTHER';
 }
-// GA ContactAddress keeps postal fields nested under `address`; anything else found flat
-// on the item (city, country, streetAddress, …) is moved into `address` so legacy flat
-// items survive the shape change.
-const V5_ADDRESS_ITEM_KEYS = new Set(['id', 'tag', 'address', 'defaultAddress', 'recipient']);
-function normalizeV5AddressItem(item) {
-  if (!item || typeof item !== 'object' || Array.isArray(item)) return item;
+// GA ContactAddress keeps postal fields nested under `address`. V5 request builders are
+// strict: a generated contact must already have the documented shape. Legacy V4 `info`
+// conversion opts into the one explicit compatibility conversion below.
+const { V5_ADDRESS_ITEM_KEYS, assertContactAddressShape } = require('../../../lib/contact-address-contract.js');
+function normalizeV5AddressItem(item, { allowLegacyFlat = false } = {}) {
+  if (!item || typeof item !== 'object' || Array.isArray(item)) {
+    if (!allowLegacyFlat) assertContactAddressShape({ addresses: [item] });
+    return item;
+  }
+  if (!allowLegacyFlat) {
+    assertContactAddressShape({ addresses: [item] });
+    const normalized = { ...item, ...(item.address ? { address: { ...item.address } } : {}) };
+    const tag = normalizeV5AddressTag(normalized.tag);
+    if (tag) normalized.tag = tag;
+    return normalized;
+  }
   const out = {};
   const address = item.address && typeof item.address === 'object' && !Array.isArray(item.address)
     ? { ...item.address }
@@ -3530,10 +3743,12 @@ function normalizeV5AddressItem(item) {
   const tag = normalizeV5AddressTag(out.tag);
   if (tag) out.tag = tag;
   if (Object.keys(address).length) out.address = address;
+  assertContactAddressShape({ addresses: [out] }, 'converted V4 contact');
   return out;
 }
 function normalizeV5Contact(contact = {}) {
   const normalized = { ...contact };
+  assertContactAddressShape(normalized);
   if (normalized.phone && typeof normalized.phone === 'object') {
     const tag = normalizeV5PhoneTag(normalized.phone.tag);
     normalized.phone = { ...normalized.phone, ...(tag ? { tag } : {}) };
@@ -3597,7 +3812,7 @@ function contactInfoToV5Contact(info = {}) {
     });
   }
   const addresses = contactListItems(info.addresses);
-  if (addresses.length) contact.addresses = addresses.map((item) => normalizeV5AddressItem(item));
+  if (addresses.length) contact.addresses = addresses.map((item) => normalizeV5AddressItem(item, { allowLegacyFlat: true }));
   if (info.company !== undefined || info.jobTitle !== undefined) {
     contact.company = {
       ...(info.company !== undefined ? { name: info.company } : {}),
@@ -3835,9 +4050,30 @@ function _buildBulkUpsertContactsRequest(contacts, { upsertMode, returnEntity = 
 // Returns per-item outcomes correlated back to the input index — the same flat shape as
 // bulkCreateStoresProductsWithInventory, so callers cannot misread partial failure as
 // all-or-nothing.
+//
+// A contact whose address is not in the Contacts V5 shape is held alone: it gets a not-sent
+// failure (`CONTACT_ADDRESS_SHAPE_INVALID`, `requestSent: false`) at its own index and the rest of
+// the batch is sent. Before, one such contact made the request builder throw for all of them.
 async function bulkUpsertContacts(wix, contacts, options = {}) {
-  const response = await wix.send(buildBulkUpsertContactsRequest(contacts, options));
-  return bulkResults.normalizeBulk(response, contacts, 'contacts');
+  const { contactAddressShapeError, CONTACT_ADDRESS_SHAPE_INVALID } = require('../../../lib/contact-address-contract.js');
+  const shapeErrors = Array.isArray(contacts) ? contacts.map((contact) => contactAddressShapeError(contact)) : [];
+  if (!shapeErrors.some(Boolean)) {
+    const response = await wix.send(buildBulkUpsertContactsRequest(contacts, options));
+    return bulkResults.normalizeBulk(response, contacts, 'contacts');
+  }
+  const sendIndexes = contacts.map((_, index) => index).filter((index) => !shapeErrors[index]);
+  const sent = sendIndexes.length
+    ? bulkResults.normalizeBulk(await wix.send(buildBulkUpsertContactsRequest(sendIndexes.map((index) => contacts[index]), options)), sendIndexes.map((index) => contacts[index]), 'contacts')
+    : { results: [], defects: [], unresolvedIndexes: [], unaccounted: 0, undetailedFailures: 0 };
+  const held = shapeErrors.map((message, index) => (message ? {
+    index, correlated: true, success: false, requestSent: false, errorCode: CONTACT_ADDRESS_SHAPE_INVALID, errorMessage: message, error: null,
+    inputContact: contacts[index], contactId: null, contact: null, action: null,
+  } : null)).filter(Boolean);
+  // Map the sent subset's indexes back to the caller's.
+  const results = [...sent.results.map((row) => ({ ...row, index: Number.isInteger(row.index) ? sendIndexes[row.index] ?? row.index : row.index })), ...held]
+    .sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
+  return { ...sent, results, unresolvedIndexes: sent.unresolvedIndexes.map((index) => sendIndexes[index]),
+    succeeded: results.filter((row) => row.success), failed: results.filter((row) => !row.success), heldBeforeSend: held.length };
 }
 function _buildQueryContactsRequest(query = { paging: { limit: 100, offset: 0 } }) {
   return { method: 'POST', url: `${WIXAPIS}/contacts/v5/contacts/query`, body: { query } };
@@ -4199,6 +4435,7 @@ async function bulkCreateCoupons(wix, specifications, { onFallback } = {}) {
   }
   const sub = new Array(sent.length).fill(null);
   let anyFailure = false;
+  const batchErrors = [];
   for (let i = 0; i < results.length; i += 1) {
     const meta = (results[i] && results[i].itemMetadata) || {};
     // `?? 0` -- see TRAP 2. Correlate by the index the server reports, not by position here.
@@ -4207,12 +4444,18 @@ async function bulkCreateCoupons(wix, specifications, { onFallback } = {}) {
       sub[index] = { outcome: 'coupon-written', couponId: String(meta.id), code: sent[index] && sent[index].code };
     } else {
       anyFailure = true;
+      if (meta.error && typeof meta.error === 'object') {
+        const code = meta.error.code || meta.error.applicationErrorCode;
+        const message = meta.error.message || meta.error.description;
+        if (code || message) batchErrors.push([code, message].filter(Boolean).join(': '));
+      }
     }
   }
   // TRAP 1: any failure invalidates the WHOLE batch's verdicts, including the successes, because
   // nothing was created and the errors name the wrong rows.
   if (anyFailure) {
-    return fallback('the batch reported at least one failure; per-item errors from a failed batch are not per-item');
+    const detail = [...new Set(batchErrors)].slice(0, 3).join(' | ');
+    return fallback(`the batch reported at least one failure; per-item errors from a failed batch are not per-item${detail ? ` (${detail})` : ''}`);
   }
   return merge(sub);
 }
@@ -8292,8 +8535,8 @@ const WRITE_BUILDERS_BY_ENTITY = Object.freeze({
   'bookings/calendar-event': Object.freeze(['buildCreateCalendarEventRequest', 'buildDeleteCalendarEventRequest']),
   'bookings/service': Object.freeze(['buildCreateBookingsServiceRequest', 'buildDeleteBookingsServiceRequest']),
   'bookings/service-add-on': Object.freeze(['buildCreateBookingsAddOnGroupRequest', 'buildCreateBookingsAddOnRequest', 'buildDeleteBookingsAddOnGroupRequest', 'buildDeleteBookingsAddOnRequest', 'buildSetBookingsAddOnGroupAddOnsRequest']),
-  'cms/data-item': Object.freeze(['buildBulkSaveDataItemsRequest', 'buildInsertItemRequest', 'buildUpdateDataItemRequest']),
-  'crm/contact': Object.freeze(['buildBulkUpsertContactsRequest', 'buildCreateContactRequest', 'buildUpdateBusinessContactRequest', 'buildUpdateContactRequest']),
+  'cms/data-item': Object.freeze(['buildBulkInsertDataItemsRequest', 'buildBulkSaveDataItemsRequest', 'buildInsertItemRequest', 'buildUpdateDataItemRequest']),
+  'crm/contact': Object.freeze(['buildBulkUpsertContactsRequest', 'buildCreateContactRequest', 'buildUpdateContactRequest']),
   'crm/contact-label': Object.freeze(['buildUpdateContactTagsRequest']),
   'crm/email-subscription': Object.freeze(['buildBulkUpsertEmailSubscriptionsRequest']),
   'crm/label': Object.freeze(['buildFindOrCreateContactLabelRequest']),
@@ -8319,6 +8562,7 @@ const WRITE_BUILDERS_BY_ENTITY = Object.freeze({
   'seo/seo-pattern': Object.freeze(['buildCreateSeoPatternRequest', 'buildSetSeoPatternRequest', 'ensureSeoPattern']),
   'seo/site-seo-tags': Object.freeze(['buildSetSiteSeoTagsRequest', 'setSiteSeoTags']),
   'pricing-plans/plan-order': Object.freeze(['buildCreateOfflinePlanOrderRequest', 'buildPausePlanOrderRequest']),
+  'site/business-contact': Object.freeze(['buildUpdateBusinessContactRequest']),
   'site/locale': Object.freeze(['buildUpdateBusinessRegionRequest', 'buildUpdateSiteLanguageRequest', 'buildUpdateSiteLocaleRequest']),
   'stores/back-in-stock-request': Object.freeze(['buildCreateBackInStockRequest', 'buildMarkBackInStockNotificationSentRequest']),
   'stores/brand': Object.freeze(['buildCreateStoresBrandRequest']),
@@ -8358,10 +8602,13 @@ const buildDeleteDraftPostRequest = (...args) => markRequest(_buildDeleteDraftPo
 const buildDeletePostRequest = (...args) => markRequest(_buildDeletePostRequest(...args), {"entity": "blog/post"});
 const buildBulkCreateDraftPostsRequest = (...args) => markRequest(_buildBulkCreateDraftPostsRequest(...args), {"entity": "blog/post"});
 const buildInsertItemRequest = (...args) => markRequest(_buildInsertItemRequest(...args), {"entity": "cms/data-item"});
+const buildBulkInsertDataItemsRequest = (...args) => markRequest(_buildBulkInsertDataItemsRequest(...args), {"entity": "cms/data-item"});
 const buildBulkSaveDataItemsRequest = (...args) => markRequest(_buildBulkSaveDataItemsRequest(...args), {"entity": "cms/data-item"});
 const buildUpdateDataItemRequest = (...args) => markRequest(_buildUpdateDataItemRequest(...args), {"entity": "cms/data-item"});
+const buildQueryDataItemsRequest = (...args) => markRequest(_buildQueryDataItemsRequest(...args), {"read": true});
 const buildCreateStoresProductRequest = (...args) => markRequest(_buildCreateStoresProductRequest(...args), {"entity": "stores/product"});
 const buildBulkCreateStoresProductsRequest = (...args) => markRequest(_buildBulkCreateStoresProductsRequest(...args), {"entity": "stores/product"});
+const buildQueryStoresProductVariantsRequest = (...args) => markRequest(_buildQueryStoresProductVariantsRequest(...args), {"read": true});
 const buildQueryStoresProductsRequest = (...args) => markRequest(_buildQueryStoresProductsRequest(...args), {"read": true});
 const buildPatchStoresProductMediaRequest = (...args) => markRequest(_buildPatchStoresProductMediaRequest(...args), {entity: "stores/product", partial: true, productId: args[0].productId});
 const buildGetStoresProductWithMediaRequest = (...args) => markRequest(_buildGetStoresProductWithMediaRequest(...args), {"read": true});
@@ -8430,7 +8677,7 @@ const buildQueryShippingOptionsRequest = (...args) => markRequest(_buildQueryShi
 const buildGetShippingOptionRequest = (...args) => markRequest(_buildGetShippingOptionRequest(...args), {"read": true});
 const buildUpdateShippingOptionEstimateRequest = (...args) => markRequest(_buildUpdateShippingOptionEstimateRequest(...args), {"entity": "ecom/shipping-option"});
 const buildDeleteShippingOptionRequest = (...args) => markRequest(_buildDeleteShippingOptionRequest(...args), {"entity": "ecom/shipping-option"});
-const buildUpdateBusinessContactRequest = (...args) => markRequest(_buildUpdateBusinessContactRequest(...args), {"entity": "crm/contact"});
+const buildUpdateBusinessContactRequest = (...args) => markRequest(_buildUpdateBusinessContactRequest(...args), {"entity": "site/business-contact"});
 const buildGetSitePropertiesRequest = (...args) => markRequest(_buildGetSitePropertiesRequest(...args), {"read": true});
 const buildUpdateBusinessRegionRequest = (...args) => markRequest(_buildUpdateBusinessRegionRequest(...args), {"entity": "site/locale"});
 const buildUpdateSiteLanguageRequest = (...args) => markRequest(_buildUpdateSiteLanguageRequest(...args), {"entity": "site/locale"});
@@ -8583,9 +8830,11 @@ function captureSetupReferenceBindings(wix, step) {
   return bindings;
 }
 const inventoryEvidence = new WeakMap();
+// The quick adapters whose product entity may write stock (their contracts name stores/inventory-item).
+const QUICK_STOCK_ADAPTERS = new Set(['quick-shopify', 'quick-woocommerce']);
 function registerQuickInventoryScope(wix, canonical, target) {
   const ctx = executionCapability.clientContext(wix), evidence = responseEvidence.get(target);
-  if (!ctx || ctx.kind !== 'quick-entity' || ctx.adapterId !== 'quick-shopify' || ctx.entityId !== 'product' || evidence?.client !== wix || !evidence.mark?.read || evidence.digest !== executionCapability.digest(JSON.stringify(target)) || !canonical.slug || canonical.slug !== target.slug) executionCapability.fail('CAPABILITY_ENTITY_MISMATCH');
+  if (!ctx || ctx.kind !== 'quick-entity' || !QUICK_STOCK_ADAPTERS.has(ctx.adapterId) || ctx.entityId !== 'product' || evidence?.client !== wix || !evidence.mark?.read || evidence.digest !== executionCapability.digest(JSON.stringify(target)) || !canonical.slug || canonical.slug !== target.slug) executionCapability.fail('CAPABILITY_ENTITY_MISMATCH');
   const rows = require('./variant-correlation').resolveInventoryRows(canonical, target);
   let scope = inventoryEvidence.get(wix);
   if (!scope) { scope = { pairs: new Map(), items: new Map(), locations: new Set() }; inventoryEvidence.set(wix, scope); }
@@ -8605,7 +8854,7 @@ function recordInventoryResponse(wix, json, mark, request) {
     if (mark?.inventoryRead === 'items') for (const item of json.inventoryItems || []) if (scope.pairs.has(item.productId + ':' + item.variantId) && scope.locations.has(item.locationId) && item.id && item.revision != null) scope.items.set(item.id, structuredClone(item));
     return;
   }
-  if (ctx?.kind !== 'quick-entity' || ctx.adapterId !== 'quick-shopify' || ctx.entityId !== 'product') return;
+  if (ctx?.kind !== 'quick-entity' || !QUICK_STOCK_ADAPTERS.has(ctx.adapterId) || ctx.entityId !== 'product') return;
   let scope = inventoryEvidence.get(wix);
   if (!scope) { scope = { pairs: new Map(), items: new Map(), locations: new Set() }; inventoryEvidence.set(wix, scope); }
   if (mark?.inventoryRead === 'locations' && mark.defaultLocation === true && json.storesLocations?.length === 1) {
@@ -8768,8 +9017,9 @@ function buildGetCmsDataItemRequest(collectionId, id) {
 }
 function buildGetStoresCatalogVersionRequest() { return markRequest({ method: 'GET', url: `${WIXAPIS}/stores/v3/provision/version` }, { read: true }); }
 async function ensureCmsCollection(wix, collection) {
-  const definition = normalizeCmsCollectionDefinition(collection);
-  return wix.send(markRequest({ method: 'POST', url: `${WIXAPIS}/wix-data/v2/collections`, body: { collection: definition } }, { setupOperation: 'ensure-cms-collection' }));
+  const definition = normalizeCmsCollectionDefinition(collection, { sourceEntity: collection?.sourceEntity });
+  const { sourceEntity, ...wireDefinition } = definition;
+  return wix.send(markRequest({ method: 'POST', url: `${WIXAPIS}/wix-data/v2/collections`, body: { collection: wireDefinition } }, { setupOperation: 'ensure-cms-collection' }));
 }
 async function ensureBlogFallbackAuthor(wix, payload) {
   return (await wix.send(markRequest(_buildCreateMemberRequest(payload), { setupOperation: 'blog-fallback-author' }))).member;
@@ -8815,13 +9065,13 @@ async function createStoresBrand(wix, payload) {
 // 409 ALREADY_EXISTS and is reused. The standalone shape uses freeTextInput /
 // customizationRenderType; the product-side modifier names are refused here so a payload copied
 // from a product never reaches this endpoint (connected-modifier-must-restate-the-settings).
-function buildCreateStoresCustomizationRequest({ customization } = {}) {
+function buildCreateStoresCustomizationRequest({ customization } = {}, { forProduct = false } = {}) {
   const c = customization || {};
   if (typeof c.name !== 'string' || !c.name.trim()) throw new Error('a Stores customization needs a name');
   if (!['MODIFIER', 'PRODUCT_OPTION'].includes(c.customizationType)) throw new Error('a Stores customization needs customizationType MODIFIER or PRODUCT_OPTION');
   if (!['FREE_TEXT', 'TEXT_CHOICES', 'SWATCH_CHOICES'].includes(c.customizationRenderType)) throw new Error('a Stores customization needs customizationRenderType FREE_TEXT, TEXT_CHOICES or SWATCH_CHOICES');
   for (const key of ['freeTextSettings', 'modifierRenderType']) if (Object.hasOwn(c, key)) throw new Error(`a Stores customization uses the standalone field names; ${key} belongs to a product modifier`);
-  return markRequest({ method: 'POST', url: `${WIXAPIS}/stores/v3/customizations`, body: { customization: c } }, { entity: 'stores/product-customization' });
+  return markRequest({ method: 'POST', url: `${WIXAPIS}/stores/v3/customizations`, body: { customization: c } }, forProduct ? { entity: 'stores/product-customization', auxiliary: true, productCustomization: true } : { entity: 'stores/product-customization' });
 }
 function buildQueryStoresCustomizationsRequest(query = {}) { return markRequest({ method: 'POST', url: `${WIXAPIS}/stores/v3/customizations/query`, body: { query } }, { read: true }); }
 // What makes two groups the same: the free-text limits and title, or the choice names and types in order.
@@ -8829,9 +9079,20 @@ function customizationSettingsKey(c) {
   if (c.customizationRenderType === 'FREE_TEXT') { const f = c.freeTextInput || {}; return JSON.stringify([f.title || '', f.minCharCount || 0, f.maxCharCount ?? null]); }
   return JSON.stringify((c.choicesSettings?.choices || []).map(choice => [choice.choiceType || '', choice.name || '']));
 }
-async function createStoresCustomization(wix, payload) {
+// `forProduct`: written by the product task just before the product that uses it (a routed
+// modifier); the client admits this auxiliary write only from a stores/product task.
+// A product's own customization (forProduct, through its record client): the returned id is the
+// only one its product write may then send at modifiers[].id (dependency-readiness
+// recordWithinWriteIdentity, for a within-write bound product-customization edge).
+function ownCustomization(wix, result, forProduct) {
+  const bound = forProduct ? recordClients.get(wix) : null;
+  if (bound && result.customization?.id) require('../../../lib/dependency-readiness').recordWithinWriteIdentity(bound.readinessGrant, bound.sourceStableKey, 'stores/product-customization', String(result.customization.id));
+  return result;
+}
+async function createStoresCustomization(wix, payload, { forProduct = false } = {}) {
   try {
-    return { outcome: 'created', customization: (await wix.send(buildCreateStoresCustomizationRequest(payload))).customization };
+    const request = buildCreateStoresCustomizationRequest(payload, { forProduct });
+    return ownCustomization(wix, { outcome: 'created', customization: (await wix.send(request)).customization }, forProduct);
   } catch (error) {
     rethrowRunStop(error);
     if (!alreadyExists(error)) throw error;
@@ -8842,7 +9103,7 @@ async function createStoresCustomization(wix, payload) {
     // Same name, different settings: another add-on group. Reusing it would give products the
     // wrong choices, so the mapping must name the groups apart.
     if (customizationSettingsKey(found[0]) !== customizationSettingsKey(c)) throw Object.assign(new Error(`customization "${c.name}" exists with different settings; give same-named groups distinct names`), { code: 'CUSTOMIZATION_NAME_CONFLICT', outcomeKnown: true, existingId: found[0].id });
-    return { outcome: 'reused', customization: found[0] };
+    return ownCustomization(wix, { outcome: 'reused', customization: found[0] }, forProduct);
   }
 }
 
@@ -9044,12 +9305,46 @@ async function createStoresReviews(wix, { records, readinessGrant }) {
       continue;
     }
     const byIndex = new Map((response.results || []).map(row => [row.itemMetadata?.originalIndex, row]));
-    chunk.forEach((row, i) => {
+    for (let i = 0; i < chunk.length; i += 1) {
+      const row = chunk[i];
       const item = byIndex.get(i);
       if (!item) results.push({ sourceStableKey: row.sourceStableKey, outcome: 'unknown' });
       else if (item.itemMetadata.success) results.push({ sourceStableKey: row.sourceStableKey, outcome: 'created', review: item.review, reviewId: item.itemMetadata.id });
-      else results.push({ sourceStableKey: row.sourceStableKey, outcome: item.itemMetadata.error?.code === 'ALREADY_EXISTS' ? 'already-exists' : 'failed', error: item.itemMetadata.error || null });
-    });
+      else {
+        const itemError = item.itemMetadata.error && typeof item.itemMetadata.error === 'object' ? item.itemMetadata.error : {};
+        const errorCode = itemError.code || itemError.applicationErrorCode || null;
+        const errorMessage = itemError.message || itemError.description || null;
+        const error = { code: errorCode, message: errorMessage, status: itemError.status ?? null };
+        if (errorCode === 'ALREADY_EXISTS') {
+          // Wix enforces one review per author/product. The duplicate is only an import
+          // failure when the exact review cannot be read back on the same record client;
+          // when it is found, adopt its id so the source crosswalk remains complete.
+          let existing = null;
+          let readError = null;
+          // A duplicate read is part of this source record's import capability boundary. Bind
+          // the exact row key before querying, so the read evidence and any adopted target stay
+          // attached to the same grant as its create item.
+          // An import-task grant must win over every caller-supplied client: both `row.wix` and
+          // `row.recordClient` can be the task client or a client bound to another source key,
+          // and either would let this per-item read escape its source record's capability
+          // boundary. Without a grant, preserve the standalone client path.
+          const recordClient = readinessGrant
+            ? bindRecordClient(wix, { readinessGrant, sourceStableKey: row.sourceStableKey })
+            : row.recordClient || row.wix || wix;
+          try { existing = await findStoresReview(recordClient, { entityId: row.review.entityId, contactId: row.review.author.contactId }); }
+          catch (caught) { readError = caught; }
+          if (existing?.id) {
+            results.push({ sourceStableKey: row.sourceStableKey, outcome: 'adopted', review: existing, reviewId: existing.id, targetId: existing.id,
+              errorCode, errorMessage, error });
+          } else {
+            results.push({ sourceStableKey: row.sourceStableKey, outcome: 'unknown', errorCode, errorMessage,
+              error: { ...error, readBackError: readError ? String(readError.message || readError).slice(0, 300) : null } });
+          }
+        } else {
+          results.push({ sourceStableKey: row.sourceStableKey, outcome: 'failed', errorCode, errorMessage, error });
+        }
+      }
+    }
   }
   return results;
 }
@@ -9144,6 +9439,7 @@ module.exports = {
   createDryRunConfig,
   normalizeDryRunValue,
   createWixSetupExecutor,
+  TASK_COMPANION_HOSTS,
   createWixClient,
   createRateLimitThrottle,
   rateLimitEndpoint,
@@ -9170,7 +9466,10 @@ module.exports = {
   convertHtmlToRichContent,
   rewriteInlineMedia,
   buildImportMediaRequest,
+  encodeSourceUrl,
   importMedia,
+  buildSearchMediaFilesRequest,
+  findImportedMediaFile,
   waitUntilFileReady,
   buildCreateCategoryRequest,
   createBlogCategory,
@@ -9192,11 +9491,21 @@ module.exports = {
   buildBulkCreateDraftPostsRequest,
   bulkCreateDraftPosts,
   buildInsertItemRequest,
+  buildBulkInsertDataItemsRequest,
+  buildQueryDataItemsRequest,
   buildGetSiteDataUsageRequest,
   insertDataItem,
+  dataItemId,
+  insertArchiveDataItem,
+  buildCmsArchiveCollectionId,
   buildUpdateDataItemRequest,
   updateDataItem,
+  queryDataItems,
+  queryDataItemsBySourceKey,
   queryAllDataItems,
+  queryAllDataItemsWithIds,
+  CMS_BULK_INSERT_MAX,
+  bulkInsertDataItems,
   buildBulkSaveDataItemsRequest,
   bulkSaveDataItems,
   buildImportCrosswalkItem,
@@ -9221,6 +9530,8 @@ module.exports = {
   storesProductBulkCost,
   buildBulkCreateStoresProductsRequest,
   bulkCreateStoresProductsWithInventory,
+  buildQueryStoresProductVariantsRequest,
+  queryStoresProductVariants,
   buildQueryStoresProductsRequest,
   queryStoresProducts,
   queryAllStoresProducts,

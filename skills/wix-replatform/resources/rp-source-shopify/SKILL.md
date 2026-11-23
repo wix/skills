@@ -461,6 +461,11 @@ For `rp-import-codegen` when `source-schema.json.platform === "shopify"`:
   a generated per-record pager: generate the importer to read `data/source-extract/<entity>.ndjson`
   only when `extract-manifest.json` says `complete`. If this bundle does not ship
   it, stop codegen and report it.
+- What it reads is `reader-catalog.json` (this folder): one bulk query per entry
+  (`queries/<id>.graphql`), the child-row folding, the Wix `target` and the import `dependsOn`. It
+  has the same shape as the WooCommerce catalog. Never write a Shopify reader in the project. A
+  missing dataset is a toolkit change (a catalog entry plus its query file, via a reviewed PR),
+  never a per-run patch.
 - **A gap first found during the extract** is recorded with `lib/import-findings.js`
   `stopWithFinding(projectDir, { row, code })`: the row is added to the raw coverage file by
   `coverageId` (replacing a row with the same id), the file is re-promoted, and the extract stops

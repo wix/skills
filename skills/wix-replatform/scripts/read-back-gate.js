@@ -1,16 +1,10 @@
 #!/usr/bin/env node
 'use strict';
 
-const fs = require('node:fs/promises');
 const path = require('node:path');
-const {
-  pathToFileURL
-} = require('node:url');
 const C = require('../lib/read-back-contract');
 const state = require('../lib/read-back-state');
-const {
-  readExtract
-} = require('../lib/read-back-extract');
+const { sourceKey } = require('../lib/read-back-inventory');
 function problem(code) {
   return Object.assign(new Error(code), {
     code
@@ -37,42 +31,7 @@ function parse(args) {
     options
   };
 }
-async function projectFile(projectDir, supplied) {
-  const file = path.resolve(projectDir, supplied),
-    relative = path.relative(projectDir, file);
-  if (!relative || relative.startsWith(`..${path.sep}`) || relative === '..' || path.isAbsolute(relative)) throw problem('project_file_required');
-  const realProject = await fs.realpath(projectDir),
-    real = await fs.realpath(file);
-  const realRelative = path.relative(realProject, real);
-  if (!realRelative || realRelative.startsWith(`..${path.sep}`) || realRelative === '..' || path.isAbsolute(realRelative)) throw problem('project_file_required');
-  return real;
-}
-function sourceKey(dotted = 'id') {
-  const keys = dotted.split('.');
-  if (keys.some(key => !key || ['__proto__', 'prototype', 'constructor'].includes(key))) throw problem('source_key_invalid');
-  return record => {
-    let value = record;
-    for (const key of keys) value = value && Object.hasOwn(value, key) ? value[key] : undefined;
-    if (typeof value !== 'string' && !(typeof value === 'number' && Number.isFinite(value))) throw problem('source_key_missing');
-    return value;
-  };
-}
-function deferredMapping(plan, entity) {
-  if (plan?.fieldContractVersion !== 1) return null;
-  const exact = require('../lib/mapping-field-contract');
-  const row = exact.entityRows(plan).find(candidate => exact.entityKeyMatches(candidate, entity));
-  return row && plan.executionScope?.deferredEntities?.find(item => item.entityRef === exact.entityRef(row)) || null;
-}
-function inventorySummary(entity, inv) {
-  return {
-    entity,
-    status: 'inventoried',
-    recordCount: inv.records.length,
-    sourcePaths: inv.sourcePaths,
-    writePaths: inv.writePaths,
-    ...(inv.heldRecords ? { heldRecords: inv.heldRecords } : {})
-  };
-}
+const { deferredMapping } = require('../lib/read-back-validate');
 async function run(args) {
   const {
     command,
@@ -87,7 +46,8 @@ async function run(args) {
     if (!decision || typeof decision !== 'object' || Array.isArray(decision)) throw problem('entity_decision_invalid');
     if (plan.fieldContractVersion === 1) {
       const exact = require('../lib/mapping-field-contract');
-      const entries = exact.entityRows(plan).filter(row => exact.entityKeyMatches(row, entity));
+      const row = exact.readBackRow(plan, entity);
+      const entries = row ? [row] : [];
       if (entries.length !== 1) throw problem('entity_decision_invalid');
       entries[0].readBackContract = C.domainContract(entity);
       if (plan.entities && !Array.isArray(plan.entities)) {
@@ -126,81 +86,15 @@ async function run(args) {
       code: 'extract_missing',
       exitCode: 2
     };
-    let file;
-    try {
-      file = await projectFile(projectDir, options['--extract']);
-    } catch (error) {
-      if (error.code === 'ENOENT') return {
-        entity,
-        status: 'not-run',
-        code: 'extract_missing',
-        exitCode: 2
-      };
-      throw error;
-    }
-    if (!options['--builder']) throw problem('builder_required');
-    const builderPath = await projectFile(projectDir, options['--builder']);
-    // Refuse before loading: the pre-approval builder may not carry client/executor wiring.
-    C.assertPureBuilder(await fs.readFile(builderPath, 'utf8'));
-    const builderModule = await import(pathToFileURL(builderPath).href);
-    const buildWrite = builderModule.buildWrite || builderModule.default?.buildWrite;
-    if (typeof buildWrite !== 'function') throw problem('builder_export_missing');
-    const rows = C.mappingRows(plan, entity);
-    // The builder is pinned: a later change to it makes this inventory stale.
-    const realProject = await fs.realpath(projectDir);
-    const builder = { path: path.relative(realProject, builderPath).split(path.sep).join('/'), sha256: require('../lib/artifact-freshness').hashArtifact(realProject, path.relative(realProject, builderPath)) };
-    // The toolkit records the extract version it inventories; a changed or field-losing version is refused.
-    const ledger = require('../lib/extract-ledger');
-    const extractPath = path.relative(realProject, await fs.realpath(file)).split(path.sep).join('/');
-    // An unreadable record or key is reported by the inventory below, with its established code.
-    // A changed or field-losing extract is re-read from the source and reported, never refused.
-    let recorded = null, recordError = null;
-    try { recorded = (await ledger.ensureExtract(realProject, { entity, extractPath, keyField: options['--source-key'] || 'id', recordedBy: 'read-back-inventory' })).row; }
-    catch (error) { recordError = error.code || 'extract_unreadable'; }
-    if (recordError === 'source_extract_unreadable') return { entity, status: 'not-run', code: recordError, next: [ledger.nextStep(recordError)], exitCode: 2 };
-    if (recordError && !/^extract_/.test(recordError)) return { entity, status: 'invalid', errors: [`${recordError}:${extractPath}`], next: [ledger.nextStep(recordError)].filter(Boolean), exitCode: 2 };
-    const inv = await C.inventory(projectDir, entity, readExtract(file, {
-      format: options['--format'] || 'auto'
-    }), {
-      sourceKey: sourceKey(options['--source-key']),
-      buildWrite,
-      rows,
-      templates: C.selectorTemplates(plan, entity),
-      builder,
-      extract: recorded ? { path: extractPath, sha256: recorded.sha256, ledgerHead: recorded.rowHash } : null
+    return require('../lib/read-back-inventory').buildInventory(projectDir, entity, {
+      plan,
+      extract: options['--extract'],
+      builder: options['--builder'],
+      sourceKey: options['--source-key'],
+      format: options['--format']
     });
-    if (!recorded) return { entity, status: 'invalid', errors: [`${recordError}:${extractPath}`], exitCode: 2 };
-    return {
-      ...inventorySummary(entity, inv),
-      preparationMs: inv.preparationMs
-    };
   }
-  if (command === 'validate') {
-    const plan = await state.readJson(projectDir, 'mapping/mapping-plan.json');
-    const deferred = deferredMapping(plan, entity);
-    if (deferred) return { entity, status: 'deferred', code: 'mapping_scope_deferred', deferred, exitCode: 0 };
-    let result;
-    try {
-      result = await C.validate(projectDir, entity);
-    } catch {
-      return {
-        entity,
-        status: 'invalid',
-        errors: ['Read-back validation could not read required artifacts or gate history.'],
-        exitCode: 2
-      };
-    }
-    // Before approval the only permissible failure is the missing identified approval for
-    // explicitly reviewed notMigrated paths; that state is named but still exits 2 (no writes).
-    const awaiting = !result.valid && result.errors.every(e => /^Identified exact-binding approval missing: |^identified interactive omission approval required$|^omission approval request missing$/.test(e));
-    return {
-      entity,
-      status: result.valid ? 'valid' : awaiting ? 'awaiting-approval' : 'invalid',
-      errors: result.errors,
-      ...(result.heldRecords ? { heldRecords: result.heldRecords } : {}),
-      exitCode: result.valid ? 0 : 2
-    };
-  }
+  if (command === 'validate') return require('../lib/read-back-validate').validateStatus(projectDir, entity);
   if (command === 'draft-stubs') {
     // Read-only: proposes unresolved stubs for unclaimed descendants of selected metadata values.
     const plan = await state.readJson(projectDir, 'mapping/mapping-plan.json');

@@ -1,0 +1,393 @@
+{
+  "schemaVersion": 1,
+  "kind": "wix-map-suggestion",
+  "sourcePlatform": "woocommerce",
+  "primaryKey": "id",
+  "sourceEntity": "category",
+  "targetRef": "blog/category",
+  "targetEntity": "category",
+  "preferredWrite": "createBlogCategory",
+  "requiredSourceEntityRefs": [],
+  "builder": "rp-source-wordpress/wix-map/blog.builder.js",
+  "provenance": [
+    "store T 11-15 run plan (category = WordPress blog category)"
+  ],
+  "holdCodes": {
+    "blog-category-name-missing": {
+      "role": "site-owner",
+      "severity": "low",
+      "action": "These blog categories have no name and were not imported.",
+      "resolutionEvidence": "Each listed category exists on Wix or is confirmed unwanted."
+    }
+  },
+  "fieldMappings": [
+    {
+      "id": "category-label",
+      "sourcePaths": [
+        "name"
+      ],
+      "disposition": "native",
+      "reason": "The category name, entities decoded.",
+      "evidence": [
+        "resources/rp-target-wix/domains/blog/entities/category.json",
+        "store T 11-15 run plan (blog-category row)"
+      ],
+      "transform": {
+        "kind": "helper",
+        "name": "value.text",
+        "revision": "lib/plan-builder.js",
+        "arguments": {
+          "uses": "decode(name).trim()"
+        }
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "hold-record",
+          "code": "blog-category-name-missing"
+        },
+        "null": {
+          "action": "hold-record",
+          "code": "blog-category-name-missing"
+        },
+        "empty": {
+          "action": "hold-record",
+          "code": "blog-category-name-missing"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "cl-1",
+          "input": {
+            "name": "Tips &amp; tricks"
+          },
+          "expected": [
+            {
+              "outputId": "label",
+              "writeOperation": "createBlogCategory",
+              "value": "Tips & tricks"
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "label",
+          "sourcePaths": [
+            "name"
+          ],
+          "targetRef": "blog/category",
+          "writeOperation": "createBlogCategory",
+          "targetPath": "label",
+          "verification": {
+            "readPath": "category.label"
+          }
+        }
+      ]
+    },
+    {
+      "id": "category-slug",
+      "sourcePaths": [
+        "slug"
+      ],
+      "disposition": "native",
+      "reason": "The percent-decoded slug keeps the category URL.",
+      "evidence": [
+        "resources/rp-target-wix/domains/blog/entities/category.json",
+        "store T 11-15 run plan (blog-category row)"
+      ],
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/blog.builder.js#blogCategorySlug",
+        "revision": "rp-source-wordpress/wix-map/blog.builder.js",
+        "arguments": {}
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "cs-1",
+          "input": {
+            "slug": "tips"
+          },
+          "expected": [
+            {
+              "outputId": "slug",
+              "writeOperation": "createBlogCategory",
+              "value": "tips"
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "slug",
+          "sourcePaths": [
+            "slug"
+          ],
+          "targetRef": "blog/category",
+          "writeOperation": "createBlogCategory",
+          "targetPath": "slug",
+          "verification": {
+            "readPath": "category.slug"
+          }
+        }
+      ]
+    },
+    {
+      "id": "category-description",
+      "sourcePaths": [
+        "description"
+      ],
+      "disposition": "native",
+      "reason": "The description as plain text.",
+      "evidence": [
+        "resources/rp-target-wix/domains/blog/entities/category.json",
+        "store T 11-15 run plan (blog-category row)"
+      ],
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/blog.builder.js#blogDescription",
+        "revision": "rp-source-wordpress/wix-map/blog.builder.js",
+        "arguments": {}
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "cd-1",
+          "input": {
+            "description": "<p>About</p>"
+          },
+          "expected": [
+            {
+              "outputId": "description",
+              "writeOperation": "createBlogCategory",
+              "value": "About"
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "description",
+          "sourcePaths": [
+            "description"
+          ],
+          "targetRef": "blog/category",
+          "writeOperation": "createBlogCategory",
+          "targetPath": "description",
+          "verification": {
+            "readPath": "category.description"
+          }
+        }
+      ]
+    },
+    {
+      "id": "category-parent",
+      "sourcePaths": [
+        "parent"
+      ],
+      "disposition": "excluded",
+      "reason": "Wix blog categories are flat; the parent id is archived.",
+      "evidence": [
+        "resources/rp-target-wix/domains/blog/entities/category.json",
+        "store T 11-15 run plan (blog-category row)"
+      ],
+      "choice": {
+        "name": "blog-category-hierarchy",
+        "value": "flattened",
+        "default": "flattened",
+        "reason": "Wix Blog has no category tree.",
+        "decidedBy": "suggestion"
+      }
+    },
+    {
+      "id": "source-archive",
+      "sourcePaths": [
+        "_links.about[].href",
+        "_links.collection[].href",
+        "_links.curies[].href",
+        "_links.curies[].name",
+        "_links.curies[].templated",
+        "_links.self[].href",
+        "_links.self[].targetHints.allow[]",
+        "_links.up[].embeddable",
+        "_links.up[].href",
+        "_links[\"wp:post_type\"][].href",
+        "count",
+        "id",
+        "link",
+        "taxonomy",
+        "yoast_head",
+        "yoast_head_json.canonical",
+        "yoast_head_json.og_description",
+        "yoast_head_json.og_locale",
+        "yoast_head_json.og_site_name",
+        "yoast_head_json.og_title",
+        "yoast_head_json.og_type",
+        "yoast_head_json.og_url",
+        "yoast_head_json.robots.follow",
+        "yoast_head_json.robots.index",
+        "yoast_head_json.robots.max-image-preview",
+        "yoast_head_json.robots.max-snippet",
+        "yoast_head_json.robots.max-video-preview",
+        "yoast_head_json.title",
+        "yoast_head_json.twitter_card"
+      ],
+      "disposition": "cms",
+      "reason": "Every other blog category field (count, link, yoast) is kept in the private source-archive collection.",
+      "evidence": [
+        "resources/rp-target-wix/lib/source-archive.js PACKED_ARCHIVE_FIELDS",
+        "store T 11-15 run plan (source-archive rows)"
+      ],
+      "transform": {
+        "kind": "helper",
+        "name": "source-archive.buildArchiveRecord",
+        "revision": "source-archive-retention-v1",
+        "arguments": {
+          "sourceEntity": "category",
+          "sourceKeyPath": "id",
+          "collectionId": "ImportArchive_category_edb2cd3b"
+        }
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "archive-as-is"
+        },
+        "invalid": {
+          "action": "archive-as-is"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "category-archive-1",
+          "input": {
+            "id": 3
+          },
+          "expected": [
+            {
+              "outputId": "records",
+              "writeOperation": "insertDataItem",
+              "values": [
+                {
+                  "3": {
+                    "fields": {}
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "records",
+          "sourcePaths": [
+            "_links.about[].href",
+            "_links.collection[].href",
+            "_links.curies[].href",
+            "_links.curies[].name",
+            "_links.curies[].templated",
+            "_links.self[].href",
+            "_links.self[].targetHints.allow[]",
+            "_links.up[].embeddable",
+            "_links.up[].href",
+            "_links[\"wp:post_type\"][].href",
+            "count",
+            "id",
+            "link",
+            "taxonomy",
+            "yoast_head",
+            "yoast_head_json.canonical",
+            "yoast_head_json.og_description",
+            "yoast_head_json.og_locale",
+            "yoast_head_json.og_site_name",
+            "yoast_head_json.og_title",
+            "yoast_head_json.og_type",
+            "yoast_head_json.og_url",
+            "yoast_head_json.robots.follow",
+            "yoast_head_json.robots.index",
+            "yoast_head_json.robots.max-image-preview",
+            "yoast_head_json.robots.max-snippet",
+            "yoast_head_json.robots.max-video-preview",
+            "yoast_head_json.title",
+            "yoast_head_json.twitter_card"
+          ],
+          "targetRef": "cms/data-item",
+          "writeOperation": "insertDataItem",
+          "targetPath": "data.records",
+          "storage": {
+            "collectionId": "ImportArchive_category_edb2cd3b"
+          },
+          "verification": {
+            "unverifiableReason": "Packed archive items are verified by the archive step read-back."
+          }
+        }
+      ],
+      "choice": {
+        "name": "leftover-fields",
+        "value": "source archive",
+        "default": "source archive",
+        "reason": "No native Wix field holds them; nothing is dropped silently.",
+        "decidedBy": "suggestion"
+      }
+    }
+  ]
+}

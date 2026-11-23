@@ -10,42 +10,11 @@
 // one-line explanation each group renders under.
 
 const { slugRegisters, registerKeys } = require('./wp-plugin-detect.js');
-
-const STATUS_META = {
-  'requires-development': {
-    label: 'Requires development',
-    order: 1,
-    blurb: 'Wix has no surface for this; someone has to build it first. A human-signed verdict — automation never concludes this on its own.',
-  },
-  pending: {
-    label: 'Pending',
-    order: 2,
-    blurb: 'We do not know how to migrate this yet. Our open item, decided at the mapping review — never a limitation of the source or of Wix.',
-  },
-  // For manual-mapping: a complete, decided mapping, not a pending one — Wix can do this, but reaching
-  // it is a runbook the merchant clicks through, not an API call our code makes. Ranked below
-  // migration-planned only because merchant time is still owed, never because the decision is
-  // less final; ranked above pending because, unlike pending, nothing here is undecided.
-  'manual-mapping': {
-    label: 'Manual mapping available',
-    order: 3,
-    blurb: 'Wix can do this. The mapping is decided — these are the exact steps you take yourself, no further review needed.',
-  },
-  'migration-planned': {
-    label: 'Migration planned',
-    order: 4,
-    blurb: 'This comes across — via API into a native Wix entity, or via CMS as data keeping its original IDs.',
-  },
-  'no-need-to-migrate': {
-    label: 'No need to migrate',
-    order: 5,
-    blurb: 'Nothing to move: Wix already does it, it was never data, or it is a setting you reconfigure once in Wix.',
-  },
-};
-
-// Worst-first: the status a plugin shows is the most demanding one across its capability
-// rows. A plugin that is half planned and half pending is a pending conversation.
-const STATUS_PRECEDENCE = ['requires-development', 'pending', 'manual-mapping', 'migration-planned', 'no-need-to-migrate'];
+const {
+  STATUS_META,
+  STATUS_PRECEDENCE,
+  validatePerPluginRows,
+} = require('./plugin-coverage-contract.js');
 
 function worstStatus(statuses) {
   for (const status of STATUS_PRECEDENCE) {
@@ -126,6 +95,7 @@ function buildDispositionRows({
       consequence: capRows.map((row) => row.userImpact).filter(Boolean).join(' ')
         || profile?.replacedBy
         || '',
+      cutoverTask: null,
       // The runbook to render inline when status is manual-mapping.
       // One plugin could in principle carry more than one manual-mapping capability; only the
       // first is rendered today, same simplification `via`/`mappingConfidence` above already
@@ -267,6 +237,9 @@ function buildDispositionRows({
       ? CMS_PREREQUISITE
       : null;
   }
+
+  const contractErrors = validatePerPluginRows(rows);
+  if (contractErrors.length > 0) throw new Error(`plugin disposition contract failed: ${contractErrors.join('; ')}`);
 
   return rows.sort((a, b) => {
     const da = STATUS_META[a.status]?.order ?? 99;

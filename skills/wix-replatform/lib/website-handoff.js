@@ -10,6 +10,7 @@ const { appendExecutionLog } = require('./execution-log.js');
 const { emptyPermanentLossesLine, handoffVoucherSignal } = require('./completion-report.js');
 const { coverageDisagreements } = require('./import-recovery.js');
 const { readLinkAudit, linkOperatorActions, RELATIVE_PATH: LINK_AUDIT_PATH } = require('./link-audit.js');
+const { duplicateArchiveOperatorActions, DUPLICATE_REPORT_PATH } = require('./cms-archive-duplicates.js');
 
 const SCHEMA_VERSION = 2;
 // Bumped to 2 when `liveImportSummary` and `recoveryLog` joined HANDOFF_ARTIFACTS, so a
@@ -889,8 +890,10 @@ async function validateWebsiteHandoff(projectDir) {
 // account of the migration -- that is what produced a confident document saying "No CMS
 // collections declared" about a run that landed three.
 //
-// This generator is the account of the migration. It runs after the last write, refuses without
-// a final outcome record, and reads what LANDED, not what was planned.
+// This generator is the account of the migration. It runs after the final outcome record, normally
+// after the last write; an interrupted zero-write outcome is valid and preserves an unknown write
+// timestamp when the attempt journal has no usable timestamp. It refuses without the final record
+// and reads what LANDED, not what was planned.
 // ---------------------------------------------------------------------------------------------
 
 const SETUP_VERIFICATION_FILE = 'setup/setup-verification.json';
@@ -1103,6 +1106,13 @@ function renderPostExecutionHandoff(handoff) {
   section(lines, 'Fields Dropped For The Destination', handoff.droppedFields, (row) =>
     `- ${row.entity}.${row.field}: ${row.recordCount} records (${row.reasonCode})`);
 
+  if (handoff.keptForReference) {
+    const k = handoff.keptForReference;
+    if (k.applied === false) lines.push('', '## Kept For Reference', '', `- The archive plan was not applied by this run's importer (${k.writtenRows} archive rows journaled, ${k.unplannedRows} not in the plan); the archive holds what the importer wrote.`);
+    else lines.push('', '## Kept For Reference', '', `- ${k.collectionName}: ${k.totalItems} CMS items. Not used by the live site; informational, no action needed to go live.`, `- How to find a record: ${k.howToFind}`);
+    for (const row of k.entities || []) lines.push(`- ${row.sourceEntity} (\`${row.collectionId}\`): ${row.recordsArchived} records in ${row.items} items${(row.groups || []).length ? `; ${row.groups.join(', ')}` : ''}`);
+    for (const task of k.optionalTasks || []) lines.push(`- ${task.title} (optional; the owner decides). ${task.action}`, `  - If the owner asks: ${task.importOperatorPrompt}`);
+  }
   if (handoff.mappingSummary) {
     lines.push('', '## Field mapping scope and gaps', '',
       `- Mapping digest: ${handoff.mappingSummary.mappingPlanDigest}`,
@@ -1134,7 +1144,7 @@ function renderPostExecutionHandoff(handoff) {
     '',
     `- Generated at: ${handoff.generatedAt}`,
     `- Run id: ${handoff.runId || 'not recorded'}`,
-    `- Run's last write: ${handoff.lastWriteAt}`,
+    `- Run's last write: ${handoff.lastWriteAt || 'not recorded'}`,
     `- Final outcome status: ${handoff.status}`,
     ...(handoff.backendStatus && handoff.status !== handoff.backendStatus ? [`- Import status (completion report): ${handoff.backendStatus}; open discovered-set rows: ${handoff.discoveredSet?.openCount}`] : []),
     `- Rendered from: ${HANDOFF_ARTIFACTS.completionReport}, ${SETUP_VERIFICATION_FILE}`,
@@ -1143,15 +1153,29 @@ function renderPostExecutionHandoff(handoff) {
   return `${lines.join('\n')}\n`;
 }
 
-// Refuses rather than producing a clean document. A handoff with nothing behind it is exactly
-// the artifact this guard exists to stop, so the failure is a typed refusal the router can act on
-// -- never a document.
+// Refuses rather than producing a clean document when there is no final outcome record. An
+// interrupted final outcome may legitimately have no write behind it, so that case remains a
+// durable handoff with a null lastWriteAt rather than a typed refusal.
 async function generatePostExecutionHandoff(projectDir, { runId = null, appendLog = true } = {}) {
   const completionReport = await readJsonIfExists(path.join(projectDir, HANDOFF_ARTIFACTS.completionReport));
   if (!completionReport) {
     return { ok: false, reason: 'missing_completion_report', handoffPath: null, summaryPath: null, handoff: null };
   }
-  if (!completionReport.lastWriteAt) {
+  const interrupted = Boolean(completionReport.interruption);
+  let lastWriteAt = completionReport.lastWriteAt || null;
+  let usedJournalFallback = false;
+  if (!lastWriteAt && interrupted) {
+    const { rows } = await require('./local-state').loadAttemptJournal(projectDir).catch((error) => {
+      if (error.code === 'ENOENT') return { rows: [] };
+      throw error;
+    });
+    lastWriteAt = rows.map((row) => row.ts)
+      .filter((ts) => typeof ts === 'string' && !Number.isNaN(Date.parse(ts)))
+      .sort()
+      .pop() || null;
+    usedJournalFallback = Boolean(lastWriteAt);
+  }
+  if (!lastWriteAt && !interrupted) {
     return { ok: false, reason: 'completion_report_missing_last_write', handoffPath: null, summaryPath: null, handoff: null };
   }
   const { STATUS_FILE, discoveredSetStatusFreshness, deriveFinalStatus } = require('./discovered-set-status.js');
@@ -1167,19 +1191,25 @@ async function generatePostExecutionHandoff(projectDir, { runId = null, appendLo
   const generatedAt = new Date().toISOString();
   // Compared against the report's own recorded last write, never a file mtime -- an mtime is
   // refreshed by a copy and proves nothing about when the last record landed.
-  if (Date.parse(generatedAt) <= Date.parse(completionReport.lastWriteAt)) {
+  if (lastWriteAt && Date.parse(generatedAt) <= Date.parse(lastWriteAt)) {
     return { ok: false, reason: 'handoff_predates_last_write', handoffPath: null, summaryPath: null, handoff: null };
   }
 
   const mappingPlan=await readJsonIfExists(path.join(projectDir,'mapping/mapping-plan.json'));
   const mappingGaps=await readJsonIfExists(path.join(projectDir,'mapping/review/mapping-gaps.json'));
   const mappingSummary=mappingPlan?.fieldContractVersion===1 ? extractMappingSummary(readEntityMappings(mappingPlan),mappingPlan,mappingGaps) : null;
+  const cmsDuplicateActions = duplicateArchiveOperatorActions(projectDir);
+  const operatorActions = [...ensureArray(completionReport.operatorActions)];
+  for (const row of cmsDuplicateActions) {
+    if (!operatorActions.some((existing) => existing.actionId === row.actionId)) operatorActions.push(row);
+  }
+  const cmsDuplicateReportPresent = await pathExists(path.join(projectDir, DUPLICATE_REPORT_PATH));
   const handoff = {
     schemaVersion: 1,
     generatedAt,
     ...(mappingSummary ? {mappingSummary} : {}),
     runId: completionReport.runId || runId || null,
-    lastWriteAt: completionReport.lastWriteAt,
+    lastWriteAt,
     status: deriveFinalStatus(completionReport.status, discoveredSetStatus),
     backendStatus: completionReport.status,
     // Copied through: the report is `aborted` and is overwritten when the import resumes.
@@ -1187,7 +1217,7 @@ async function generatePostExecutionHandoff(projectDir, { runId = null, appendLo
     discoveredSet: discoveredSetStatus ? { path: STATUS_FILE, sha256: hashArtifact(projectDir, STATUS_FILE), openCount: discoveredSetStatus.openCount } : null,
     discoveredSetActions: discoveredSetStatus ? discoveredSetStatus.rows.filter(row => row.open && row.kind !== 'source-coverage').map(({ censusId, outcome, action }) => ({ censusId, outcome, action })) : [],
     // Rendered from the report's durable rows, never recounted.
-    operatorActions: ensureArray(completionReport.operatorActions),
+    operatorActions,
     pendingFields: ensureArray(completionReport.pendingFields),
     ...(completionReport.mappingRecovery ? {mappingRecovery: completionReport.mappingRecovery} : {}),
     ...(completionReport.linkAudit ? { linkAudit: completionReport.linkAudit } : {}),
@@ -1208,16 +1238,22 @@ async function generatePostExecutionHandoff(projectDir, { runId = null, appendLo
     // are per-record work the Cutover owner must see; copied through, never recounted.
     stageResiduals: ensureArray(completionReport.stageResiduals),
     droppedFields: ensureArray(completionReport.droppedFields),
+    // What the source archive kept for reference; copied through, never recounted.
+    ...(completionReport.keptForReference ? { keptForReference: completionReport.keptForReference } : {}),
     unexplainedShortfalls: ensureArray(completionReport.unexplainedShortfalls),
     // Copied through from the joined report, never re-derived.
     ...(Array.isArray(completionReport.sourceCoverage)
       ? { sourceCoverage: completionReport.sourceCoverage, sourceCoverageRecorded: completionReport.sourceCoverageRecorded !== false }
       : {}),
+    // A quick run records the products it wrote; copied through, never recounted. Full runs carry none.
+    ...(completionReport.managementImportMode === 'quick' && completionReport.onSite ? { onSite: completionReport.onSite } : {}),
     landedBindings: extractLandedBindings(setupVerification),
     openBlockers: extractOpenBlockers(setupVerification, completionReport),
     redirectTargetPlanning,
     sources: [HANDOFF_ARTIFACTS.completionReport, SETUP_VERIFICATION_FILE,
+      ...(usedJournalFallback ? ['state/attempts/write-attempts.ndjson'] : []),
       ...(discoveredSetStatus ? [STATUS_FILE] : []),
+      ...(cmsDuplicateReportPresent ? [DUPLICATE_REPORT_PATH] : []),
       ...(redirectTargetPlanning ? ['execution/url-rewrite-report.json'] : [])],
   };
 

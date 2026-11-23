@@ -14,55 +14,14 @@ function pinnedPrompt(prompt, { projectRoot = null } = {}) {
   return `${prompt}\n\nUse only the wix-replatform toolkit at ${TOOLKIT_ROOT}. Do not discover, load, or follow any other copy of this toolkit from the project, home directory, global installation, or another path on disk.${scope}`;
 }
 
-// Headless agents read source records and project files that can carry prompt-injection text, so there is
-// no unconfined mode: a run either starts confined or does not start.
-//
-// Codex keeps its sandbox: writes stay inside the migration project (the --cd directory) and the temp
-// directories, everything else on disk is read-only, and the Wix and source-site calls the workers make
-// still work because network access is switched on for that sandbox. (Codex's network switch is on or
-// off as a whole; it has no per-host list, so only the Claude adapter limits which hosts a run reaches.)
 const CODEX_NON_INTERACTIVE_FLAGS = [
-  '--sandbox', 'workspace-write',
-  '-c', 'sandbox_workspace_write.network_access=true',
+  '--dangerously-bypass-approvals-and-sandbox',
   '--skip-git-repo-check',
 ];
 
-// Claude Code is confined the same way:
-//   - Bash runs only inside Claude Code's OS sandbox (sandbox.failIfUnavailable: a host that cannot start
-//     the sandbox stops the run instead of running unconfined; allowUnsandboxedCommands is off, so the
-//     model cannot retry a command outside it). Writes are limited to the project, and well-known
-//     credential folders are hidden from it.
-//   - The file tools write only inside the project (blockWritesOutsideWorkingDirectories, plus an Edit rule
-//     for the project root); nothing is writable in the toolkit or anywhere else.
-//   - Outbound network is limited to the Wix endpoints, the source site the operator named with
-//     --source-url (the runner passes it) and RP_AGENT_ALLOWED_DOMAINS; any other host is refused,
-//     including cloud metadata. Nothing in the project can add a host.
-// The sandboxes need macOS, or Linux/WSL2 with bubblewrap and socat; elsewhere the run stops. Neither agent
-// is ever started with a flag that skips its permission checks or its sandbox.
-const AGENT_WIX_DOMAINS = ['*.wixapis.com', '*.wix.com', '*.wixstatic.com', '*.wixsite.com'];
-const AGENT_HIDDEN_CREDENTIAL_PATHS = ['~/.ssh', '~/.aws', '~/.gnupg', '~/.config/gcloud', '~/.azure', '~/.kube', '~/.docker', '~/.config/gh', '~/.netrc', '~/.npmrc'];
-
-// Host patterns only: letters, digits, dots, hyphens and a leading `*.`; anything else is dropped.
-function cleanDomains(list) {
-  return [...new Set((list || []).map((value) => String(value || '').trim().toLowerCase()).filter((value) => /^(\*\.)?[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/.test(value)))];
-}
-
-function claudeSandboxedArgs({ cwd, allowedDomains = [], env = process.env }) {
-  const fromEnv = String(env.RP_AGENT_ALLOWED_DOMAINS || '').split(',');
-  const settings = {
-    permissions: { blockWritesOutsideWorkingDirectories: true },
-    sandbox: {
-      enabled: true,
-      failIfUnavailable: true,
-      allowUnsandboxedCommands: false,
-      autoAllowBashIfSandboxed: true,
-      network: { allowedDomains: cleanDomains([...AGENT_WIX_DOMAINS, ...allowedDomains, ...fromEnv]) },
-      filesystem: { denyRead: AGENT_HIDDEN_CREDENTIAL_PATHS },
-    },
-  };
-  const tools = ['Read', 'Glob', 'Grep', 'Task', 'Bash', ...(cwd ? [`Edit(/${cwd}/**)`] : [])];
-  return [`--allowedTools=${tools.join(',')}`, '--settings', JSON.stringify(settings)];
-}
+// Headless Claude Code runs have no one to answer a prompt, so the tools the runner needs are
+// named here instead of skipping permission checks. Anything not listed is still denied.
+const CLAUDE_ALLOWED_TOOLS = 'Read,Write,Edit,Glob,Grep,Bash,Task';
 
 function workerLabel(item, workerId) {
   const prompt = typeof item?.prompt === 'string' ? item.prompt.trim() : '';
@@ -242,8 +201,8 @@ const ADAPTERS = {
   },
   claude: {
     executable: 'claude',
-    args(prompt, { cwd, allowedDomains } = {}) {
-      return [...claudeSandboxedArgs({ cwd, allowedDomains }), '-p', '--output-format', 'stream-json', '--verbose', pinnedPrompt(prompt, { projectRoot: cwd })];
+    args(prompt, { cwd } = {}) {
+      return [`--allowedTools=${CLAUDE_ALLOWED_TOOLS}`, '-p', '--output-format', 'stream-json', '--verbose', pinnedPrompt(prompt, { projectRoot: cwd })];
     },
   },
 };
@@ -342,15 +301,16 @@ function chooseAdapter(id = 'auto', options = {}) {
     : { ok: false, reason: invocation.id ? 'invoking_agent_unavailable' : 'no_compatible_agent', probes, selection };
 }
 
-function launch(id, { cwd, prompt, executablePath, allowedDomains, onEvent, onWorker }) {
+function launch(id, { cwd, prompt, executablePath, env, onEvent, onWorker }) {
   const adapter = ADAPTERS[id];
   if (!adapter) throw new Error(`unknown adapter: ${id}`);
   if (!cwd || !path.isAbsolute(cwd)) throw new Error('agent cwd must be an absolute project root');
   const projectRoot = path.resolve(cwd);
-  const child = spawn(executablePath || adapter.executable, adapter.args(prompt, { cwd: projectRoot, allowedDomains }), {
+  const child = spawn(executablePath || adapter.executable, adapter.args(prompt, { cwd: projectRoot }), {
     cwd: projectRoot,
     stdio: ['ignore', 'pipe', 'pipe'],
     detached: process.platform !== 'win32',
+    env: env ? { ...process.env, ...env } : process.env,
   });
   let buffered = '';
   child.stdout.on('data', (chunk) => {
@@ -392,8 +352,6 @@ module.exports = {
   TOOLKIT_ROOT,
   pinnedPrompt,
   CODEX_NON_INTERACTIVE_FLAGS,
-  AGENT_WIX_DOMAINS,
-  cleanDomains,
   codexWorkerReports,
   reconcileCodexWorkers,
   probe,

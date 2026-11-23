@@ -1,0 +1,2835 @@
+{
+  "schemaVersion": 1,
+  "kind": "wix-map-suggestions",
+  "sourceSystem": "woocommerce",
+  "sourceEntity": "order",
+  "targetRef": "ecom/order",
+  "preferredWrite": {
+    "writerId": "importOrder",
+    "composite": "rp-target-wix/lib/order-history.js#importOrderHistory"
+  },
+  "requiredSourceEntityRefs": [
+    "customer",
+    "product",
+    "coupon"
+  ],
+  "builders": "rp-source-wordpress/wix-map/order.build.js",
+  "about": "Ready-made map for a WooCommerce order to a Wix order, with its payments and refunds. Rows use the mapping plan fieldMappings format, so a pre-fill copies them as-is. The AI uses them unless the operator asks otherwise; an operator change edits the copied plan row or choice, never this file. Grows only through a reviewed PR.",
+  "sources": [
+    "Tuti 11-15 rev 3 (tuti-work/step6-2026-11-15)",
+    "Poratus 11-15 (poratus-woo-20261115-1133)",
+    "Tuti and Poratus 11-10 runs",
+    "rp-target-wix/domains/ecom/entities/order.json mappingRules"
+  ],
+  "matchKey": {
+    "sourceKey": "id",
+    "dedupe": "importOrderHistory derives the Wix order id from the source host and order id, so a retry never makes a second order."
+  },
+  "targetRules": "The two rows with ruleRef are copied verbatim from rp-target-wix/domains/ecom/entities/order.json mappingRules, so assertKnownMappings accepts a pre-filled plan. Every row names its sample builder in `builder`.",
+  "fieldMappings": [
+    {
+      "id": "order-purchase-date-from-declared-utc-creation",
+      "sourcePaths": [
+        "date_created_gmt"
+      ],
+      "disposition": "native",
+      "outputs": [
+        {
+          "id": "purchase-date",
+          "sourcePaths": [
+            "date_created_gmt"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "writeInput": "order",
+          "targetPath": "purchasedDate",
+          "verification": {
+            "readPath": "order.purchasedDate"
+          }
+        }
+      ],
+      "transform": {
+        "kind": "expression",
+        "expression": "Validate date_created_gmt as a UTC ISO-8601 timestamp without a zone; append Z. No local-time or payment-time fallback.",
+        "timezone": "UTC"
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "return-to-mapping"
+        },
+        "null": {
+          "action": "return-to-mapping"
+        },
+        "empty": {
+          "action": "return-to-mapping"
+        },
+        "invalid": {
+          "action": "return-to-mapping"
+        },
+        "unknown": {
+          "action": "return-to-mapping"
+        },
+        "zero": {
+          "action": "not-applicable",
+          "reason": "Source declares a timestamp string."
+        }
+      },
+      "reason": "Use the historical purchase timestamp only when source evidence declares its UTC purchase-time meaning.",
+      "evidence": [
+        {
+          "kind": "source-review",
+          "ref": "wix-writers.js#buildImportOrderRequest"
+        },
+        {
+          "kind": "docs",
+          "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/orders/orders/import-order"
+        },
+        {
+          "kind": "source-review",
+          "ref": "wix.ecom.v1.Orders.ImportOrder REST method schema"
+        }
+      ],
+      "examples": [
+        {
+          "id": "utc-history",
+          "input": {
+            "date_created_gmt": "2024-02-03T12:34:56"
+          },
+          "expected": [
+            {
+              "outputId": "purchase-date",
+              "writeOperation": "importOrder",
+              "value": "2024-02-03T12:34:56Z"
+            }
+          ]
+        },
+        {
+          "id": "missing",
+          "input": {},
+          "expected": [
+            {
+              "outputId": "purchase-date",
+              "writeOperation": "importOrder",
+              "noWrite": true,
+              "findingCodes": [
+                "MAPPING_DECISION_REQUIRED"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "invalid",
+          "input": {
+            "date_created_gmt": "not-a-timestamp"
+          },
+          "expected": [
+            {
+              "outputId": "purchase-date",
+              "writeOperation": "importOrder",
+              "noWrite": true,
+              "findingCodes": [
+                "MAPPING_DECISION_REQUIRED"
+              ]
+            }
+          ]
+        }
+      ],
+      "ruleRef": "order-purchase-date-from-declared-utc-creation",
+      "builder": "rp-source-wordpress/wix-map/order.build.js#orderPurchaseDate"
+    },
+    {
+      "id": "order-number",
+      "sourcePaths": [
+        "number"
+      ],
+      "disposition": "native",
+      "reason": "The source order number stays the Wix order number. Import Order refuses a non-numeric number, so a prefixed number keeps only its digits (with a finding); none at all holds the order.",
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/order.build.js#orderNumber",
+        "revision": "wix-map-v1",
+        "arguments": {
+          "number": "number"
+        }
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "hold-record"
+        },
+        "null": {
+          "action": "hold-record"
+        },
+        "empty": {
+          "action": "hold-record"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record",
+          "code": "order-number-not-numeric"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "numeric",
+          "input": {
+            "number": "10234"
+          },
+          "expected": [
+            {
+              "writeOperation": "importOrder",
+              "outputId": "number",
+              "value": "10234"
+            }
+          ]
+        },
+        {
+          "id": "prefixed",
+          "input": {
+            "number": "WC-10234"
+          },
+          "expected": [
+            {
+              "writeOperation": "importOrder",
+              "outputId": "number",
+              "value": "10234"
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "number",
+          "sourcePaths": [
+            "number"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "number",
+          "verification": {
+            "readPath": "order.number"
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "kind": "run",
+          "ref": "Tuti 11-15 rev 3 mapping-plan.json order rows (21 rows)"
+        },
+        {
+          "kind": "run",
+          "ref": "Poratus 11-15 mapping-plan.json order rows (28 rows)"
+        },
+        {
+          "kind": "target",
+          "ref": "rp-target-wix/domains/ecom/entities/order.json"
+        }
+      ],
+      "builder": "rp-source-wordpress/wix-map/order.build.js#orderNumber"
+    },
+    {
+      "id": "order-status",
+      "sourcePaths": [
+        "status"
+      ],
+      "disposition": "native",
+      "reason": "WooCommerce status to Wix order status through the order-status-map choice. An unknown status holds the order.",
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/order.build.js#orderStatus",
+        "revision": "wix-map-v1",
+        "arguments": {
+          "status": "status",
+          "map": "choice order-status-map"
+        }
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "hold-record"
+        },
+        "null": {
+          "action": "hold-record"
+        },
+        "empty": {
+          "action": "hold-record"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record",
+          "code": "order-status-unknown"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "processing",
+          "input": {
+            "status": "processing"
+          },
+          "expected": [
+            {
+              "writeOperation": "importOrder",
+              "outputId": "status",
+              "value": "APPROVED"
+            }
+          ]
+        },
+        {
+          "id": "refunded",
+          "input": {
+            "status": "refunded"
+          },
+          "expected": [
+            {
+              "writeOperation": "importOrder",
+              "outputId": "status",
+              "value": "APPROVED"
+            }
+          ]
+        },
+        {
+          "id": "failed",
+          "input": {
+            "status": "failed"
+          },
+          "expected": [
+            {
+              "writeOperation": "importOrder",
+              "outputId": "status",
+              "value": "REJECTED"
+            }
+          ]
+        },
+        {
+          "id": "unknown",
+          "input": {
+            "status": "checkout-draft"
+          },
+          "expected": [
+            {
+              "writeOperation": "importOrder",
+              "outputId": "status",
+              "noWrite": true,
+              "findingCodes": [
+                "order-status-unknown"
+              ]
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "status",
+          "sourcePaths": [
+            "status"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "status",
+          "verification": {
+            "readPath": "order.status"
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "kind": "run",
+          "ref": "Tuti 11-15 rev 3 mapping-plan.json order rows (21 rows)"
+        },
+        {
+          "kind": "run",
+          "ref": "Poratus 11-15 mapping-plan.json order rows (28 rows)"
+        },
+        {
+          "kind": "target",
+          "ref": "rp-target-wix/domains/ecom/entities/order.json"
+        }
+      ],
+      "builder": "rp-source-wordpress/wix-map/order.build.js#orderStatus",
+      "choice": {
+        "name": "order-status-map",
+        "value": {
+          "processing": "APPROVED",
+          "completed": "APPROVED",
+          "on-hold": "APPROVED",
+          "refunded": "APPROVED",
+          "pending": "PENDING",
+          "cancelled": "CANCELED",
+          "failed": "REJECTED"
+        },
+        "default": {
+          "processing": "APPROVED",
+          "completed": "APPROVED",
+          "on-hold": "APPROVED",
+          "refunded": "APPROVED",
+          "pending": "PENDING",
+          "cancelled": "CANCELED",
+          "failed": "REJECTED"
+        },
+        "reason": "Refunded stays APPROVED (the order happened; the payment status says refunded). Pending -> PENDING, not INITIALIZED, so it stays visible (Poratus used INITIALIZED). Failed -> REJECTED: the payment was refused (Poratus used CANCELED). Any other status holds the order.",
+        "decidedBy": "suggestion",
+        "question": "Which Wix order status for each WooCommerce status?",
+        "options": [
+          "map"
+        ],
+        "forElad": true
+      }
+    },
+    {
+      "id": "order-payment-status",
+      "sourcePaths": [
+        "date_paid_gmt",
+        "refunds[].total",
+        "total"
+      ],
+      "disposition": "native",
+      "reason": "Refunds decide first: refunds covering the total -> FULLY_REFUNDED, less -> PARTIALLY_REFUNDED. Otherwise a paid date -> PAID, else NOT_PAID. Fixes 11-15: a refunded order with no paid date read NOT_PAID. Wix recalculates it once payment records are added.",
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/order.build.js#orderPaymentStatus",
+        "revision": "wix-map-v1",
+        "arguments": {
+          "paidDate": "date_paid_gmt",
+          "refunds": "refunds[].total",
+          "total": "total"
+        }
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "write-as-is"
+        },
+        "null": {
+          "action": "write-as-is"
+        },
+        "empty": {
+          "action": "write-as-is"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "paid",
+          "input": {
+            "date_paid_gmt": "2026-08-05T12:58:44",
+            "total": "10.00",
+            "refunds": []
+          },
+          "expected": [
+            {
+              "writeOperation": "importOrder",
+              "outputId": "payment-status",
+              "value": "PAID"
+            }
+          ]
+        },
+        {
+          "id": "refunded-unpaid",
+          "input": {
+            "date_paid_gmt": null,
+            "total": "55.75",
+            "refunds": [
+              {
+                "id": 1,
+                "total": "-55.75"
+              }
+            ]
+          },
+          "expected": [
+            {
+              "writeOperation": "importOrder",
+              "outputId": "payment-status",
+              "value": "FULLY_REFUNDED"
+            }
+          ]
+        },
+        {
+          "id": "partial",
+          "input": {
+            "date_paid_gmt": "2026-08-05T12:58:44",
+            "total": "167.80",
+            "refunds": [
+              {
+                "id": 2,
+                "total": "-67.12"
+              }
+            ]
+          },
+          "expected": [
+            {
+              "writeOperation": "importOrder",
+              "outputId": "payment-status",
+              "value": "PARTIALLY_REFUNDED"
+            }
+          ]
+        },
+        {
+          "id": "unpaid",
+          "input": {
+            "date_paid_gmt": null,
+            "total": "10.00",
+            "refunds": []
+          },
+          "expected": [
+            {
+              "writeOperation": "importOrder",
+              "outputId": "payment-status",
+              "value": "NOT_PAID"
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "payment-status",
+          "sourcePaths": [
+            "date_paid_gmt",
+            "refunds[].total",
+            "total"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "paymentStatus",
+          "verification": {
+            "readPath": "order.paymentStatus"
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "kind": "run",
+          "ref": "Tuti 11-15 rev 3 mapping-plan.json order rows (21 rows)"
+        },
+        {
+          "kind": "run",
+          "ref": "Poratus 11-15 mapping-plan.json order rows (28 rows)"
+        },
+        {
+          "kind": "target",
+          "ref": "rp-target-wix/domains/ecom/entities/order.json"
+        }
+      ],
+      "builder": "rp-source-wordpress/wix-map/order.build.js#orderPaymentStatus"
+    },
+    {
+      "id": "order-currency",
+      "sourcePaths": [
+        "currency"
+      ],
+      "disposition": "native",
+      "reason": "An ISO code on the order is used. A symbol that belongs to exactly one currency (Tuti sends &#8362; = ILS; also € and £) gives that currency; any other symbol (such as $) is left to the fixed loop, whose currency gate checks the store against the site and fills the store currency (rp-source-wordpress/lib/store-currency.js, currency-gate.js). A code that contradicts the store holds the order: this is money.",
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/order.build.js#orderCurrency",
+        "revision": "wix-map-v1",
+        "arguments": {
+          "currency": "currency",
+          "storeCurrency": "/wc/v3/settings/general woocommerce_currency"
+        }
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "hold-record"
+        },
+        "null": {
+          "action": "hold-record"
+        },
+        "empty": {
+          "action": "hold-record"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record",
+          "code": "currency-unresolvable"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "iso",
+          "input": {
+            "currency": "ILS"
+          },
+          "expected": [
+            {
+              "writeOperation": "importOrder",
+              "outputId": "currency",
+              "value": "ILS"
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "currency",
+          "sourcePaths": [
+            "currency"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "currency",
+          "verification": {
+            "readPath": "order.currency"
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "kind": "run",
+          "ref": "Tuti 11-15 rev 3 mapping-plan.json order rows (21 rows)"
+        },
+        {
+          "kind": "run",
+          "ref": "Poratus 11-15 mapping-plan.json order rows (28 rows)"
+        },
+        {
+          "kind": "target",
+          "ref": "rp-target-wix/domains/ecom/entities/order.json"
+        }
+      ],
+      "builder": "rp-source-wordpress/wix-map/order.build.js#orderCurrency"
+    },
+    {
+      "id": "order-tax-included",
+      "sourcePaths": [
+        "prices_include_tax"
+      ],
+      "disposition": "native",
+      "reason": "Whether line prices include tax.",
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/order.build.js#orderTaxIncluded",
+        "revision": "wix-map-v1",
+        "arguments": {
+          "value": "prices_include_tax"
+        }
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "false",
+          "input": {
+            "prices_include_tax": false
+          },
+          "expected": [
+            {
+              "writeOperation": "importOrder",
+              "outputId": "tax-included",
+              "value": false
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "tax-included",
+          "sourcePaths": [
+            "prices_include_tax"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "taxIncludedInPrices",
+          "verification": {
+            "readPath": "order.taxIncludedInPrices"
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "kind": "run",
+          "ref": "Tuti 11-15 rev 3 mapping-plan.json order rows (21 rows)"
+        },
+        {
+          "kind": "run",
+          "ref": "Poratus 11-15 mapping-plan.json order rows (28 rows)"
+        },
+        {
+          "kind": "target",
+          "ref": "rp-target-wix/domains/ecom/entities/order.json"
+        }
+      ],
+      "builder": "rp-source-wordpress/wix-map/order.build.js#orderTaxIncluded"
+    },
+    {
+      "id": "order-channel",
+      "sourcePaths": [
+        "id"
+      ],
+      "disposition": "native",
+      "reason": "Channel OTHER_PLATFORM (there is no WooCommerce value) with the source order id as the external order id (order-channel-build.js).",
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/order.build.js#orderChannel",
+        "revision": "wix-map-v1",
+        "arguments": {
+          "helper": "rp-target-wix/lib/order-channel-build.js#buildChannelInfo",
+          "externalOrderId": "id"
+        }
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "hold-record"
+        },
+        "null": {
+          "action": "hold-record"
+        },
+        "empty": {
+          "action": "hold-record"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "id",
+          "input": {
+            "id": 1716
+          },
+          "expected": [
+            {
+              "writeOperation": "importOrder",
+              "outputId": "channel-type",
+              "value": "OTHER_PLATFORM"
+            },
+            {
+              "writeOperation": "importOrder",
+              "outputId": "external-id",
+              "value": "1716"
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "channel-type",
+          "sourcePaths": [
+            "id"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "channelInfo.type",
+          "verification": {
+            "readPath": "order.channelInfo.type"
+          }
+        },
+        {
+          "id": "external-id",
+          "sourcePaths": [
+            "id"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "channelInfo.externalOrderId",
+          "verification": {
+            "readPath": "order.channelInfo.externalOrderId"
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "kind": "run",
+          "ref": "Tuti 11-15 rev 3 mapping-plan.json order rows (21 rows)"
+        },
+        {
+          "kind": "run",
+          "ref": "Poratus 11-15 mapping-plan.json order rows (28 rows)"
+        },
+        {
+          "kind": "target",
+          "ref": "rp-target-wix/domains/ecom/entities/order.json"
+        }
+      ],
+      "builder": "rp-source-wordpress/wix-map/order.build.js#orderChannel"
+    },
+    {
+      "id": "order-buyer",
+      "sourcePaths": [
+        "billing.email",
+        "customer_id"
+      ],
+      "disposition": "native",
+      "reason": "Billing email is the buyer email. A registered customer's contact comes from the fixed loop lookup (key customer:<id>). A guest's (customer_id 0) follows the guest-buyers choice: import-as-contacts fills it in the fixed loop through guestBuyerContactKey, the contact the contact task builds from the order billing (#682, lib/order-loop-steps.js); email-only sends the email alone; not-imported holds the guest order (hold guest-buyer-not-imported).",
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/order.build.js#orderBuyer",
+        "revision": "wix-map-v1",
+        "arguments": {
+          "email": "billing.email",
+          "registered": "lookups.ref('crm/contact', 'customer:' + customer_id)",
+          "guest": "fixed loop: order-buyer.js#guestBuyerContactId"
+        }
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "referencePolicy": {
+        "cardinality": "one",
+        "order": "not-applicable",
+        "entityRef": "crm/contact",
+        "input": "customer_id",
+        "targetPath": "buyerInfo.contactId",
+        "missing": "the fixed loop waits, then holds",
+        "ambiguous": "not-applicable (one id per key)",
+        "orphan": "guest key from billing details"
+      },
+      "examples": [
+        {
+          "id": "email",
+          "input": {
+            "billing": {
+              "email": " buyer1@example.com "
+            },
+            "customer_id": 0
+          },
+          "expected": [
+            {
+              "writeOperation": "importOrder",
+              "outputId": "email",
+              "value": "buyer1@example.com"
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "email",
+          "sourcePaths": [
+            "billing.email"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "buyerInfo.email",
+          "verification": {
+            "readPath": "order.buyerInfo.email"
+          }
+        },
+        {
+          "id": "contact",
+          "sourcePaths": [
+            "customer_id"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "buyerInfo.contactId",
+          "verification": {
+            "readPath": "order.buyerInfo.contactId"
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "kind": "run",
+          "ref": "Tuti 11-15 rev 3 mapping-plan.json order rows (21 rows)"
+        },
+        {
+          "kind": "run",
+          "ref": "Poratus 11-15 mapping-plan.json order rows (28 rows)"
+        },
+        {
+          "kind": "target",
+          "ref": "rp-target-wix/domains/ecom/entities/order.json"
+        }
+      ],
+      "builder": "rp-source-wordpress/wix-map/order.build.js#orderBuyer"
+    },
+    {
+      "id": "order-buyer-note",
+      "sourcePaths": [
+        "customer_note"
+      ],
+      "disposition": "native",
+      "reason": "The checkout note from the customer.",
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/order.build.js#orderBuyerNote",
+        "revision": "wix-map-v1",
+        "arguments": {
+          "note": "customer_note"
+        }
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "note",
+          "input": {
+            "customer_note": "Please leave at the door."
+          },
+          "expected": [
+            {
+              "writeOperation": "importOrder",
+              "outputId": "note",
+              "value": "Please leave at the door."
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "note",
+          "sourcePaths": [
+            "customer_note"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "buyerNote",
+          "verification": {
+            "readPath": "order.buyerNote"
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "kind": "run",
+          "ref": "Tuti 11-15 rev 3 mapping-plan.json order rows (21 rows)"
+        },
+        {
+          "kind": "run",
+          "ref": "Poratus 11-15 mapping-plan.json order rows (28 rows)"
+        },
+        {
+          "kind": "target",
+          "ref": "rp-target-wix/domains/ecom/entities/order.json"
+        }
+      ],
+      "builder": "rp-source-wordpress/wix-map/order.build.js#orderBuyerNote"
+    },
+    {
+      "id": "order-billing-street-from-declared-first-line",
+      "sourcePaths": [
+        "billing.address_1"
+      ],
+      "disposition": "native",
+      "outputs": [
+        {
+          "id": "billing-street",
+          "sourcePaths": [
+            "billing.address_1"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "writeInput": "order",
+          "targetPath": "billingInfo.address.addressLine",
+          "constraints": {
+            "maxLength": 150
+          },
+          "verification": {
+            "readPath": "order.billingInfo.address.addressLine"
+          }
+        }
+      ],
+      "transform": {
+        "kind": "expression",
+        "expression": "Copy billing.address_1 unchanged when it is a nonempty string of at most 150 characters; missing/null/empty omit the output; invalid values return to mapping."
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output",
+          "outputId": "billing-street"
+        },
+        "null": {
+          "action": "omit-output",
+          "outputId": "billing-street"
+        },
+        "empty": {
+          "action": "omit-output",
+          "outputId": "billing-street"
+        },
+        "zero": {
+          "action": "return-to-mapping"
+        },
+        "invalid": {
+          "action": "return-to-mapping",
+          "reason": "Not a string or longer than the REST addressLine limit of 150; do not truncate."
+        },
+        "unknown": {
+          "action": "return-to-mapping"
+        }
+      },
+      "reason": "A declared first street line binds to the Order address input, with no addressLine1 alias.",
+      "evidence": [
+        {
+          "kind": "source-review",
+          "ref": "wix-writers.js#buildImportOrderRequest"
+        },
+        {
+          "kind": "docs",
+          "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/orders/orders/import-order"
+        },
+        {
+          "kind": "source-review",
+          "ref": "wix.ecom.v1.Orders.ImportOrder REST method schema"
+        }
+      ],
+      "examples": [
+        {
+          "id": "street-line",
+          "input": {
+            "billing": {
+              "address_1": "17 Example Street"
+            }
+          },
+          "expected": [
+            {
+              "outputId": "billing-street",
+              "writeOperation": "importOrder",
+              "value": "17 Example Street"
+            }
+          ]
+        },
+        {
+          "id": "empty",
+          "input": {
+            "billing": {
+              "address_1": ""
+            }
+          },
+          "expected": [
+            {
+              "outputId": "billing-street",
+              "writeOperation": "importOrder",
+              "omitted": true
+            }
+          ]
+        },
+        {
+          "id": "too-long",
+          "input": {
+            "billing": {
+              "address_1": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+            }
+          },
+          "expected": [
+            {
+              "outputId": "billing-street",
+              "writeOperation": "importOrder",
+              "noWrite": true,
+              "findingCodes": [
+                "MAPPING_DECISION_REQUIRED"
+              ]
+            }
+          ]
+        }
+      ],
+      "ruleRef": "order-billing-street-from-declared-first-line",
+      "builder": "rp-source-wordpress/wix-map/order.build.js#orderBillingStreet"
+    },
+    {
+      "id": "order-billing",
+      "sourcePaths": [
+        "billing.address_2",
+        "billing.city",
+        "billing.postcode",
+        "billing.country",
+        "billing.state",
+        "billing.first_name",
+        "billing.last_name",
+        "billing.phone",
+        "billing.company",
+        "shipping.first_name",
+        "shipping.last_name",
+        "shipping.phone",
+        "shipping.company",
+        "billing.email"
+      ],
+      "disposition": "native",
+      "reason": "Billing address and contact details; state -> ISO 3166-2 subdivision. Import Order requires contactDetails, so they come from the billing block, else the shipping block, else the order has only its email, which goes in contactDetails.firstName because contactDetails has no email field and Wix refuses it empty (order-buyer.js orderBuyerContact; never hold an order because its billing block is empty; 2 of 20 sampled Poratus orders, 168 of 7,754 in the full Poratus replay, T-findings 10). No email either holds the order. The street line is the target rule row order-billing-street-from-declared-first-line (addressLine, never addressLine1; #662).",
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/order.build.js#orderBilling",
+        "revision": "wix-map-v1",
+        "arguments": {
+          "address": {
+            "address_2": "addressLine2",
+            "city": "city",
+            "postcode": "postalCode",
+            "country": "country",
+            "state": "subdivision"
+          },
+          "contactDetails": {
+            "first_name": "firstName",
+            "last_name": "lastName",
+            "phone": "phone",
+            "company": "company"
+          },
+          "contactFallback": "order-buyer.js#orderBuyerContact (billing, shipping, email as firstName)"
+        }
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "write-as-is"
+        },
+        "null": {
+          "action": "write-as-is"
+        },
+        "empty": {
+          "action": "write-as-is"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record",
+          "code": "order-buyer-contact-missing"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "billing",
+          "input": {
+            "billing": {
+              "first_name": "Dana",
+              "last_name": "Levi",
+              "address_1": "12 Example St",
+              "city": "Testville 3",
+              "postcode": "1234567",
+              "country": "IL",
+              "phone": "050-1234567"
+            }
+          },
+          "expected": [
+            {
+              "writeOperation": "importOrder",
+              "outputId": "city",
+              "value": "Testville 3"
+            },
+            {
+              "writeOperation": "importOrder",
+              "outputId": "country",
+              "value": "IL"
+            },
+            {
+              "writeOperation": "importOrder",
+              "outputId": "first-name",
+              "value": "Dana"
+            },
+            {
+              "writeOperation": "importOrder",
+              "outputId": "phone",
+              "value": "050-1234567"
+            }
+          ]
+        },
+        {
+          "id": "shipping-fallback",
+          "input": {
+            "billing": {
+              "first_name": "",
+              "email": "buyer1@example.com"
+            },
+            "shipping": {
+              "first_name": "Noa",
+              "last_name": "Cohen"
+            }
+          },
+          "expected": [
+            {
+              "writeOperation": "importOrder",
+              "outputId": "first-name",
+              "value": "Noa"
+            },
+            {
+              "writeOperation": "importOrder",
+              "outputId": "last-name",
+              "value": "Cohen"
+            }
+          ]
+        },
+        {
+          "id": "email-only",
+          "input": {
+            "billing": {
+              "first_name": "",
+              "email": "buyer2@example.com"
+            },
+            "shipping": {
+              "first_name": ""
+            }
+          },
+          "expected": [
+            {
+              "writeOperation": "importOrder",
+              "outputId": "first-name",
+              "value": "buyer2@example.com"
+            }
+          ]
+        },
+        {
+          "id": "no-contact",
+          "input": {
+            "billing": {},
+            "shipping": {}
+          },
+          "expected": [
+            {
+              "writeOperation": "importOrder",
+              "outputId": "first-name",
+              "noWrite": true,
+              "findingCodes": [
+                "order-buyer-contact-missing"
+              ]
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "line2",
+          "sourcePaths": [
+            "billing.address_2"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "billingInfo.address.addressLine2",
+          "verification": {
+            "readPath": "order.billingInfo.address.addressLine2"
+          }
+        },
+        {
+          "id": "city",
+          "sourcePaths": [
+            "billing.city"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "billingInfo.address.city",
+          "verification": {
+            "readPath": "order.billingInfo.address.city"
+          }
+        },
+        {
+          "id": "postal-code",
+          "sourcePaths": [
+            "billing.postcode"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "billingInfo.address.postalCode",
+          "verification": {
+            "readPath": "order.billingInfo.address.postalCode"
+          }
+        },
+        {
+          "id": "country",
+          "sourcePaths": [
+            "billing.country"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "billingInfo.address.country",
+          "verification": {
+            "readPath": "order.billingInfo.address.country"
+          }
+        },
+        {
+          "id": "subdivision",
+          "sourcePaths": [
+            "billing.state"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "billingInfo.address.subdivision",
+          "verification": {
+            "readPath": "order.billingInfo.address.subdivision"
+          },
+          "appliesWhen": {
+            "op": "populated",
+            "location": "billing.state"
+          }
+        },
+        {
+          "id": "first-name",
+          "sourcePaths": [
+            "billing.first_name",
+            "shipping.first_name",
+            "billing.email"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "billingInfo.contactDetails.firstName",
+          "verification": {
+            "readPath": "order.billingInfo.contactDetails.firstName"
+          }
+        },
+        {
+          "id": "last-name",
+          "sourcePaths": [
+            "billing.last_name",
+            "shipping.last_name"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "billingInfo.contactDetails.lastName",
+          "verification": {
+            "readPath": "order.billingInfo.contactDetails.lastName"
+          }
+        },
+        {
+          "id": "phone",
+          "sourcePaths": [
+            "billing.phone",
+            "shipping.phone"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "billingInfo.contactDetails.phone",
+          "verification": {
+            "readPath": "order.billingInfo.contactDetails.phone"
+          }
+        },
+        {
+          "id": "company",
+          "sourcePaths": [
+            "billing.company",
+            "shipping.company"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "billingInfo.contactDetails.company",
+          "verification": {
+            "readPath": "order.billingInfo.contactDetails.company"
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "kind": "run",
+          "ref": "Tuti 11-15 rev 3 mapping-plan.json order rows (21 rows)"
+        },
+        {
+          "kind": "run",
+          "ref": "Poratus 11-15 mapping-plan.json order rows (28 rows)"
+        },
+        {
+          "kind": "target",
+          "ref": "rp-target-wix/domains/ecom/entities/order.json"
+        }
+      ],
+      "builder": "rp-source-wordpress/wix-map/order.build.js#orderBilling"
+    },
+    {
+      "id": "order-shipping",
+      "sourcePaths": [
+        "shipping.address_1",
+        "shipping.address_2",
+        "shipping.city",
+        "shipping.postcode",
+        "shipping.country",
+        "shipping.state",
+        "shipping.first_name",
+        "shipping.last_name",
+        "shipping.phone",
+        "shipping.company",
+        "shipping_lines[].method_title",
+        "shipping_lines[].total"
+      ],
+      "disposition": "native",
+      "reason": "Shipping address and recipient become the shipping destination (only when there is more than a country). Shipping lines give the title and cost through the order-shipping-lines choice (11-15 sent only the first line). No shipping option code or carrier: those are setup records, not order history.",
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/order.build.js#orderShipping",
+        "revision": "wix-map-v1",
+        "arguments": {
+          "destination": "shipping.*",
+          "lines": "shipping_lines[]",
+          "choice": "order-shipping-lines"
+        }
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "one-line",
+          "input": {
+            "shipping": {
+              "address_1": "9 Example St",
+              "city": "Testville 2",
+              "country": "IL"
+            },
+            "shipping_lines": [
+              {
+                "method_title": "Home delivery",
+                "total": "30.00"
+              }
+            ]
+          },
+          "expected": [
+            {
+              "writeOperation": "importOrder",
+              "outputId": "title",
+              "value": "Home delivery"
+            },
+            {
+              "writeOperation": "importOrder",
+              "outputId": "cost",
+              "value": "30.00"
+            },
+            {
+              "writeOperation": "importOrder",
+              "outputId": "street",
+              "value": "9 Example St"
+            }
+          ]
+        },
+        {
+          "id": "two-lines-combined",
+          "input": {
+            "shipping": {},
+            "shipping_lines": [
+              {
+                "method_title": "Courier",
+                "total": "20.00"
+              },
+              {
+                "method_title": "Express",
+                "total": "15.50"
+              }
+            ]
+          },
+          "expected": [
+            {
+              "writeOperation": "importOrder",
+              "outputId": "title",
+              "value": "Courier + Express"
+            },
+            {
+              "writeOperation": "importOrder",
+              "outputId": "cost",
+              "value": "35.50"
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "street",
+          "sourcePaths": [
+            "shipping.address_1"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "shippingInfo.logistics.shippingDestination.address.addressLine",
+          "verification": {
+            "readPath": "order.shippingInfo.logistics.shippingDestination.address.addressLine"
+          }
+        },
+        {
+          "id": "line2",
+          "sourcePaths": [
+            "shipping.address_2"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "shippingInfo.logistics.shippingDestination.address.addressLine2",
+          "verification": {
+            "readPath": "order.shippingInfo.logistics.shippingDestination.address.addressLine2"
+          }
+        },
+        {
+          "id": "city",
+          "sourcePaths": [
+            "shipping.city"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "shippingInfo.logistics.shippingDestination.address.city",
+          "verification": {
+            "readPath": "order.shippingInfo.logistics.shippingDestination.address.city"
+          }
+        },
+        {
+          "id": "postal-code",
+          "sourcePaths": [
+            "shipping.postcode"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "shippingInfo.logistics.shippingDestination.address.postalCode",
+          "verification": {
+            "readPath": "order.shippingInfo.logistics.shippingDestination.address.postalCode"
+          }
+        },
+        {
+          "id": "country",
+          "sourcePaths": [
+            "shipping.country"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "shippingInfo.logistics.shippingDestination.address.country",
+          "verification": {
+            "readPath": "order.shippingInfo.logistics.shippingDestination.address.country"
+          }
+        },
+        {
+          "id": "subdivision",
+          "sourcePaths": [
+            "shipping.state"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "shippingInfo.logistics.shippingDestination.address.subdivision",
+          "verification": {
+            "readPath": "order.shippingInfo.logistics.shippingDestination.address.subdivision"
+          },
+          "appliesWhen": {
+            "op": "populated",
+            "location": "shipping.state"
+          }
+        },
+        {
+          "id": "first-name",
+          "sourcePaths": [
+            "shipping.first_name"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "shippingInfo.logistics.shippingDestination.contactDetails.firstName",
+          "verification": {
+            "readPath": "order.shippingInfo.logistics.shippingDestination.contactDetails.firstName"
+          }
+        },
+        {
+          "id": "last-name",
+          "sourcePaths": [
+            "shipping.last_name"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "shippingInfo.logistics.shippingDestination.contactDetails.lastName",
+          "verification": {
+            "readPath": "order.shippingInfo.logistics.shippingDestination.contactDetails.lastName"
+          }
+        },
+        {
+          "id": "phone",
+          "sourcePaths": [
+            "shipping.phone"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "shippingInfo.logistics.shippingDestination.contactDetails.phone",
+          "verification": {
+            "readPath": "order.shippingInfo.logistics.shippingDestination.contactDetails.phone"
+          }
+        },
+        {
+          "id": "company",
+          "sourcePaths": [
+            "shipping.company"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "shippingInfo.logistics.shippingDestination.contactDetails.company",
+          "verification": {
+            "readPath": "order.shippingInfo.logistics.shippingDestination.contactDetails.company"
+          }
+        },
+        {
+          "id": "title",
+          "sourcePaths": [
+            "shipping_lines[].method_title"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "shippingInfo.title",
+          "verification": {
+            "readPath": "order.shippingInfo.title"
+          }
+        },
+        {
+          "id": "cost",
+          "sourcePaths": [
+            "shipping_lines[].total"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "shippingInfo.cost.price.amount",
+          "verification": {
+            "readPath": "order.shippingInfo.cost.price.amount"
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "kind": "run",
+          "ref": "Tuti 11-15 rev 3 mapping-plan.json order rows (21 rows)"
+        },
+        {
+          "kind": "run",
+          "ref": "Poratus 11-15 mapping-plan.json order rows (28 rows)"
+        },
+        {
+          "kind": "target",
+          "ref": "rp-target-wix/domains/ecom/entities/order.json"
+        }
+      ],
+      "builder": "rp-source-wordpress/wix-map/order.build.js#orderShipping",
+      "choice": {
+        "name": "order-shipping-lines",
+        "value": "combine",
+        "default": "combine",
+        "reason": "Wix has one shipping line per order. Combining (titles joined with \" + \", costs added) loses nothing; the 11-15 code silently sent only the first. No Tuti or Poratus order has two lines today.",
+        "decidedBy": "suggestion",
+        "question": "When an order has more than one shipping line, combine them or send only the first?",
+        "options": [
+          "combine",
+          "first"
+        ],
+        "forElad": false
+      }
+    },
+    {
+      "id": "order-line-items",
+      "sourcePaths": [
+        "line_items[].name",
+        "line_items[].quantity",
+        "line_items[].total",
+        "line_items[].subtotal",
+        "line_items[].total_tax",
+        "line_items[].sku",
+        "line_items[].meta_data[].display_key",
+        "line_items[].meta_data[].display_value",
+        "line_items[].product_id",
+        "line_items[].variation_id",
+        "line_items[].meta_data[].key",
+        "line_items[].meta_data[].value"
+      ],
+      "disposition": "native",
+      "reason": "One Wix line per source line: name, quantity, unit price after discounts (total / quantity), before discounts (subtotal / quantity), line tax (always, 0.00 included), SKU, item type PHYSICAL. Visible line meta (key without a leading underscore, plain text or number value) becomes description lines; hidden keys and object values go to the source archive. The source image URL is never copied: it points at the WooCommerce host, which goes away at cutover (a linked line shows the Wix product). The product and variation come from the fixed loop lookup; a line whose product is not in Wix follows the order-line-missing-product choice. An order with no lines gets importOrderHistory's placeholder line.",
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/order.build.js#orderLineItems",
+        "revision": "wix-map-v1",
+        "arguments": {
+          "product": "resolveReference('stores/product', product_id)",
+          "variant": "resolveReference('stores/product-variant', variation_id)",
+          "appId": "Wix Stores",
+          "choices": [
+            "order-line-missing-product",
+            "order-line-options",
+            "order-line-extra-display-keys"
+          ]
+        }
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "referencePolicy": {
+        "cardinality": "many",
+        "order": "source line order",
+        "entityRef": "stores/product",
+        "input": "line_items[].product_id",
+        "targetPath": "lineItems[].catalogReference.catalogItemId",
+        "missing": "choice order-line-missing-product",
+        "ambiguous": "not-applicable (one id per key)",
+        "orphan": "product_id 0 (deleted at source): unlinked line"
+      },
+      "examples": [
+        {
+          "id": "line",
+          "input": {
+            "line_items": [
+              {
+                "name": "Coffee beans 1 kg",
+                "quantity": 2,
+                "subtotal": "200.00",
+                "total": "180.00",
+                "total_tax": "0.00",
+                "sku": "CB-1",
+                "product_id": 0,
+                "variation_id": 0,
+                "meta_data": [
+                  {
+                    "key": "pa_weight",
+                    "value": "1kg",
+                    "display_key": "Weight",
+                    "display_value": "1 kg"
+                  }
+                ]
+              }
+            ]
+          },
+          "expected": [
+            {
+              "writeOperation": "importOrder",
+              "outputId": "name",
+              "values": [
+                "Coffee beans 1 kg"
+              ]
+            },
+            {
+              "writeOperation": "importOrder",
+              "outputId": "quantity",
+              "values": [
+                2
+              ]
+            },
+            {
+              "writeOperation": "importOrder",
+              "outputId": "price",
+              "values": [
+                "90.00"
+              ]
+            },
+            {
+              "writeOperation": "importOrder",
+              "outputId": "price-before-discounts",
+              "values": [
+                "100.00"
+              ]
+            },
+            {
+              "writeOperation": "importOrder",
+              "outputId": "sku",
+              "values": [
+                "CB-1"
+              ]
+            },
+            {
+              "writeOperation": "importOrder",
+              "outputId": "option-name",
+              "values": [
+                "Weight"
+              ]
+            },
+            {
+              "writeOperation": "importOrder",
+              "outputId": "option-value",
+              "values": [
+                "1 kg"
+              ]
+            },
+            {
+              "writeOperation": "importOrder",
+              "outputId": "item-type",
+              "values": [
+                "PHYSICAL"
+              ]
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "name",
+          "sourcePaths": [
+            "line_items[].name"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "lineItems[].productName.original",
+          "verification": {
+            "readPath": "order.lineItems[].productName.original"
+          }
+        },
+        {
+          "id": "quantity",
+          "sourcePaths": [
+            "line_items[].quantity"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "lineItems[].quantity",
+          "verification": {
+            "readPath": "order.lineItems[].quantity"
+          }
+        },
+        {
+          "id": "price",
+          "sourcePaths": [
+            "line_items[].total",
+            "line_items[].quantity"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "lineItems[].price.amount",
+          "verification": {
+            "readPath": "order.lineItems[].price.amount"
+          }
+        },
+        {
+          "id": "price-before-discounts",
+          "sourcePaths": [
+            "line_items[].subtotal",
+            "line_items[].quantity"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "lineItems[].priceBeforeDiscounts.amount",
+          "verification": {
+            "readPath": "order.lineItems[].priceBeforeDiscounts.amount"
+          }
+        },
+        {
+          "id": "tax",
+          "sourcePaths": [
+            "line_items[].total_tax"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "lineItems[].taxDetails.totalTax.amount",
+          "verification": {
+            "readPath": "order.lineItems[].taxDetails.totalTax.amount"
+          }
+        },
+        {
+          "id": "sku",
+          "sourcePaths": [
+            "line_items[].sku"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "lineItems[].physicalProperties.sku",
+          "verification": {
+            "readPath": "order.lineItems[].physicalProperties.sku"
+          }
+        },
+        {
+          "id": "option-name",
+          "sourcePaths": [
+            "line_items[].meta_data[].display_key",
+            "line_items[].meta_data[].key"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "lineItems[].descriptionLines[].name.original",
+          "verification": {
+            "readPath": "order.lineItems[].descriptionLines[].name.original"
+          },
+          "appliesWhen": {
+            "op": "fact",
+            "name": "woo.lineHasVisibleOption",
+            "values": [
+              true
+            ]
+          }
+        },
+        {
+          "id": "option-value",
+          "sourcePaths": [
+            "line_items[].meta_data[].display_value",
+            "line_items[].meta_data[].key",
+            "line_items[].meta_data[].value"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "lineItems[].descriptionLines[].plainText.original",
+          "verification": {
+            "readPath": "order.lineItems[].descriptionLines[].plainText.original"
+          },
+          "appliesWhen": {
+            "op": "fact",
+            "name": "woo.lineHasVisibleOption",
+            "values": [
+              true
+            ]
+          }
+        },
+        {
+          "id": "item-type",
+          "sourcePaths": [
+            "line_items[].name"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "lineItems[].itemType.preset",
+          "verification": {
+            "readPath": "order.lineItems[].itemType.preset"
+          }
+        },
+        {
+          "id": "product",
+          "sourcePaths": [
+            "line_items[].product_id"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "lineItems[].catalogReference.catalogItemId",
+          "verification": {
+            "readPath": "order.lineItems[].catalogReference.catalogItemId"
+          },
+          "appliesWhen": {
+            "op": "fact",
+            "name": "woo.lineHasCatalogProduct",
+            "values": [
+              true
+            ]
+          }
+        },
+        {
+          "id": "app-id",
+          "sourcePaths": [
+            "line_items[].product_id"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "lineItems[].catalogReference.appId",
+          "verification": {
+            "readPath": "order.lineItems[].catalogReference.appId"
+          },
+          "appliesWhen": {
+            "op": "fact",
+            "name": "woo.lineHasCatalogProduct",
+            "values": [
+              true
+            ]
+          }
+        },
+        {
+          "id": "variant",
+          "sourcePaths": [
+            "line_items[].variation_id"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "lineItems[].catalogReference.options.variantId",
+          "verification": {
+            "readPath": "order.lineItems[].catalogReference.options.variantId"
+          },
+          "appliesWhen": {
+            "op": "fact",
+            "name": "woo.lineHasVariation",
+            "values": [
+              true
+            ]
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "kind": "run",
+          "ref": "Tuti 11-15 rev 3 mapping-plan.json order rows (21 rows)"
+        },
+        {
+          "kind": "run",
+          "ref": "Poratus 11-15 mapping-plan.json order rows (28 rows)"
+        },
+        {
+          "kind": "target",
+          "ref": "rp-target-wix/domains/ecom/entities/order.json"
+        }
+      ],
+      "builder": "rp-source-wordpress/wix-map/order.build.js#orderLineItems",
+      "choice": {
+        "name": "order-line-missing-product",
+        "value": "unlinked",
+        "default": "unlinked",
+        "reason": "Keeps the order history (165 Tuti and 232 Poratus orders have a deleted product). The line keeps its name, price, quantity and SKU; only the link to a catalog product is missing. Tuti rev 3 held these orders.",
+        "decidedBy": "suggestion",
+        "question": "A line whose product is not in Wix (deleted at source, or not imported): import the line without a catalog link, or hold the order?",
+        "options": [
+          "unlinked",
+          "hold"
+        ],
+        "forElad": true
+      }
+    },
+    {
+      "id": "order-fees",
+      "sourcePaths": [
+        "fee_lines[].name",
+        "fee_lines[].total"
+      ],
+      "disposition": "native",
+      "reason": "Each fee line (for example a handling fee; 18 Poratus orders) becomes an additional fee, so the total still adds up.",
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/order.build.js#orderFees",
+        "revision": "wix-map-v1",
+        "arguments": {
+          "fees": "fee_lines[]"
+        }
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "fee",
+          "input": {
+            "fee_lines": [
+              {
+                "name": "Handling fee",
+                "total": "14.90"
+              }
+            ]
+          },
+          "expected": [
+            {
+              "writeOperation": "importOrder",
+              "outputId": "name",
+              "values": [
+                "Handling fee"
+              ]
+            },
+            {
+              "writeOperation": "importOrder",
+              "outputId": "price",
+              "values": [
+                "14.90"
+              ]
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "name",
+          "sourcePaths": [
+            "fee_lines[].name"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "additionalFees[].name",
+          "verification": {
+            "readPath": "order.additionalFees[].name"
+          }
+        },
+        {
+          "id": "price",
+          "sourcePaths": [
+            "fee_lines[].total"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "additionalFees[].price.amount",
+          "verification": {
+            "readPath": "order.additionalFees[].price.amount"
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "kind": "run",
+          "ref": "Tuti 11-15 rev 3 mapping-plan.json order rows (21 rows)"
+        },
+        {
+          "kind": "run",
+          "ref": "Poratus 11-15 mapping-plan.json order rows (28 rows)"
+        },
+        {
+          "kind": "target",
+          "ref": "rp-target-wix/domains/ecom/entities/order.json"
+        }
+      ],
+      "builder": "rp-source-wordpress/wix-map/order.build.js#orderFees"
+    },
+    {
+      "id": "order-totals",
+      "sourcePaths": [
+        "line_items[].subtotal",
+        "shipping_total",
+        "total_tax",
+        "discount_total",
+        "total",
+        "fee_lines[].total"
+      ],
+      "disposition": "native",
+      "reason": "Import Order stores the price summary as sent, never recalculated: subtotal = sum of line subtotals; shipping, tax, discount and total copied; fees summed.",
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/order.build.js#orderTotals",
+        "revision": "wix-map-v1",
+        "arguments": {
+          "subtotal": "sum(line_items[].subtotal)",
+          "shipping": "shipping_total",
+          "tax": "total_tax",
+          "discount": "discount_total",
+          "total": "total",
+          "fees": "sum(fee_lines[].total)"
+        }
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "write-as-is"
+        },
+        "null": {
+          "action": "write-as-is"
+        },
+        "empty": {
+          "action": "write-as-is"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "totals",
+          "input": {
+            "line_items": [
+              {
+                "subtotal": "100.00"
+              },
+              {
+                "subtotal": "50.50"
+              }
+            ],
+            "shipping_total": "30.00",
+            "total_tax": "0.00",
+            "discount_total": "10.00",
+            "total": "170.50",
+            "fee_lines": []
+          },
+          "expected": [
+            {
+              "writeOperation": "importOrder",
+              "outputId": "subtotal",
+              "value": "150.50"
+            },
+            {
+              "writeOperation": "importOrder",
+              "outputId": "shipping",
+              "value": "30.00"
+            },
+            {
+              "writeOperation": "importOrder",
+              "outputId": "discount",
+              "value": "10.00"
+            },
+            {
+              "writeOperation": "importOrder",
+              "outputId": "total",
+              "value": "170.50"
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "subtotal",
+          "sourcePaths": [
+            "line_items[].subtotal"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "priceSummary.subtotal.amount",
+          "verification": {
+            "readPath": "order.priceSummary.subtotal.amount"
+          }
+        },
+        {
+          "id": "shipping",
+          "sourcePaths": [
+            "shipping_total"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "priceSummary.shipping.amount",
+          "verification": {
+            "readPath": "order.priceSummary.shipping.amount"
+          }
+        },
+        {
+          "id": "tax",
+          "sourcePaths": [
+            "total_tax"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "priceSummary.tax.amount",
+          "verification": {
+            "readPath": "order.priceSummary.tax.amount"
+          }
+        },
+        {
+          "id": "discount",
+          "sourcePaths": [
+            "discount_total"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "priceSummary.discount.amount",
+          "verification": {
+            "readPath": "order.priceSummary.discount.amount"
+          }
+        },
+        {
+          "id": "total",
+          "sourcePaths": [
+            "total"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "priceSummary.total.amount",
+          "verification": {
+            "readPath": "order.priceSummary.total.amount"
+          }
+        },
+        {
+          "id": "fees",
+          "sourcePaths": [
+            "fee_lines[].total"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "priceSummary.totalAdditionalFees.amount",
+          "verification": {
+            "readPath": "order.priceSummary.totalAdditionalFees.amount"
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "kind": "run",
+          "ref": "Tuti 11-15 rev 3 mapping-plan.json order rows (21 rows)"
+        },
+        {
+          "kind": "run",
+          "ref": "Poratus 11-15 mapping-plan.json order rows (28 rows)"
+        },
+        {
+          "kind": "target",
+          "ref": "rp-target-wix/domains/ecom/entities/order.json"
+        }
+      ],
+      "builder": "rp-source-wordpress/wix-map/order.build.js#orderTotals"
+    },
+    {
+      "id": "order-discounts",
+      "sourcePaths": [
+        "coupon_lines[].code",
+        "coupon_lines[].discount"
+      ],
+      "disposition": "native",
+      "reason": "Each used coupon becomes an applied discount by code and amount, with the type from order-coupon-discount-type. The fixed loop (lib/order-loop-steps.js) links it to the imported Wix coupon through the gated lookup; a code the source no longer has becomes a plain discount line (merchantDiscount) with the same amount. No coupon id is chosen by the build.",
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/order.build.js#orderDiscounts",
+        "revision": "wix-map-v1",
+        "arguments": {
+          "couponLines": "coupon_lines[] (code, discount)",
+          "link": "fixed loop: coupon id by the code's source key",
+          "choices": [
+            "order-coupon-discount-type"
+          ]
+        }
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "referencePolicy": {
+        "cardinality": "many",
+        "order": "source coupon order",
+        "entityRef": "stores/coupon",
+        "input": "coupon_lines[].code",
+        "targetPath": "appliedDiscounts[].coupon.id",
+        "missing": "the fixed loop waits for the coupon task",
+        "ambiguous": "not-applicable (codes are unique)",
+        "orphan": "code not in the coupon extract: plain discount line with the same amount (fixed loop)"
+      },
+      "examples": [
+        {
+          "id": "by-code",
+          "input": {
+            "coupon_lines": [
+              {
+                "code": "coupon12",
+                "discount": "15.00"
+              }
+            ]
+          },
+          "expected": [
+            {
+              "writeOperation": "importOrder",
+              "outputId": "type",
+              "values": [
+                "GLOBAL"
+              ]
+            },
+            {
+              "writeOperation": "importOrder",
+              "outputId": "coupon-code",
+              "values": [
+                "coupon12"
+              ]
+            },
+            {
+              "writeOperation": "importOrder",
+              "outputId": "coupon-name",
+              "values": [
+                "coupon12"
+              ]
+            },
+            {
+              "writeOperation": "importOrder",
+              "outputId": "coupon-amount",
+              "values": [
+                "15.00"
+              ]
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "type",
+          "sourcePaths": [
+            "coupon_lines[].code"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "appliedDiscounts[].discountType",
+          "verification": {
+            "readPath": "order.appliedDiscounts[].discountType"
+          }
+        },
+        {
+          "id": "coupon-code",
+          "sourcePaths": [
+            "coupon_lines[].code"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "appliedDiscounts[].coupon.code",
+          "verification": {
+            "readPath": "order.appliedDiscounts[].coupon.code"
+          }
+        },
+        {
+          "id": "coupon-id",
+          "sourcePaths": [
+            "coupon_lines[].code"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "appliedDiscounts[].coupon.id",
+          "verification": {
+            "readPath": "order.appliedDiscounts[].coupon.id"
+          }
+        },
+        {
+          "id": "coupon-name",
+          "sourcePaths": [
+            "coupon_lines[].code"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "appliedDiscounts[].coupon.name",
+          "verification": {
+            "readPath": "order.appliedDiscounts[].coupon.name"
+          }
+        },
+        {
+          "id": "coupon-amount",
+          "sourcePaths": [
+            "coupon_lines[].discount"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "targetPath": "appliedDiscounts[].coupon.amount.amount",
+          "verification": {
+            "readPath": "order.appliedDiscounts[].coupon.amount.amount"
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "kind": "run",
+          "ref": "Tuti 11-15 rev 3 mapping-plan.json order rows (21 rows)"
+        },
+        {
+          "kind": "run",
+          "ref": "Poratus 11-15 mapping-plan.json order rows (28 rows)"
+        },
+        {
+          "kind": "target",
+          "ref": "rp-target-wix/domains/ecom/entities/order.json"
+        }
+      ],
+      "builder": "rp-source-wordpress/wix-map/order.build.js#orderDiscounts",
+      "choice": {
+        "name": "order-coupon-discount-type",
+        "value": "GLOBAL",
+        "default": "GLOBAL",
+        "reason": "WooCommerce records a coupon discount per order (coupon_lines), not per line, so GLOBAL is the only honest type; fixed_product coupons would need per-line amounts the order does not carry. Hard-coded on 11-15, now a recorded choice.",
+        "decidedBy": "suggestion",
+        "question": "Which discount type for coupon discounts?",
+        "options": [
+          "GLOBAL"
+        ],
+        "forElad": false
+      }
+    },
+    {
+      "id": "order-payments-refunds",
+      "sourcePaths": [
+        "total",
+        "date_paid_gmt",
+        "currency",
+        "status",
+        "payment_method",
+        "payment_method_title",
+        "transaction_id",
+        "refunds[].id",
+        "refunds[].total",
+        "refunds[].reason",
+        "meta_data[key=\"_transaction_id\"].value",
+        "meta_data[key=\"payplus_transaction_uid\"].value",
+        "meta_data[key=\"tranzila_authnr\"].value",
+        "meta_data[key=\"_gobit_verify\"].value"
+      ],
+      "disposition": "native",
+      "reason": "Missing on 11-15. One APPROVED Wix payment record per order the source shows as paid (a positive total and a paid date), and one refund record per source refund, through importOrderHistory (one reconciliation read, never a duplicate). Records only: no money moves and the site stays muted. Follows the order-payment-records and order-refund-records choices. A refund on an order with no paid date has no payment to attach to; the payment status still says refunded.",
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/order.build.js#orderPayments",
+        "revision": "wix-map-v1",
+        "arguments": {
+          "composite": "rp-target-wix/lib/order-history.js#importOrderHistory",
+          "evidence": "rp-source-wordpress/wix-map/order.build.js#orderHistoryEvidence",
+          "amount": "total",
+          "paidDate": "date_paid_gmt (utc)",
+          "methodName": "payment_method_title",
+          "offlinePayment": "gateway-source-keys.js#resolveOfflinePayment(payment_method)",
+          "providerTransactionId": "gateway-source-keys.js#resolveTransactionReference",
+          "refunds": "refund-corroboration.js#qualifyRefund over refunds[]",
+          "choices": [
+            "order-payment-records",
+            "order-refund-records"
+          ]
+        }
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "resolve-in-helper"
+        },
+        "null": {
+          "action": "resolve-in-helper"
+        },
+        "empty": {
+          "action": "resolve-in-helper"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "paid",
+          "input": {
+            "total": "167.80",
+            "date_paid_gmt": "2026-08-05T12:58:44",
+            "currency": "ILS",
+            "status": "completed",
+            "payment_method": "bacs",
+            "payment_method_title": "Bank transfer",
+            "refunds": [
+              {
+                "id": 1702,
+                "total": "-67.12",
+                "reason": "Partial refund"
+              }
+            ]
+          },
+          "expected": [
+            {
+              "writeOperation": "writeOrderPayment",
+              "outputId": "payment-amount",
+              "values": [
+                "167.8"
+              ]
+            },
+            {
+              "writeOperation": "writeOrderPayment",
+              "outputId": "payment-date",
+              "values": [
+                "2026-08-05T12:58:44.000Z"
+              ]
+            },
+            {
+              "writeOperation": "writeOrderPayment",
+              "outputId": "payment-status",
+              "values": [
+                "APPROVED"
+              ]
+            },
+            {
+              "writeOperation": "ensureOrderPaymentAndRefund",
+              "outputId": "refund-amount",
+              "values": [
+                "67.12"
+              ]
+            },
+            {
+              "writeOperation": "ensureOrderPaymentAndRefund",
+              "outputId": "refund-reason",
+              "values": [
+                "Partial refund"
+              ]
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "payment-amount",
+          "sourcePaths": [
+            "total",
+            "currency",
+            "status"
+          ],
+          "targetRef": "ecom/order-payment",
+          "writeOperation": "writeOrderPayment",
+          "targetPath": "payments[].amount.amount",
+          "verification": {
+            "readPath": "order.payments[].amount.amount"
+          }
+        },
+        {
+          "id": "payment-date",
+          "sourcePaths": [
+            "date_paid_gmt"
+          ],
+          "targetRef": "ecom/order-payment",
+          "writeOperation": "writeOrderPayment",
+          "targetPath": "payments[].createdDate",
+          "verification": {
+            "readPath": "order.payments[].createdDate"
+          }
+        },
+        {
+          "id": "payment-status",
+          "sourcePaths": [
+            "date_paid_gmt"
+          ],
+          "targetRef": "ecom/order-payment",
+          "writeOperation": "writeOrderPayment",
+          "targetPath": "payments[].status",
+          "verification": {
+            "readPath": "order.payments[].status"
+          }
+        },
+        {
+          "id": "payment-method",
+          "sourcePaths": [
+            "payment_method_title"
+          ],
+          "targetRef": "ecom/order-payment",
+          "writeOperation": "writeOrderPayment",
+          "targetPath": "payments[].regularPaymentDetails.paymentMethodName.userDefinedName.custom",
+          "verification": {
+            "readPath": "order.payments[].regularPaymentDetails.paymentMethodName.userDefinedName.custom"
+          }
+        },
+        {
+          "id": "payment-offline",
+          "sourcePaths": [
+            "payment_method"
+          ],
+          "targetRef": "ecom/order-payment",
+          "writeOperation": "writeOrderPayment",
+          "targetPath": "payments[].regularPaymentDetails.offlinePayment",
+          "verification": {
+            "readPath": "order.payments[].regularPaymentDetails.offlinePayment"
+          }
+        },
+        {
+          "id": "payment-reference",
+          "sourcePaths": [
+            "transaction_id",
+            "meta_data[key=\"_transaction_id\"].value",
+            "meta_data[key=\"payplus_transaction_uid\"].value",
+            "meta_data[key=\"tranzila_authnr\"].value",
+            "meta_data[key=\"_gobit_verify\"].value"
+          ],
+          "targetRef": "ecom/order-payment",
+          "writeOperation": "writeOrderPayment",
+          "targetPath": "payments[].regularPaymentDetails.providerTransactionId",
+          "verification": {
+            "readPath": "order.payments[].regularPaymentDetails.providerTransactionId"
+          }
+        },
+        {
+          "id": "refund-amount",
+          "sourcePaths": [
+            "refunds[].total",
+            "refunds[].id"
+          ],
+          "targetRef": "ecom/order-refund",
+          "writeOperation": "ensureOrderPaymentAndRefund",
+          "targetPath": "refunds[].amount.amount",
+          "verification": {
+            "readPath": "order.refunds[].amount.amount"
+          }
+        },
+        {
+          "id": "refund-reason",
+          "sourcePaths": [
+            "refunds[].reason"
+          ],
+          "targetRef": "ecom/order-refund",
+          "writeOperation": "ensureOrderPaymentAndRefund",
+          "targetPath": "refunds[].reason",
+          "verification": {
+            "readPath": "order.refunds[].reason"
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "kind": "run",
+          "ref": "Tuti 11-15 rev 3 mapping-plan.json order rows (21 rows)"
+        },
+        {
+          "kind": "run",
+          "ref": "Poratus 11-15 mapping-plan.json order rows (28 rows)"
+        },
+        {
+          "kind": "target",
+          "ref": "rp-target-wix/domains/ecom/entities/order.json"
+        }
+      ],
+      "builder": "rp-source-wordpress/wix-map/order.build.js#orderPayments",
+      "choice": {
+        "name": "order-payment-records",
+        "value": "write",
+        "default": "write",
+        "reason": "Safest for money: without it every imported order reads unpaid in Wix, which misstates revenue. A record needs a positive total and a paid date (never the total alone: cancelled and failed orders carry totals). Records only, no money moves, site muted. Missing on 11-15.",
+        "decidedBy": "suggestion",
+        "question": "Write a Wix payment record for each order the source shows as paid?",
+        "options": [
+          "write",
+          "skip"
+        ],
+        "forElad": true
+      }
+    }
+  ],
+  "leftovers": {
+    "disposition": "cms",
+    "transform": {
+      "kind": "helper",
+      "name": "source-archive.buildArchiveRecord",
+      "revision": "source-archive-retention-v1",
+      "arguments": {
+        "sourceEntity": "order",
+        "sourceKeyPath": "id"
+      }
+    },
+    "reason": "Every order field no row above writes (order_key, cart_hash, created_via, version, dates other than creation, discount_tax, shipping_tax, tax_lines, coupon details, line meta other than options, meta_data, _links) is kept in the private source-archive collection, the same as the Tuti and Poratus runs. IP address and user agent are dropped by the archive helper."
+  },
+  "choices": [
+    {
+      "decisionId": "order-payments-refunds",
+      "name": "order-refund-records",
+      "value": "write",
+      "default": "write",
+      "reason": "Writing payments without their refunds would overstate revenue (18 Poratus orders). Wix marks them externalRefund: no money moves. A refund on an order with no paid date is not written (no payment to attach to); the payment status still shows refunded.",
+      "decidedBy": "suggestion",
+      "question": "Write a Wix refund record for each refund in the source?",
+      "options": [
+        "write",
+        "skip"
+      ],
+      "forElad": true
+    },
+    {
+      "decisionId": "order-line-items",
+      "name": "order-line-options",
+      "value": "description-lines",
+      "default": "description-lines",
+      "reason": "The buyer's selection is part of what was bought; description lines are display text only.",
+      "decidedBy": "suggestion",
+      "question": "Show selected options (weight, grind and other pa_* attributes) on the order line?",
+      "options": [
+        "description-lines",
+        "none"
+      ],
+      "forElad": false
+    },
+    {
+      "decisionId": "order-line-items",
+      "name": "order-line-extra-display-keys",
+      "value": [],
+      "default": [],
+      "reason": "The visible rule already shows every line meta key without a leading underscore. List a hidden key here only when the records show it holds a buyer-entered value (for example a plugin that stores buyer text under an underscore key). The builder then shows it too. The option-name and option-value conditions read this choice too, so no condition changes.",
+      "decidedBy": "suggestion",
+      "question": "Which hidden (underscore) line meta keys hold a buyer-entered value that should be shown on the order line?",
+      "options": [
+        "list"
+      ],
+      "forElad": false
+    },
+    {
+      "decisionId": "order-buyer",
+      "name": "guest-buyers",
+      "value": "import-as-contacts",
+      "default": "import-as-contacts",
+      "reason": "Orders placed without an account (customer_id 0) have no customer record. By default the toolkit makes one Wix contact per guest buyer (one per normalized billing email; an email an imported customer has shares that contact) on the contact task, so every order has a buyer contact. No message is sent. email-only imports the order with the buyer email and no contact; not-imported holds every guest order with a reason.",
+      "decidedBy": "suggestion",
+      "question": "Make a Wix contact for each guest buyer (orders placed without an account)?",
+      "options": [
+        "import-as-contacts",
+        "email-only",
+        "not-imported"
+      ],
+      "forElad": false
+    }
+  ]
+}

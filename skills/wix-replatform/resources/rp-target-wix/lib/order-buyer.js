@@ -202,4 +202,67 @@ function assertBodyBuyerInfo(order) {
   if (bad.length > 0) throw new Error(`order.buyerInfo may only carry ${BODY_BUYER_KEYS.join(', ')} before the composite sets the buyer; got ${bad.join(', ')} -- a member id is never the caller's to set`);
 }
 
-module.exports = { OUTCOMES, BODY_BUYER_KEYS, ALLOWED_BUYER_ADJACENT_KEYS, normalizeEmail, resolveOrderBuyer, gatedMemberCrosswalk, buyerInfoFrom, assertBodyBuyerInfo, computeBuyerStamp, verifyBuyerStamp };
+// Import everything (Elad, 2026-11-15): a guest order whose billing block carries no name, phone
+// or company is still imported. Its buyer contact comes from the billing block, else the shipping
+// block, else the order email alone (`part: 'email'`). Only an order with none of the three is held, with the typed
+// reason below. `part` tells the builder which source block feeds billingInfo.contactDetails.
+const CONTACT_MISSING = 'order-buyer-contact-missing';
+const clean = (value) => (value === undefined || value === null ? '' : String(value).trim());
+function detailsOf(part) {
+  const out = {};
+  for (const [from, to] of [['first_name', 'firstName'], ['last_name', 'lastName'], ['phone', 'phone'], ['company', 'company']]) if (clean(part?.[from])) out[to] = clean(part[from]);
+  return out;
+}
+function orderBuyerContact(order) {
+  const email = normalizeEmail(order?.billing?.email) || normalizeEmail(order?.email);
+  for (const part of ['billing', 'shipping']) {
+    const contactDetails = detailsOf(order?.[part]);
+    if (Object.keys(contactDetails).length) return { part, contactDetails, email };
+  }
+  if (email) return { part: 'email', contactDetails: {}, email };
+  return { held: true, reason: CONTACT_MISSING };
+}
+// The one key that links a guest buyer's contact to its orders: the contact side uses it as the
+// guest contact's source id, and the order side resolves `buyerInfo.contactId` through the gate with
+// the same key. Null for a registered customer (the customer import keys that contact) and for an
+// order with no contact source. One per normalized email, else one per order.
+const GUEST_MARKER = 'replatform:guest-buyer';
+function isGuest(order) { const customer = clean(order?.customer_id); return !customer || /^0+$/.test(customer); }
+function guestBuyerContactKey(order, { sourceMarker = GUEST_MARKER } = {}) {
+  if (!isGuest(order)) return null;
+  const buyer = orderBuyerContact(order);
+  if (buyer.held) return null;
+  return `${sourceMarker}:${crypto.createHash('sha256').update(buyer.email || `order:${clean(order?.id)}`).digest('hex').slice(0, 32)}`;
+}
+// Contacts V5 rows for guest buyers, one per guestBuyerContactKey. `id` is that key, so the rows can
+// join the contact task's source extract (keyField `id`) and run through the normal importContacts
+// wrapper before the order task. `held` lists orders with no contact source (typed reason), for the
+// fidelity ledger.
+function guestBuyerContactRows(orders, { sourceMarker = GUEST_MARKER, sourceSystem = 'source' } = {}) {
+  if (!Array.isArray(orders)) throw new Error('guestBuyerContactRows requires an array');
+  const rows = new Map(), held = [];
+  for (const order of orders) {
+    if (!isGuest(order)) continue;
+    const orderKey = order?.sourceStableKey || clean(order?.id);
+    const buyer = orderBuyerContact(order);
+    if (buyer.held) { held.push({ sourceStableKey: orderKey, reason: buyer.reason }); continue; }
+    const key = guestBuyerContactKey(order, { sourceMarker });
+    const current = rows.get(key);
+    if (current) { current.orderSourceStableKeys.push(orderKey); continue; }
+    const d = buyer.contactDetails;
+    rows.set(key, { id: key, sourceKey: key, sourceId: key, sourceSystem, sourceEntityType: 'guest-buyer-contact', contactPart: buyer.part, orderSourceStableKeys: [orderKey],
+      contact: { externalId: key, ...(d.firstName || d.lastName ? { name: { first: d.firstName || '', last: d.lastName || '' } } : {}),
+        ...(buyer.email ? { email: { email: buyer.email } } : {}), ...(d.phone ? { phone: { phone: d.phone } } : {}), ...(d.company ? { company: { name: d.company.slice(0, 100) } } : {}) },
+      updateMember: false });
+  }
+  return { rows: [...rows.values()], held };
+}
+// Order side: the guest buyer's contact id, resolved through the dependency gate with the same key
+// the contact side imported. `contactKeyPrefix` is the contact task's source key prefix.
+function guestBuyerContactId({ order, resolveReference, contactKeyPrefix, sourceMarker = GUEST_MARKER }) {
+  if (typeof resolveReference !== 'function' || typeof contactKeyPrefix !== 'string') throw new Error('guestBuyerContactId needs resolveReference and contactKeyPrefix');
+  const key = guestBuyerContactKey(order, { sourceMarker });
+  return key ? resolveReference('crm/contact', contactKeyPrefix + key, 'buyerInfo.contactId') || null : null;
+}
+
+module.exports = { OUTCOMES, BODY_BUYER_KEYS, ALLOWED_BUYER_ADJACENT_KEYS, normalizeEmail, resolveOrderBuyer, gatedMemberCrosswalk, buyerInfoFrom, assertBodyBuyerInfo, computeBuyerStamp, verifyBuyerStamp, CONTACT_MISSING, orderBuyerContact, guestBuyerContactKey, guestBuyerContactRows, guestBuyerContactId };

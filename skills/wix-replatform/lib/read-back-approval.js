@@ -12,7 +12,15 @@ const {
   loadArtifacts,
   updateApprovalObject
 } = require('./orchestration-state');
-async function gatedEntities(projectDir) {
+// The read-back units of this project: one per plan row that writes a gated Wix entity
+// (lib/mapping-field-contract.js readBackKeys), with its decision projection. Exact plans gate
+// every resolved unit the toolkit builds (or the mapper checked); the domain contract is the
+// checked-in one whether or not the mapper copied it (read-back-contract validate). A deferred or excluded unit is a cutover gap, not a gate input:
+// its inventory is intentionally absent. Legacy plans gate the target-named decisions that carry a
+// copied contract. `copiedOnly` keeps only units whose decision carries the copied contract: the
+// ones the mapper checked before approval, which the mapping approval binds.
+const toolkitBuilt = row => Object.hasOwn(require('./import-task-runner').COMPOSITES, row?.targetRef);
+async function gatedEntities(projectDir, { copiedOnly = false } = {}) {
   let files;
   try {
     files = await fs.readdir(path.join(projectDir, 'mapping/entity-decisions'));
@@ -22,20 +30,22 @@ async function gatedEntities(projectDir) {
   }
   const plan = await state.readJson(projectDir, 'mapping/mapping-plan.json', {});
   const exact = plan.fieldContractVersion === 1 ? require('./mapping-field-contract') : null;
-  const rows = exact ? exact.entityRows(plan) : [];
   const resolved = exact && new Set(plan.executionScope?.resolvedEntityRefs || []);
   const result = [];
   const candidates = exact
-    ? Object.keys(contract.DOMAINS).map(entity => ({ entity, name: contract.decisionFileName(projectDir, entity) }))
+    ? Object.keys(contract.DOMAINS).flatMap(entity => exact.readBackKeys(plan, entity).map(key => ({ key, row: exact.readBackRow(plan, key) })))
+      .map(({ key, row }) => ({ key, row, name: contract.decisionFileName(projectDir, key) }))
     : files.filter(name => name.endsWith('.json') && Object.hasOwn(contract.DOMAINS, name.slice(0, -5)))
-      .map(name => ({ entity: name.slice(0, -5), name }));
-  for (const { entity, name } of candidates) if (files.includes(name)) {
+      .map(name => ({ key: name.slice(0, -5), name }));
+  // A unit the run settled after its pass limit (lib/route-settlement.js) is not gated: the import
+  // writes it without the read-back gate, and its leftover is a toolkit gap or cutover task.
+  const settled = require('./route-settlement').settledReadBackUnits(projectDir);
+  for (const { key, row, name } of candidates) if (files.includes(name) && !settled.has(key)) {
+    if (exact && !resolved.has(exact.entityRef(row))) continue;
     const d = await state.readJson(projectDir, `mapping/entity-decisions/${name}`);
-    const row = exact && rows.find(candidate => exact.entityKeyMatches(candidate, entity));
-    // A deferred or excluded exact-mapping entity is a cutover gap, not a read-back
-    // gate input. Its inventory is intentionally absent; only resolved writers need
-    // inventory validation and acknowledgement.
-    if (d.readBackContract && (!exact || row && resolved.has(exact.entityRef(row)))) result.push(entity);
+    // Without a copied contract, a row is gated where the toolkit has its builder: a target the
+    // fixed loop writes (products, contacts, orders). Members keep the mapper-run check.
+    if (d.readBackContract || exact && !copiedOnly && toolkitBuilt(row)) result.push(key);
   }
   return result.sort();
 }
@@ -43,19 +53,15 @@ async function applyApproval(projectDir, request, answer, {
   identity = requireOperatorIdentity
 } = {}) {
   const type = request.effect?.approvalType;
-  const status = {
-    approved: 'approved',
-    approve: 'approved',
-    declined: 'rejected',
-    reject: 'rejected'
-  }[answer.choice];
+  const status = require('./approval-choices.js').approvalStatus(answer.choice);
   if (!['mapping', 'execution'].includes(type) || !status) throw new Error('Unsupported approval choice/type');
   return state.locked(projectDir, async () => {
     const artifacts = await loadArtifacts(projectDir);
     const exact=require('./mapping-omission-approval');
     const plan=type==='mapping' ? await state.readJson(projectDir,'mapping/mapping-plan.json',{}) : {};
-    let entities = type === 'mapping' ? await gatedEntities(projectDir) : [];
-    if (plan.fieldContractVersion===1) entities=entities.filter(name=>require('./mapping-field-contract').entityRows(plan).some(row=>require('./mapping-field-contract').entityKeyMatches(row,name) && plan.executionScope?.resolvedEntityRefs?.includes(require('./mapping-field-contract').entityRef(row))));
+    // The units the mapper checked before approval (copied contract); the toolkit checks the rest
+    // at codegen, where their builders exist (read-back-validate ensureReadBack).
+    const entities = type === 'mapping' ? await gatedEntities(projectDir, { copiedOnly: true }) : [];
     const omissionRows=plan.fieldContractVersion===1 ? exact.candidates(plan) : [];
     let hasOmissions=omissionRows.length>0;
     if (status==='approved' && omissionRows.length && !require('./mapping-field-contract').compareMappingProjections(projectDir,plan).ok) throw new Error('omission projections must match canonical authority');
@@ -64,7 +70,7 @@ async function applyApproval(projectDir, request, answer, {
       Object.assign(bindingDigests, contract.bindings(projectDir, entity));
       const decision = await state.readJson(projectDir, `mapping/entity-decisions/${contract.decisionFileName(projectDir, entity)}`);
       const omissions = (decision.fieldDispositions || []).filter(d => d.status === 'notMigrated');
-      const canonicalRow=plan.fieldContractVersion===1 ? require('./mapping-field-contract').entityRows(plan).find(row=>require('./mapping-field-contract').entityKeyMatches(row,entity)) : null;
+      const canonicalRow=plan.fieldContractVersion===1 ? require('./mapping-field-contract').readBackRow(plan,entity) : null;
       hasOmissions ||= canonicalRow ? exact.omissions(canonicalRow).length>0 : omissions.length>0;
       const gate = await state.load(projectDir);
       const history = [...gate.observedLosses, ...Object.values(gate.runs).flatMap(r => Object.values(r.entities || {}).flatMap(e => [...(e.attemptedPaths || []), ...(e.settlements || []).filter(x => x.status !== 'passed')]))];

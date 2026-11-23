@@ -2808,6 +2808,9 @@ function stageLocked(projectDir, action, stageName, { outcome, now } = {}) {
     );
   }
   if (action === 'start') {
+    // Starting the stage that is already open is a no-op: stage entry may have opened it (codegen)
+    // before the stage's agent makes its own `stage start` call.
+    if (state.openStage === stageName) return { stage: stageName, started: false, alreadyOpen: true };
     if (state.openStage) {
       throw new ValidationError(
         [`stage ${state.openStage} is still open`],

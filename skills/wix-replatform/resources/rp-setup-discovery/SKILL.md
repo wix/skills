@@ -95,18 +95,18 @@ destination setup policy and must not infer additional import entities.
    `entityRefs: ["cms/collection"]`. Setup refuses the plan otherwise
    (`plan_step_entity_refs_missing`).
 7. Write a setup artifact that downstream execution can verify.
-8. Bind `setup/setup-plan.json` to the mapping plan it was derived from (a no-op when the
-   project has no plugin coverage):
+8. Bind `setup/setup-plan.json` to the mapping plan it was derived from:
 
    ```bash
    node skills/wix-replatform/scripts/cms-fallback.js stamp-plan --project-dir <project> --plan setup
    ```
 
-   It copies `mapping-plan.json` `inputs.cmsFallbackDigest` into `setup-plan.json`
-   `inputs.cmsFallbackDigest`. With no plugin coverage it prints `stamped: false` and exits 0;
-   a plugin-covered project whose mapping plan lacks the digest still fails. The router treats a setup plan without it, or with a different
-   one, as stale (`setup_plan_stale_cms_fallback`) and routes back here before any setup or
-   import step. Create CMS collections only for capabilities the mapping plan maps to CMS: a
+   It always records the mapping digest (`lib/mapping-plan-digest.js`) in `setup-plan.json`
+   `inputs.mappingPlanDigest`.
+   When plugin coverage exists it also copies `mapping-plan.json` `inputs.cmsFallbackDigest` into
+   `setup-plan.json` `inputs.cmsFallbackDigest`; a plugin-covered project whose mapping plan
+   lacks that digest still fails. The router treats a mismatched mapping digest as stale
+   (`setup_plan_stale_mapping`) and routes back here before any setup or import step. Create CMS collections only for capabilities the mapping plan maps to CMS: a
    recognized capability whose CMS fallback is pending or declined gets no collection.
 
 ## Artifact to create or update
@@ -220,6 +220,11 @@ Missing source locale data remains a blocker rather than an exemption. Never han
 `rp-execute-setup` fails closed when only one exists. `quick-setup-plan.js` does the same for quick runs. What
 the entity may write, and when it asks the owner, is decided at execution time. Every import task builds on it.
 
+For a WordPress/WooCommerce source the same command also emits the **`import-business-contact`** pair
+(entity `site/business-contact`, right after the locale pair): the source store's business address,
+written and read back by `rp-execute-setup`. Never hand-write it, and never map `site/business-contact`
+to an import task — the setup step owns it. `quick-setup-plan.js` does not emit it.
+
 ## Crosswalk authority and CMS mirror
 
 Local files under `migrations/<project>/state/crosswalk/` are the durable
@@ -239,6 +244,16 @@ share one contract.
 ## Classifying manual vs. automatable
 
 Do not assert "manual" / "cannot self-provision" by assumption — check the API surface.
+
+- Plan no setup step for an entity the mapping set aside (`limitation`, listed in
+  `executionScope.deferredEntities`). Its cutover task already exists, so write no setup
+  blocker for it either (for example tax regions while tax rates are set aside).
+- Never plan a `create-tax-regions` step (or any step whose writer is `createTaxRegion`). Its
+  `appId` must be read live per site, which setup cannot do. The tax-rate import task finds or
+  creates each rate's region itself (`lib/import-composites-tax.js`), and reads the site's
+  default tax groups there too, so setup plans nothing for tax regions or default groups.
+- Never plan a step that `execute-setup.js` has no executor for. Write no blocker the run would
+  have to ask about: an unsupported need is a mapping set-aside, not a setup step.
 
 - Any task that writes, adopts or depends on a `stores/*` entity (and so every order, which
   depends on `stores/product` and `stores/coupon`) needs an `install-wix-stores` step in the

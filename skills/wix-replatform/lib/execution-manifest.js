@@ -26,6 +26,41 @@ function createManifest({ projectId, planVersion, tasks = [], generatedArtifacts
   };
 }
 
+// Source bindings the toolkit derives itself (lib/import-task-runner.js GUEST_ROLES) use one fixed
+// key prefix, so no generated manifest has to choose it. The contact import keys a derived row as
+// prefix + row id, and the order and review sides rebuild the same key from the same binding; an
+// empty prefix also matches every other contact key at the readiness gate. A binding with no
+// prefix (or an empty one) gets the fixed prefix; any other value is refused.
+const DERIVED_KEY_PREFIXES = Object.freeze({
+  'derived-guest-buyer-contact': 'guest-buyer-contact:',
+  'derived-guest-review-contact': 'replatform:guest-review:',
+});
+const unfilled = binding => Boolean(binding && DERIVED_KEY_PREFIXES[binding.role] && (binding.keyPrefix === undefined || binding.keyPrefix === null || binding.keyPrefix === ''));
+const bindingsOf = manifest => (Array.isArray(manifest?.tasks) ? manifest.tasks : []).flatMap(task => (Array.isArray(task?.sourceBindings) ? task.sourceBindings : []));
+// The manifest with the fixed prefixes filled: the same object when nothing is missing, else a
+// copy. Never changes its input (the readiness gate's cached manifest is frozen).
+function withDerivedKeyPrefixes(manifest) {
+  if (!bindingsOf(manifest).some(unfilled)) return manifest;
+  const copy = structuredClone(manifest);
+  for (const binding of bindingsOf(copy)) if (unfilled(binding)) binding.keyPrefix = DERIVED_KEY_PREFIXES[binding.role];
+  return copy;
+}
+// Writes the filled prefixes into the manifest file, so every reader of the file sees them. Called
+// by validateManifestForProject and by the readiness gate's import entry (validateImportInputs).
+function writeDerivedKeyPrefixes(manifestPath, manifest) {
+  const filled = withDerivedKeyPrefixes(manifest);
+  if (filled === manifest) return false;
+  const fs = require('node:fs'), temporary = `${manifestPath}.${process.pid}.${Date.now()}.tmp`;
+  fs.writeFileSync(temporary, `${JSON.stringify(filled, null, 2)}\n`);
+  fs.renameSync(temporary, manifestPath);
+  return true;
+}
+function derivedKeyPrefixErrors(tasks) {
+  return tasks.filter(task => task && Array.isArray(task.sourceBindings)).flatMap(task => task.sourceBindings
+    .filter(binding => binding && DERIVED_KEY_PREFIXES[binding.role] && binding.keyPrefix !== DERIVED_KEY_PREFIXES[binding.role])
+    .map(binding => `derived_key_prefix_invalid:${task.id}:${binding.role}:${JSON.stringify(binding.keyPrefix)} (use ${JSON.stringify(DERIVED_KEY_PREFIXES[binding.role])})`));
+}
+
 function validateManifest(manifest, producerInputs = null) {
   const errors = [];
   if (!manifest || typeof manifest !== 'object') {
@@ -85,6 +120,9 @@ function validateManifest(manifest, producerInputs = null) {
       }
     }
     errors.push(...dependsOnCycles(manifest.tasks));
+    errors.push(...archiveKeyCollisions(manifest.tasks));
+    // A missing or empty derived prefix is filled, not refused (the file gets it at import entry).
+    errors.push(...derivedKeyPrefixErrors(withDerivedKeyPrefixes(manifest).tasks));
   }
   if (producerInputs && Array.isArray(manifest.tasks)) { const binding = require('./dependency-readiness').bindDependencyProducers({ manifest, ...producerInputs }); errors.push(...binding.errors); }
   return { ok: errors.length === 0, errors };
@@ -114,13 +152,28 @@ function dependsOnCycles(tasks) {
   return groups.sort().map(ids => `task_depends_on_cycle:${ids}`);
 }
 
+// The crosswalk and the attempt journal are keyed by source key alone. A source-archive binding
+// that reuses a native binding's key prefix writes its CMS row under the native record's key, so
+// the native task then reads that record as already imported and never writes it: orders,
+// contacts, products and coupons end "skipped_already_imported" without ever being sent.
+// Archive bindings use their own namespace, `archive.<sourceEntity>:`.
+function archiveKeyCollisions(tasks) {
+  const bindings = tasks.filter(task => task && task.kind === 'import')
+    .flatMap(task => (Array.isArray(task.sourceBindings) ? task.sourceBindings : []).filter(Boolean).map(binding => ({ task: task.id, binding })));
+  const native = new Set(bindings.filter(row => row.binding.role !== 'source-archive').map(row => row.binding.keyPrefix));
+  return bindings.filter(row => row.binding.role === 'source-archive' && native.has(row.binding.keyPrefix))
+    .map(row => `archive_key_prefix_collides:${row.task}:${row.binding.keyPrefix}`);
+}
+
 async function validateManifestForProject(projectDir) {
   const fs = require('node:fs/promises'), path = require('node:path');
   const readiness = require('./dependency-readiness');
-  const manifest = JSON.parse(await fs.readFile(path.join(projectDir, 'execution/execution-manifest.json'), 'utf8'));
+  const manifestPath = path.join(projectDir, 'execution/execution-manifest.json');
+  let manifest = JSON.parse(await fs.readFile(manifestPath, 'utf8'));
+  if (writeDerivedKeyPrefixes(manifestPath, manifest)) manifest = JSON.parse(await fs.readFile(manifestPath, 'utf8'));
   const setupPlan = JSON.parse(await fs.readFile(path.join(projectDir, 'setup/setup-plan.json'), 'utf8'));
   const adapter = await readiness.loadDependencyDispositions(projectDir);
-  const validation = validateManifest(manifest, { setupPlan, dispositions: adapter.dispositions, proofs: adapter.proofs, adoptOnlyRefs: adapter.adoptOnlyRefs, adoptOnlyMixed: adapter.adoptOnlyMixed });
+  const validation = validateManifest(manifest, { setupPlan, dispositions: adapter.dispositions, proofs: adapter.proofs, adoptOnlyRefs: adapter.adoptOnlyRefs, adoptOnlyMixed: adapter.adoptOnlyMixed, noRecordRefs: adapter.noRecordRefs });
   try { readiness.validateImportInputs(projectDir); } catch (error) { validation.errors.push(error.message); validation.ok = false; }
   return validation;
 }
@@ -224,6 +277,9 @@ function nextPendingTask(manifest, completedIds = new Set()) {
 
 module.exports = {
   SCHEMA_VERSION,
+  DERIVED_KEY_PREFIXES,
+  withDerivedKeyPrefixes,
+  writeDerivedKeyPrefixes,
   createManifest,
   validateManifest,
   validateManifestForProject,

@@ -17,6 +17,21 @@
     "media/media-file",
     "crm/contact"
   ],
+  "sameTaskReferenceFields": {
+    "blog/tag": [
+      "tagIds[]"
+    ]
+  },
+  "dependencyReferenceFields": {
+    "blog/category": [
+      "categoryIds[]"
+    ]
+  },
+  "sourceReferenceLeaves": {
+    "blog/category": [
+      "categories[]"
+    ]
+  },
   "sourceAliases": [
     {
       "sourceSystem": "wordpress",
@@ -40,6 +55,20 @@
     "surface": "Blog Draft Posts",
     "endpoint": "POST /blog/v3/draft-posts",
     "writerId": "createDraftPost",
+    "requestInput": "draftPost",
+    "requestFields": [
+      "title",
+      "memberId",
+      "richContent",
+      "excerpt",
+      "seoSlug",
+      "categoryIds",
+      "tagIds",
+      "firstPublishedDate",
+      "seoData",
+      "heroImage",
+      "media"
+    ],
     "verification": "verified-live",
     "importSafe": true,
     "bulk": false

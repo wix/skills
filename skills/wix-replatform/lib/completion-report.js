@@ -4,7 +4,7 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const { verificationKind } = require('./entity-verification');
 const { appendExecutionLog } = require('./execution-log.js');
-const { validReceipt } = require('./write-verification');
+const { validReceipt, email: normalizeEmail } = require('./write-verification');
 const { OUTCOME_RANK, aggregateOutcome } = require('./blocked-data-requests.js');
 const { PAYMENT_OUTCOMES, WRITER_OUTCOMES } = require('./payments-outcome-registry.js');
 const memberRegistry = require('./member-outcome-registry.js');
@@ -16,6 +16,7 @@ const { summarizeProjectCoverage } = require('./source-coverage.js');
 const { readLinkAudit, linkOperatorActions, RELATIVE_PATH: LINK_AUDIT_PATH } = require('./link-audit.js');
 const { projectDestinationOperatorActions } = require('./destination-handoff.js');
 const { sourceAccessOperatorActions, withheldDetailsOperatorActions } = require('./source-access.js');
+const { duplicateArchiveOperatorActions } = require('./cms-archive-duplicates.js');
 const { evaluateGiftCardCutover, GIFT_CODES_COVERAGE_ID, GIFT_ACTION_CODE } = require('../resources/rp-source-shopify/lib/shopify-gift-cards.js');
 
 const COMPLETION_STATUS = [
@@ -566,7 +567,8 @@ function normalizeCauseAttribution(row, label) {
   };
 }
 
-const OPERATOR_ACTION_SEVERITIES = ['critical', 'high', 'medium', 'low'];
+// `info`: a cutover review item with no defect (a recorded choice to confirm).
+const OPERATOR_ACTION_SEVERITIES = ['critical', 'high', 'medium', 'low', 'info'];
 
 // Anything the operator has to do by hand goes above the counts, with the
 // deadline reason attached. The worked example is a large batch of discount codes
@@ -628,19 +630,46 @@ function latchedInterruption(projectDir) {
     : { kind: 'signal', signal: latch.signal || null, code: null, at: new Date().toISOString() };
 }
 
-function normalizeOperatorAction(row, index) {
-  if (!row || typeof row !== 'object' || Array.isArray(row)) {
+// import-contract-verify writes this before every import, so it is always the current code's.
+const CODEGEN_FINDINGS_PATH = 'execution/codegen-findings.json';
+function codegenFindingOperatorActions(projectDir) {
+  let document = null;
+  try { document = JSON.parse(require('node:fs').readFileSync(path.join(projectDir, CODEGEN_FINDINGS_PATH), 'utf8')); } catch (error) { if (error.code === 'ENOENT') return []; throw error; }
+  // An in-run override is a toolkit gap (toolkitGaps), never this task; older files may still list it.
+  const findings = (document?.schemaVersion === 1 && Array.isArray(document.findings) ? document.findings : []).filter((row) => row && row.code !== 'codegen_scaffold_override');
+  const affectedIds = [...new Set(findings.map((row) => `${row.file}:${row.line}`))].sort();
+  if (!affectedIds.length) return [];
+  const codes = [...new Set(findings.map((row) => row.code))].sort();
+  return [{
+    actionId: 'codegen-findings-unfixed',
+    code: 'codegen-findings-unfixed',
+    severity: 'medium',
+    role: 'import-operator',
+    entity: null,
+    action: `Requires Import Operator: ${affectedIds.length} place(s) in the generated importer do work the toolkit owns (${codes.join(', ')}), so failures there may not reach the journal. Fix them in codegen and re-run the affected entities.`,
+    importOperatorPrompt: `Read ${CODEGEN_FINDINGS_PATH}. For each finding, change the generated code so it supplies only build (and send where no composite exists) to runRecordTask, re-run import-contract-verify until codegenFindings is empty, then re-run the import for the affected entities with --failed-only.`,
+    deadlineReason: 'before switching traffic; records handled by this code may have failed without a journal row',
+    affectedCount: affectedIds.length,
+    affectedIds,
+    artifactRefs: [CODEGEN_FINDINGS_PATH],
+    prerequisites: ['The original migration environment (generated src/ and state/).'],
+    resolutionEvidence: `import-contract-verify reports no codegenFindings and ${CODEGEN_FINDINGS_PATH} lists none.`,
+  }];
+}
+
+function normalizeOperatorAction(input, index) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
     throw new Error(`operatorActions[${index}] must be an object`);
   }
+  // Every row leaves structured (Elad, 11-15): a producer's missing actionId, role, affectedIds,
+  // artifactRefs, prerequisites and resolution evidence are filled from the row's own facts.
+  const row = require('./cutover-coverage').structureRow(input);
   const label = `operatorActions[${index}]`;
   const severity = requireString(row.severity, `${label}.severity`);
   if (!OPERATOR_ACTION_SEVERITIES.includes(severity)) {
     throw new Error(`${label}.severity must be one of ${OPERATOR_ACTION_SEVERITIES.join(', ')}`);
   }
-  // Existing action producers sometimes carry prose fields named `prerequisites` or
-  // `artifactRefs`; before this extension those fields were intentionally dropped. Keep that
-  // legacy normalization byte-for-byte unless the new structured contract is opted into with an
-  // actionId. Structured actions validate and preserve the whole extension.
+  // structureRow always sets actionId, so every row validates and keeps the structured fields.
   const extended = row.actionId !== undefined && row.actionId !== null;
   const actionId = extended ? requireString(row.actionId, `${label}.actionId`) : null;
   const role = !extended || row.role === undefined || row.role === null ? null : requireString(row.role, `${label}.role`);
@@ -854,6 +883,54 @@ function normalizeDroppedField(row, index) {
     field: requireString(row.field, `${label}.field`),
     recordCount: count(row.recordCount, `${label}.recordCount`),
     reasonCode: requireString(row.reasonCode, `${label}.reasonCode`),
+  };
+}
+
+// What the source archive kept for reference, per entity. Informational: it never
+// changes the run status. Built by the rp-target-wix source-archive module (keptForReferenceSummary),
+// joined from execution/source-archive-plan.json by writeCompletionReport.
+function normalizeKeptForReference(value) {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== 'object' || Array.isArray(value)) throw new Error('keptForReference must be an object');
+  const entities = asArray(value.entities, 'keptForReference.entities').map((row, index) => {
+    const label = `keptForReference.entities[${index}]`;
+    if (!row || typeof row !== 'object' || Array.isArray(row)) throw new Error(`${label} must be an object`);
+    return {
+      sourceEntity: requireString(row.sourceEntity, `${label}.sourceEntity`),
+      collectionId: requireString(row.collectionId, `${label}.collectionId`),
+      recordsArchived: count(row.recordsArchived, `${label}.recordsArchived`),
+      items: count(row.items, `${label}.items`),
+      groups: Array.isArray(row.groups) ? row.groups.map(String) : [],
+      sameInEveryRecord: count(row.sameInEveryRecord || 0, `${label}.sameInEveryRecord`),
+      notKept: count(row.notKept || 0, `${label}.notKept`),
+      archiveOnly: row.archiveOnly === true,
+    };
+  });
+  return {
+    ...(value.applied === false ? { applied: false, writtenRows: count(value.writtenRows || 0, 'keptForReference.writtenRows'), unplannedRows: count(value.unplannedRows || 0, 'keptForReference.unplannedRows') } : {}),
+    collectionName: requireString(value.collectionName, 'keptForReference.collectionName'),
+    policyRef: value.policyRef ? String(value.policyRef) : null,
+    totalItems: count(value.totalItems, 'keptForReference.totalItems'),
+    heldItems: count(value.heldItems || 0, 'keptForReference.heldItems'),
+    howToFind: requireString(value.howToFind, 'keptForReference.howToFind'),
+    entities,
+    optionalTasks: asArray(value.optionalTasks || [], 'keptForReference.optionalTasks').map((row, index) => {
+      const label = `keptForReference.optionalTasks[${index}]`;
+      if (!row || typeof row !== 'object' || Array.isArray(row)) throw new Error(`${label} must be an object`);
+      if (row.optional !== true) throw new Error(`${label}.optional must be true`);
+      return {
+        code: requireString(row.code, `${label}.code`), optional: true,
+        goLiveImpact: requireString(row.goLiveImpact, `${label}.goLiveImpact`),
+        role: requireString(row.role, `${label}.role`),
+        title: requireString(row.title, `${label}.title`),
+        action: requireString(row.action, `${label}.action`),
+        affected: asArray(row.affected || [], `${label}.affected`).map((a, i) => ({
+          entity: requireString(a.entity, `${label}.affected[${i}].entity`), field: requireString(a.field, `${label}.affected[${i}].field`),
+          recordCount: count(a.recordCount, `${label}.affected[${i}].recordCount`) })),
+        importOperatorPrompt: requireString(row.importOperatorPrompt, `${label}.importOperatorPrompt`),
+        resolutionEvidence: requireString(row.resolutionEvidence, `${label}.resolutionEvidence`),
+      };
+    }),
   };
 }
 
@@ -1142,11 +1219,35 @@ function persistedVerification(verificationState, row, siteId) {
   return rows.length ? require('./write-verification-state').report(rows, siteId) : undefined;
 }
 
+// Receipts that share one contact id. A group whose receipts all name one email (normalized) is one
+// person. A group with different emails may be two people: it does not block, but the caller lists
+// it as a warning (contact id, emails, phones) for the merchant to check. A receipt without an email
+// cannot show who it is, so such a group still blocks.
+function sharedContactGroups(entries) {
+  const byTarget = new Map();
+  for (const r of entries) {
+    if (!byTarget.has(r.targetId)) byTarget.set(r.targetId, []);
+    byTarget.get(r.targetId).push(r);
+  }
+  const mixed = [];
+  for (const [contactId, group] of byTarget) {
+    if (group.length < 2) continue;
+    const emails = group.map(r => normalizeEmail(r.receipt?.expected?.email?.email || ''));
+    if (emails.includes('')) return { ok: false, mixed: [] };
+    if (new Set(emails).size > 1) {
+      const phones = group.map(r => r.receipt?.expected?.phone?.phone).filter(p => typeof p === 'string' && p);
+      mixed.push({ contactId, sourceKeys: group.map(r => r.sourceKey).sort(), emails: [...new Set(emails)].sort(), phones: [...new Set(phones)].sort() });
+    }
+  }
+  return { ok: true, mixed };
+}
+
 function createCompletionReport(input = {}) {
   const entityCompleteness = asArray(input.entityCompleteness, 'entityCompleteness')
     .map((row, index) => normalizeCompletenessRow(row, index));
   const verification = input.verification || {};
   const verificationGaps = [];
+  const sharedContactWarnings = [];
   for (const row of entityCompleteness) {
     if (row.verificationKind === 'none') continue;
     // The toolkit writers persist their verification rows (state/write-verification);
@@ -1157,9 +1258,22 @@ function createCompletionReport(input = {}) {
     const ids = entries.map(r => r.targetId);
     const kind = row.verificationKind;
     const expectedKeys = row.sourceKeys;
-    const covered = Array.isArray(expectedKeys) && new Set(expectedKeys).size === row.inScope && expectedKeys.length === row.inScope && expectedKeys.every(k => unique.has(k)) && report?.siteId && report.siteId === (input.siteId || input.destinations?.siteId) && entries.every(r => typeof r.sourceKey === 'string' && r.sourceKey) && unique.size === entries.length && entries.length === row.inScope;
+    // A held record was never written, so it has no receipt. When every deferred record carries a
+    // typed reason (its own cutover task), only the written records need one. A row where every
+    // record is held still blocks below; untyped deferrals keep the full-scope rule.
+    const typedDeferred = row.reasons.filter(r => typeof r === 'object' && r.outcome === 'deferred').reduce((sum, r) => sum + r.count, 0);
+    const typedHeld = row.deferred > 0 && row.deferred < row.inScope && typedDeferred === row.deferred ? row.deferred : 0;
+    const needed = row.inScope - typedHeld;
+    const scope = new Set(Array.isArray(expectedKeys) ? expectedKeys : []);
+    const covered = Array.isArray(expectedKeys) && scope.size === row.inScope && expectedKeys.length === row.inScope && entries.every(r => scope.has(r.sourceKey)) && report?.siteId && report.siteId === (input.siteId || input.destinations?.siteId) && entries.every(r => typeof r.sourceKey === 'string' && r.sourceKey) && unique.size === entries.length && entries.length === needed;
     const verified = entries.filter(r => validReceipt(r.receipt, { siteId: report?.siteId, sourceKey: r.sourceKey, targetId: r.targetId, kind })).length;
-    if ((row.inScope && (!covered || verified !== row.inScope || new Set(ids).size !== ids.length)) || entries.length !== row.inScope) {
+    // Wix keeps one contact per person: a customer and the same person's guest orders land on one
+    // contact. A shared contact passes only when every receipt on it names the same email; two
+    // different emails may be two people. Other kinds keep one record per target.
+    const shared = new Set(ids).size === ids.length ? { ok: true, mixed: [] } : kind === 'contact' ? sharedContactGroups(entries) : { ok: false, mixed: [] };
+    const sharedTargetOk = shared.ok;
+    const gapsBefore = verificationGaps.length;
+    if ((row.inScope && (!covered || verified !== needed || !sharedTargetOk)) || entries.length !== needed) {
       // Absence stays exactly as blocking as a failed check; only the wording differs,
       // so a reader can tell "never supplied" from "supplied and failed".
       const absent = !Array.isArray(report?.rows) || report.rows.length === 0;
@@ -1175,6 +1289,7 @@ function createCompletionReport(input = {}) {
           : `${row.entity}: identity/value verification missing or invalid; reconcile source records before completing`,
       });
     }
+    if (verificationGaps.length === gapsBefore) for (const group of shared.mixed) sharedContactWarnings.push({ entity: row.entity, ...group });
   }
   const mismatches = entityCompleteness.filter((row) => row.mismatch);
   const voucherReconciliation = normalizeVoucherReconciliation(input, entityCompleteness);
@@ -1207,7 +1322,8 @@ function createCompletionReport(input = {}) {
   const attemptedUndercounts = entityCompleteness
     .filter((row) => Number.isInteger(row.journalAttempted) && row.journalAttempted > row.attempted)
     .map((row) => `${row.entity}/${row.subtype}: attempted ${row.attempted}, but the attempt journal shows ${row.journalAttempted} record(s) sent in this run`);
-  const warnings = [...asArray(input.warnings, 'warnings'), ...voucherHeadline.map((row) => row.message), ...attemptedUndercounts];
+  const warnings = [...asArray(input.warnings, 'warnings'), ...voucherHeadline.map((row) => row.message), ...attemptedUndercounts,
+    ...sharedContactWarnings.map((g) => `${g.entity}: Wix contact ${g.contactId} holds ${g.sourceKeys.length} source records with different emails (${g.emails.join(', ')}${g.phones.length ? `; phones ${g.phones.join(', ')}` : ''}; records ${g.sourceKeys.join(', ')}). Wix merged them into one contact. Check in Business Manager > Contacts whether this is one person; if not, split it by hand.`)];
   const recoveryActions = [
     ...asArray(input.recoveryActions, 'recoveryActions'),
     ...verificationGaps.map(g => ({ entity: g.entity, action: g.message })),
@@ -1274,6 +1390,7 @@ function createCompletionReport(input = {}) {
   const callerUnresolved = asArray(input.unresolved, 'unresolved');
   const unresolved = [...callerUnresolved, ...journalUnresolvedRows(entityCompleteness, callerUnresolved)].map(normalizeUnresolved);
   const droppedFields = asArray(input.droppedFields, 'droppedFields').map(normalizeDroppedField);
+  const keptForReference = normalizeKeptForReference(input.keptForReference);
 
   // Where the durable rows are absent for an entity that reports a shortfall, the
   // section says the shortfall is unexplained and the final status carries the mismatch. An
@@ -1383,6 +1500,7 @@ function createCompletionReport(input = {}) {
     stageResiduals,
     acceptedStageOutcomes,
     verificationGaps,
+    sharedContactWarnings,
     verification,
     mismatches: mismatches.map((row) => ({
       entity: row.entity,
@@ -1401,6 +1519,7 @@ function createCompletionReport(input = {}) {
     exclusions,
     unresolved,
     droppedFields,
+    keptForReference,
     unexplainedShortfalls,
     memberOutcomes,
     // The handoff proves it postdates the import by comparing its own
@@ -1532,6 +1651,14 @@ function renderCompletionSummary(report) {
   if (!report.droppedFields.length) lines.push('- None.');
   else for (const row of report.droppedFields) lines.push(`- ${row.entity}.${row.field}: ${row.recordCount} records (${row.reasonCode})`);
 
+  if (report.keptForReference) {
+    const k = report.keptForReference;
+    if (k.applied === false) lines.push('', '## Kept For Reference', '', `- The archive plan was not applied by this run's importer (${k.writtenRows} archive rows journaled, ${k.unplannedRows} not in the plan). The archive holds what the importer wrote; the planned packing and the IP / user-agent drop are not confirmed for it.`);
+    else lines.push('', '## Kept For Reference', '', `- ${k.collectionName}: ${k.totalItems} CMS items${k.heldItems ? `, ${k.heldItems} waiting for CMS item room` : ''}. Not used by the live site.`, `- How to find a record: ${k.howToFind}`);
+    for (const row of k.entities) lines.push(`- ${row.sourceEntity} (\`${row.collectionId}\`): ${row.recordsArchived} records in ${row.items} items${row.archiveOnly ? ' (no Wix home; one row each)' : ''}${row.groups.length ? `; ${row.groups.join(', ')}` : ''}${row.notKept ? `; ${row.notKept} source fields not kept (see the #info row)` : ''}`);
+    for (const task of k.optionalTasks || []) lines.push(`- ${task.title}. ${task.action}`, `  - To re-import (${task.role} asks): ${task.importOperatorPrompt}`);
+  }
+
   if ((report.acceptedStageOutcomes || []).length) {
     lines.push('', '## Accepted And Materialized Gaps', '');
     for (const row of report.acceptedStageOutcomes) lines.push(`- ${stageResidualAction(row)}`);
@@ -1572,6 +1699,11 @@ function renderCompletionSummary(report) {
   if (report.unexplainedShortfalls.length) {
     lines.push('', '## Unexplained Shortfalls', '');
     for (const row of report.unexplainedShortfalls) lines.push(`- ${row.message}`);
+  }
+
+  if (Array.isArray(report.toolkitGaps) && report.toolkitGaps.length) {
+    lines.push('', '## Toolkit Gaps Worked Around In This Run', '');
+    for (const row of report.toolkitGaps) lines.push(`- ${row.step} ${row.kind === 'patch' ? 'patched' : row.kind === 'prefill-edit' ? 'changed' : row.kind === 'extract-count-gap' ? 'count differs' : 'overridden'} in ${row.file}: ${row.why || 'no reason given'}. Fix in the toolkit; no action on the site.`);
   }
 
   // Only a joined (schema v2) report carries this; an un-joined in-memory report
@@ -1631,6 +1763,35 @@ async function joinSourceCoverage(projectDir, report) {
       operatorActions.push(normalizeOperatorAction(row, operatorActions.length));
     }
   }
+  // The source archive plan: what was kept for reference. A caller-supplied block wins.
+  // It is shown only when the journal proves the importer wrote the planned items; otherwise the
+  // report says the plan was not applied instead of claiming its counts and drops.
+  const archiveSummary = require('./source-archive-summary.js');
+  const archivePlan = report.keptForReference ? null : archiveSummary.readArchivePlanSummary(projectDir);
+  let keptForReference = report.keptForReference || null;
+  if (archivePlan) {
+    const { rows } = await require('./local-state').loadAttemptJournal(projectDir).catch((error) => { if (error.code === 'ENOENT' || error.code === 'JOURNAL_MISSING') return { rows: [] }; throw error; });
+    const check = archiveSummary.archivePlanApplied(archivePlan, rows);
+    keptForReference = check.applied ? normalizeKeptForReference(archivePlan.keptForReference) : normalizeKeptForReference({
+      collectionName: archivePlan.keptForReference.collectionName, policyRef: archivePlan.keptForReference.policyRef,
+      applied: false, writtenRows: check.written, unplannedRows: check.unplanned, totalItems: 0, entities: [], optionalTasks: [],
+      howToFind: archivePlan.keptForReference.howToFind,
+    });
+  }
+  // A read-only CMS archive scan is durable evidence for the cutover operator. Join it here so
+  // completion-report.json and the post-execution handoff carry the same cleanup item.
+  for (const row of duplicateArchiveOperatorActions(projectDir)) {
+    if (!operatorActions.some((existing) => existing.actionId === row.actionId)) {
+      operatorActions.push(normalizeOperatorAction(row, operatorActions.length));
+    }
+  }
+  // Generated code that did the toolkit's job and was still not fixed when the import ran
+  // (import-contract-verify codegenFindings): a gap in the fixed code.
+  for (const row of codegenFindingOperatorActions(projectDir)) {
+    if (!operatorActions.some((existing) => existing.actionId === row.actionId)) {
+      operatorActions.push(normalizeOperatorAction(row, operatorActions.length));
+    }
+  }
   // Source access that outlives the migration (the Shopify staff account) is an
   // operator action beside the coverage rows until its removal is confirmed. It is an action, not
   // a coverage gap, so status is unchanged.
@@ -1638,6 +1799,13 @@ async function joinSourceCoverage(projectDir, report) {
     if (!operatorActions.some((existing) => existing.code === row.code && existing.entity === row.entity)) {
       operatorActions.push(normalizeOperatorAction(row, operatorActions.length));
     }
+  }
+  // A business-address issue setup reported instead of stopping (a read-back difference or an
+  // unreadable source): a Business Manager task for the Cutover Operator.
+  // Records held for a bad contact address shape (journal reason CONTACT_ADDRESS_SHAPE_INVALID).
+  for (const row of [...require('./business-contact-setup.js').businessContactOperatorActions(projectDir),
+    ...require('./contact-address-contract.js').contactAddressOperatorActions(report.entityCompleteness)]) {
+    if (!operatorActions.some((existing) => existing.actionId === row.actionId)) operatorActions.push(normalizeOperatorAction(row, operatorActions.length));
   }
   // Mapping may accept withheld Shopify details, but Shopify remains their only
   // copy until the merchant's export is confirmed after the latest read. This action is separate
@@ -1671,6 +1839,20 @@ async function joinSourceCoverage(projectDir, report) {
       operatorActions.push(normalizeOperatorAction(row, operatorActions.length));
     }
   }
+  // A plan change after import: records not yet updated, records whose plan is unknown, values
+  // the plan stopped writing that stay on the site, and what was updated (lib/plan-update-pass.js).
+  for (const row of require('./plan-update-pass.js').reportRows(projectDir).operatorActions) {
+    if (!operatorActions.some((existing) => existing.actionId && existing.actionId === row.actionId)) {
+      operatorActions.push(normalizeOperatorAction(row, operatorActions.length));
+    }
+  }
+  // The after-codegen dry run still disagreeing with the plan when the run is reported
+  // (state/attempts/field-mapping-examples/<pass>.result.json for the current plan).
+  for (const row of require('./field-mapping-examples.js').reportRows(projectDir).operatorActions) {
+    if (!operatorActions.some((existing) => existing.actionId && existing.actionId === row.actionId)) {
+      operatorActions.push(normalizeOperatorAction(row, operatorActions.length));
+    }
+  }
   const multilingual = require('./multilingual-public-report.js').multilingualReportRows(projectDir);
   for (const row of multilingual.operatorActions) {
     if (!operatorActions.some((existing) => existing.actionId && existing.actionId === row.actionId)) {
@@ -1684,7 +1866,22 @@ async function joinSourceCoverage(projectDir, report) {
       operatorActions.push(normalizeOperatorAction(row, operatorActions.length));
     }
   }
+  // Toolkit files or vendored copies changed during the run and restored (or a patch accepted).
+  for (const row of require('./toolkit-integrity.js').reportRows(projectDir).operatorActions) {
+    if (!operatorActions.some((existing) => existing.actionId && existing.actionId === row.actionId)) {
+      operatorActions.push(normalizeOperatorAction(row, operatorActions.length));
+    }
+  }
+  // Fields left unmigrated by a read-back unit the run settled after its pass limit.
+  for (const row of require('./route-settlement.js').reportRows(projectDir).operatorActions) {
+    if (!operatorActions.some((existing) => existing.actionId && existing.actionId === row.actionId)) {
+      operatorActions.push(normalizeOperatorAction(row, operatorActions.length));
+    }
+  }
   if (giftCards.action) operatorActions.push(normalizeOperatorAction(giftCards.action, operatorActions.length));
+  // Finished extracts whose count differs from the source's count (records changed during the read).
+  const extractCountGaps = require('./extract-count.js').recordExtractCountGaps(projectDir);
+  const toolkitGaps = require('./toolkit-gaps.js').readToolkitGaps(projectDir);
   const sourceCoverage = coverage.sourceCoverage.map((row) => (row.coverageId === GIFT_CODES_COVERAGE_ID
     ? { ...row, cutoverAction: giftCards.cutoverAction || row.cutoverAction }
     : row));
@@ -1709,9 +1906,13 @@ async function joinSourceCoverage(projectDir, report) {
       missingCutoverUiIntegration: true,
     } } : {}),
     ...(catalog.destinationBaseline ? { destinationBaseline: catalog.destinationBaseline } : {}),
+    keptForReference,
     sourceCoverageRecorded: coverage.sourceCoverageRecorded,
     ...(coverage.sourceCoverageReason ? { sourceCoverageReason: coverage.sourceCoverageReason } : {}),
     sourceCoverage,
+    // In-run overrides (lib/toolkit-gaps.js): shown, never an operator action.
+    ...(toolkitGaps.length ? { toolkitGaps } : {}),
+    ...(extractCountGaps.length ? { extractCountGaps } : {}),
   };
 }
 
@@ -1732,6 +1933,72 @@ async function extractIntegrityActions(projectDir) {
       action: `Requires Import Operator. Prerequisites: original migration project and source access. Copy prompt: Re-extraction of ${event.entity} failed (${event.reason}; see execution/extract-integrity.json). Check source credentials, make src/extract/run-extract.js accept --entity ${event.entity}, run it, then rerun the import for ${event.entity}.` });
   }
   return result;
+}
+// Records an operator's source filter (plan entities[].sourceFilter) left out of the extract
+// (data/source-extract/manifest.json rows written by rp-source-wordpress catalog-extractor.js).
+// A filter is a choice, not a failure, but every record left behind is listed for the site owner.
+async function sourceFilterActions(projectDir) {
+  let manifest;
+  try { manifest = JSON.parse(await fs.readFile(path.join(projectDir, 'data/source-extract/manifest.json'), 'utf8')); } catch (error) { if (error.code === 'ENOENT' || error instanceof SyntaxError) return []; throw error; }
+  const result = [];
+  for (const row of Array.isArray(manifest.entities) ? manifest.entities : []) {
+    if (!row?.filter || typeof row.filter !== 'object' || row.sample) continue;
+    const left = Number.isInteger(row.unfilteredTotal) && Number.isInteger(row.sourceTotal) ? Math.max(0, row.unfilteredTotal - row.sourceTotal) : null;
+    if (left === 0) continue;
+    const filter = Object.entries(row.filter).map(([key, value]) => `${key}=${value}`).join(', ');
+    result.push({ code: 'source-filter-excluded', severity: 'low', entity: row.entity, affectedCount: left,
+      actionId: `source-filter-excluded:${row.entity}`, role: 'site-owner',
+      cause: { filter: row.filter, extracted: row.sourceTotal ?? null, unfilteredTotal: row.unfilteredTotal ?? null },
+      artifactRefs: ['data/source-extract/manifest.json', 'mapping/mapping-plan.json'],
+      prerequisites: [],
+      resolutionEvidence: 'The site owner confirms the records outside the filter are not needed, or the plan filter is removed and the entity is extracted and imported again.',
+      deadlineReason: 'Confirm before launch; these source records were not migrated.',
+      action: `${left === null ? 'Some' : left} ${row.entity} records were not migrated because the plan filter (${filter}) left them out of the extract. Confirm they are not needed on the new site. To bring them over, remove the filter in mapping/mapping-plan.json and run the extract and import for ${row.entity} again; already-imported records are not duplicated.` });
+  }
+  return result;
+}
+// Records the plan's record rule kept out of the import (runRecordTask journals each one
+// `skipped_out_of_scope` with outOfScope.code 'skipped-by-plan'). One site-owner action per task:
+// the store owner confirms the rule, or changes it and the import is rerun. The latest row per
+// record decides, so a record the rule no longer matches drops out of the action.
+async function planSkipActions(projectDir) {
+  const { rows } = await require('./local-state').loadAttemptJournal(projectDir).catch(error => { if (error.code === 'ENOENT' || error.code === 'JOURNAL_MISSING') return { rows: [] }; throw error; });
+  const latest = new Map(rows.map(row => [`${row.writeSpecId}\n${row.sourceStableKey}`, row]));
+  const byTask = new Map();
+  for (const row of latest.values()) {
+    if (row.status !== 'skipped_out_of_scope' || row.outOfScope?.code !== 'skipped-by-plan') continue;
+    const group = byTask.get(row.writeSpecId) || { keys: [], rule: row.outOfScope.rule, reason: row.outOfScope.reason, entity: row.targetEntityType };
+    group.keys.push(row.sourceStableKey); byTask.set(row.writeSpecId, group);
+  }
+  return [...byTask].map(([taskId, group]) => {
+    const keys = group.keys.sort();
+    return { actionId: `skipped-by-plan:${taskId}`, code: 'skipped-by-plan', severity: 'medium', role: 'site-owner', entity: taskId, affectedCount: keys.length, affectedIds: keys,
+      action: `Site owner: ${keys.length} ${group.entity} record(s) were not imported because of the migration plan's record rule: ${group.rule} (${group.reason}). Confirm that is what you want. If some of them should be on the new site, ask the Import Operator to change or remove this record rule in the plan and rerun task ${taskId}; nothing needs to be removed.`,
+      deadlineReason: 'Before launch: these records are deliberately not on the new site.',
+      artifactRefs: ['mapping/mapping-plan.json', 'state/attempts/write-attempts.ndjson'], prerequisites: ['the migration plan\'s record rule for this entity'],
+      resolutionEvidence: `The site owner confirms the rule, or a rerun of task ${taskId} after the rule changed imports the wanted records.` };
+  });
+}
+
+// Entities the run selected for extraction that nothing could read: no catalog entry and no run
+// extra (a plugin or custom route). The extract continues; each one is an Import Operator task.
+async function sourceUnreadActions(projectDir) {
+  let manifest;
+  try { manifest = JSON.parse(await fs.readFile(path.join(projectDir, 'data/source-extract/manifest.json'), 'utf8')); } catch (error) { if (error.code === 'ENOENT' || error instanceof SyntaxError) return []; throw error; }
+  // An entity the plan already deferred has its own mapping-scope-deferred action; never two items.
+  let plan = null;
+  try { plan = JSON.parse(await fs.readFile(path.join(projectDir, 'mapping/mapping-plan.json'), 'utf8')); } catch (error) { if (error.code !== 'ENOENT' && !(error instanceof SyntaxError)) throw error; }
+  const deferred = new Set((plan?.executionScope?.deferredEntities || []).map((row) => row?.entityRef));
+  return (Array.isArray(manifest.entities) ? manifest.entities : []).filter((row) => row?.unread && !row.sample && !deferred.has(row.entity)).map((row) => ({
+    code: 'source-entity-unread', severity: 'high', entity: row.entity, affectedCount: null,
+    actionId: `source-entity-unread:${row.entity}`, role: 'import-operator',
+    cause: { reason: row.unread },
+    artifactRefs: ['data/source-extract/manifest.json', 'mapping/mapping-plan.json', 'source-schema.json'],
+    prerequisites: ['Original migration project', 'Source access (config/source.wordpress.env)'],
+    resolutionEvidence: `data/source-extract/manifest.json has a complete row for ${row.entity} and its records are imported, or the plan excludes ${row.entity} with a reason.`,
+    deadlineReason: 'Resolve before launch; this entity was selected for migration but none of its records were read.',
+    action: `Requires Import Operator. ${row.entity} was selected for migration, but no reader exists for it, so none of its records were read or imported.`,
+    importOperatorPrompt: `In the migration project, ${row.entity} has no reader (data/source-extract/manifest.json row unread: ${row.unread}). Find its route in source-schema.json, add an entry for it to src/extract/reader-catalog.extra.json (or a reader module under src/extract/readers/ when the route is not a plain collection), run node src/extract/run-extract.js --entity ${row.entity}, then rerun the import for ${row.entity}.` }));
 }
 async function dependencyOperatorActions(projectDir) {
   let diagnostic;
@@ -1769,7 +2036,10 @@ async function dependencyOperatorActions(projectDir) {
       }
       // A record that also waits on something other than a hold keeps that recovery item too.
       if (row.deferral.reason === 'dependency-held') continue;
-      const ref = row.deferral.ref || row.deferral.reason, key = `${ref}:resume-deferred`; if (!groups.has(key)) groups.set(key, { ref, recovery: 'resume-deferred', count: 0 }); groups.get(key).count++;
+      // A plan hold (the builder held the record by a plan rule) is not a missing reference: its
+      // own builder row or cutover-coverage records-deferred names it, with the hold reason.
+      if (row.deferral.reason === 'builder-held' && !row.deferral.ref) continue;
+      const ref = row.deferral.ref || row.deferral.reason, key = `${ref}:resume-deferred`; if (!groups.has(key)) groups.set(key, { ref, recovery: 'resume-deferred', count: 0, keys: new Set() }); groups.get(key).count++; groups.get(key).keys.add(row.sourceStableKey);
     }
     for (const group of finals.values()) {
       const parents = [...group.parents].sort(), dependencyKeys = [...group.dependencyKeys].sort(), keys = [...group.keys].sort(), heldParent = group.parentStatus === 'held';
@@ -1794,6 +2064,8 @@ async function dependencyOperatorActions(projectDir) {
       deadlineReason: 'Resolve before DNS change or launch; these records wait on records the owner held and are not on the new site.',
       action: `Requires Import Operator. Prerequisites: original migration project and current-site access; retain existing owner approvals. Copy prompt: Inspect execution/dependency-readiness.json task ${task.taskId} heldDependencies for ${group.ref} and execution/read-back-inventory records[].held (holds: ${[...group.reasons].sort().join(', ')}). For each hold the owner has now resolved, update the mapping, rerun the inventory, get the mapping re-approved and import the released records; then resume task ${task.taskId} with --deferred-only. If the owner accepts the loss instead, record it as an approved omission. Do not resend existing orders.` });
     for (const group of groups.values()) result.push({ code: 'dependency-readiness-blocked', severity: 'blocker', entity: task.taskId, affectedCount: group.count,
+      // The waiting records by source key (a task-level block has none: the task id names it).
+      ...(group.keys?.size ? { affectedSourceKeys: [...group.keys].filter(Boolean).sort() } : {}), cause: { ref: group.ref },
       deadlineReason: 'Resolve before launch; affected dependent records have not finished importing.',
       action: `Requires Import Operator. Prerequisites: original migration project, source snapshot and current-site access; retain existing owner approvals. Copy prompt: Inspect execution/dependency-readiness.json task ${task.taskId} and ref ${group.ref}; resolve ${group.recovery}, re-evaluate and resume only eligible deferred records. Read back uncertain writes, never infer completion from old-site evidence and do not resend existing orders. Completion requires terminal outcomes for dependent records as well as repaired prerequisites.` });
     // A runtime gap: a record its transform deferred with a named reference blocker, or one the
@@ -1801,16 +2073,26 @@ async function dependencyOperatorActions(projectDir) {
     // mapping gaps.
     for (const gap of task.referenceGaps || []) {
       const records = gap.records || gap.affectedSourceKeys.map(sourceStableKey => ({ sourceStableKey }));
-      const list = records.map(({ sourceStableKey, ...facts }) => `${sourceStableKey}${Object.keys(facts).length ? ` (${Object.entries(facts).map(([k, v]) => `${k}: ${v}`).join(', ')})` : ''}`).join('; ');
+      // The text names at most 50 records; the structured `records` and the diagnostic keep all of them.
+      const list = records.slice(0, 50).map(({ sourceStableKey, ...facts }) => `${sourceStableKey}${Object.keys(facts).length ? ` (${Object.entries(facts).map(([k, v]) => `${k}: ${v}`).join(', ')})` : ''}`).join('; ')
+        + (records.length > 50 ? `; and ${records.length - 50} more (execution/dependency-readiness.json lists each)` : '');
       // A Cutover Operator gap is resolved in Business Manager on the landed records: no original
       // migration environment, so no Import Operator prompt.
       const cutover = gap.operatorRole === 'Cutover Operator';
+      const prompt = `Requires Import Operator. Prerequisites: original migration project, source snapshot and current-site access; retain existing owner approvals. Copy prompt: Inspect execution/dependency-readiness.json task ${task.taskId} referenceGaps code ${gap.code}. ${gap.action} Records: ${list}.`;
       result.push({ code: 'dependency-reference-gap', severity: gap.severity || 'blocker', entity: task.taskId, affectedCount: records.length, affectedSourceKeys: records.map(r => r.sourceStableKey).sort(), records, reasonCode: gap.code,
         ...(cutover ? { operatorRole: 'Cutover Operator' } : {}),
+        // The structured cutover form (actionId, role, prompt, ids, artifact, evidence).
+        actionId: `dependency-reference-gap:${task.taskId}:${gap.code}`, role: cutover ? 'cutover-operator' : 'import-operator',
+        ...(cutover ? {} : { importOperatorPrompt: prompt }),
+        affectedIds: records.map(r => r.targetId).filter(id => typeof id === 'string' && id).sort(),
+        artifactRefs: ['execution/dependency-readiness.json'],
+        prerequisites: cutover ? ['Business Manager access to the new site'] : ['original migration project', 'source snapshot', 'current-site access'],
+        resolutionEvidence: `execution/dependency-readiness.json task ${task.taskId} no longer lists referenceGaps code ${gap.code} for these records.`,
         deadlineReason: gap.written ? 'Resolve before launch; the affected records are on the new site with the recorded loss.' : 'Resolve before launch; the affected records were not written.',
         action: cutover
           ? `Cutover Operator, in Business Manager. ${gap.action} Records: ${list}.`
-          : `Requires Import Operator. Prerequisites: original migration project, source snapshot and current-site access; retain existing owner approvals. Copy prompt: Inspect execution/dependency-readiness.json task ${task.taskId} referenceGaps code ${gap.code}. ${gap.action} Records: ${list}.` });
+          : prompt });
     }
     // A within-write dependency (product media from URLs) the landed parent initiated but
     // read-back has not yet verified. The parent keeps its target ID; it is never recreated.
@@ -1835,7 +2117,9 @@ async function dependencyOperatorActions(projectDir) {
       deadlineReason: 'Resolve before launch; these records are on the new site without some of their ' + group.ref + ' references.',
       action: `Requires Import Operator. Prerequisites: original migration project and current-site access. Copy prompt: Inspect execution/dependency-readiness.json task ${task.taskId} omittedReferences for ${group.ref}. Re-import each missing ${group.ref} record with its task's --failed-only (for an unchecked: key, first find the source record the unresolved id was meant to name), then run the media patch pass (omittedReady, gate the record with its full reference list, the reviewed update, recordOmissionsResolved); rows still listed after it need a manual fix. If the source file is gone, record the loss as an approved omission. Do not recreate or resend the landed records.` });
   }
-  return result;
+  // The readiness diagnostic keeps its own 'blocker' severity; an operatorAction's scale is
+  // OPERATOR_ACTION_SEVERITIES, so it is reported as 'critical' and normalizeOperatorAction keeps it.
+  return result.map(action => (action.severity === 'blocker' ? { ...action, severity: 'critical' } : action));
 }
 // Persisted blocked-data requests the caller did not pass: a declined or missing
 // request is an open blocker for cutover whether or not the importer remembered it. A request
@@ -1883,11 +2167,101 @@ async function gatedEntitiesWrittenInRun(projectDir, runId) {
   return wrote;
 }
 
-async function writeCompletionReport(projectDir, unjoinedReport, { runId = null, appendLog = true, mappingPlanDigest = null } = {}) {
+// Whole-kind coverage at the end of import: per source kind the plan imports (and per product
+// subtype), source records vs records in Wix (the attempt journal's latest landed status). A kind
+// with records and none in Wix is not a finished import, whatever the importer's own counters say:
+// 11-18 all 81 variable products were held silently; run 7 left out all 267 orders. Partial plus
+// held records is normal (their own rows report them). A kind the plan does not import on purpose
+// is not counted: an operator skip, a typed limitation, a manual-mapping target, or records the
+// operator's record rule leaves out. Same plan facts the mapping-exit check reads
+// (mapping-field-contract outOfScopeEntities).
+const SUBTYPE_FIELD = Object.freeze({ product: 'type' });
+const IN_WIX_STATUSES = new Set(['imported', 'skipped_already_imported', 'succeeded_unverified']);
+async function wholeKindCoverage(projectDir, plan) {
+  const f = require('./mapping-field-contract.js');
+  const rows = f.entityRows(plan || {});
+  const scope = plan?.executionScope || {};
+  const stated = new Set([...(scope.deferredEntities || []).filter((d) => d.limitation).map((d) => d.entityRef),
+    ...(scope.skippedEntities || []).map((d) => d.entityRef)]);
+  const refs = new Set(rows.map(f.entityRef));
+  // A journal key is `<entity>:<id>` or `<system>:<entity>:<id>`; a derived entity may use a shorter
+  // name (guest-buyer for guest-buyer-contact) only when no plan row has that exact name.
+  const keyRef = (key) => {
+    const parts = String(key).split(':');
+    const kind = parts.length >= 3 ? parts[parts.length - 2] : parts[0];
+    if (refs.has(kind)) return kind;
+    return [...refs].find((ref) => ref.startsWith(`${kind}-`)) || kind;
+  };
+  let journal = [];
+  try { ({ rows: journal } = await require('./local-state').loadAttemptJournal(projectDir)); } catch { journal = []; }
+  const latest = new Map();
+  for (const row of journal || []) if (row?.sourceStableKey) latest.set(`${keyRef(row.sourceStableKey)}\0${String(row.sourceStableKey).split(':').pop()}`, row.status);
+  let manifest = null;
+  try { manifest = JSON.parse(await fs.readFile(path.join(projectDir, 'execution/execution-manifest.json'), 'utf8')); } catch { manifest = null; }
+  const bindings = (manifest?.tasks || []).flatMap((task) => task?.sourceBindings || []);
+  const kinds = [];
+  for (const row of rows) {
+    const ref = f.entityRef(row);
+    if (row.inUse === false || row.sourceRecordCount === 0 || row.targetClassification === 'manual-mapping' || stated.has(ref)
+      || f.operatorEntitySkip(row) || f.statedLimitation(row) || (row.fieldMappingStatus === 'pending' && row.limitation !== undefined)) continue;
+    const extract = bindings.find((b) => b && b.role !== 'source-archive' && (b.sourceEntity === ref || b.sourceEntity === row.sourceEntity))?.extractPath || `data/source-extract/${ref}.ndjson`;
+    let text;
+    try { text = await fs.readFile(path.join(projectDir, extract), 'utf8'); } catch { continue; }
+    const counts = new Map();
+    for (const line of text.split('\n')) {
+      if (!line.trim()) continue;
+      let record;
+      try { record = JSON.parse(line); } catch { continue; }
+      if (!f.keepsRecord(row, record)) continue;
+      const subtype = SUBTYPE_FIELD[ref] && typeof record[SUBTYPE_FIELD[ref]] === 'string' ? record[SUBTYPE_FIELD[ref]] : 'all';
+      // A derived record's id may be its whole key (replatform:guest-buyer:<hash>): match on the last part.
+      const id = String(record.id ?? record.ID ?? record.sourceId).split(':').pop();
+      const status = latest.get(`${ref}\0${id}`);
+      if (status === 'skipped_out_of_scope') continue;
+      const c = counts.get(subtype) || { source: 0, inWix: 0 };
+      c.source += 1; if (IN_WIX_STATUSES.has(status)) c.inWix += 1;
+      counts.set(subtype, c);
+    }
+    for (const [subtype, c] of counts) kinds.push({ entity: ref, subtype, sourceRecords: c.source, inWix: c.inWix, ...(c.inWix === 0 ? { wholeKindMissing: true } : {}) });
+  }
+  return kinds;
+}
+function wholeKindOperatorAction(kind, plan) {
+  const label = kind.subtype === 'all' ? kind.entity : `${kind.entity} (${kind.subtype})`;
+  const deferred = (plan?.executionScope?.deferredEntities || []).find((d) => d.entityRef === kind.entity);
+  return {
+    code: 'whole-kind-not-imported', severity: 'high', role: 'import-operator', entity: kind.entity,
+    actionId: `whole-kind-not-imported:${kind.entity}:${kind.subtype}`,
+    affectedCount: kind.sourceRecords,
+    action: `Requires Import Operator. ${label}: ${kind.sourceRecords} records not imported (0 in Wix). Reason: ${deferred?.reason || 'none recorded; the import wrote no record of this kind.'} Fix the mapping or importer for ${kind.entity} in the original migration project and resume only that entity; the source records are in the local extract.`,
+    importOperatorPrompt: `None of the ${kind.sourceRecords} ${label} source records reached Wix. Find why (execution scope in mapping/mapping-plan.json, held rows in state/attempts/write-attempts.ndjson), fix it, and resume only ${kind.entity}.`,
+    deadlineReason: 'Resolve before launch: this kind of record is missing from the new site.',
+    artifactRefs: ['execution/completion-report.json', 'mapping/mapping-plan.json', 'state/attempts/write-attempts.ndjson'],
+    prerequisites: ['Original migration project and source extract'],
+    resolutionEvidence: `kindCoverage in execution/completion-report.json shows ${label} with records in Wix.`,
+  };
+}
+
+// A dry run is not backend accounting: its report goes under state/dry-run/, so it can never
+// count as a finished import (the router and every completion gate read execution/ only).
+const DRY_RUN_REPORT_FILE = 'state/dry-run/completion-report.json';
+const DRY_RUN_SUMMARY_FILE = 'state/dry-run/completion-summary.md';
+async function isDryRunPass(projectDir, dryRun) {
+  if (typeof dryRun === 'boolean') return dryRun;
+  try { return await require('./config-env.js').resolveDryRun(projectDir); } catch { return true; }
+}
+async function writeCompletionReport(projectDir, unjoinedReport, { runId = null, appendLog = true, mappingPlanDigest = null, dryRun = null } = {}) {
   if (!unjoinedReport || typeof unjoinedReport !== 'object' || !unjoinedReport.status) {
     throw new Error('writeCompletionReport requires a completion report object');
   }
   const censusReport = JSON.parse(JSON.stringify(unjoinedReport));
+  // The runner's finalize has no lastWriteAt to pass, so a finished run takes it from the attempt
+  // journal's latest successful write (the source the interrupted path already uses).
+  if (!censusReport.lastWriteAt && !censusReport.dryRun) {
+    const { rows } = await require('./local-state').loadAttemptJournal(projectDir).catch(error => { if (error.code === 'ENOENT') return { rows: [] }; throw error; });
+    censusReport.lastWriteAt = rows.filter(row => ['imported', 'succeeded_unverified'].includes(row.status))
+      .map(row => row.ts).filter(ts => typeof ts === 'string' && !Number.isNaN(Date.parse(ts))).sort().pop() || null;
+  }
   if ((censusReport.exclusions || []).some(row => row.censusId)) {
     const { readReconciliation, ownerApprovedCensusIds } = require('./census-reconciliation.js');
     const reconciliation = await readReconciliation(projectDir);
@@ -1909,36 +2283,62 @@ async function writeCompletionReport(projectDir, unjoinedReport, { runId = null,
   const wrote = entities.length ? await gatedEntitiesWrittenInRun(projectDir, gateRun) : new Set();
   if (entities.length) await gateState.update(projectDir, gate => {
     gate.runs[gateRun] ||= { entities: {} };
-    for (const entity of entities) gate.runs[gateRun].entities[entity] ||= { status: 'unknown', stopReason: wrote.has(entity) ? 'gate-not-run' : 'not-run-no-writes', canaries: [] };
+    for (const entity of entities) gate.runs[gateRun].entities[entity] ||= { status: 'unknown', stopReason: wrote.has(require('./read-back-contract').domainOf(entity)) ? 'gate-not-run' : 'not-run-no-writes', canaries: [] };
   });
   for (const entity of entities) await require('./read-back-approval').createAcknowledgement(projectDir, gateRun, entity);
   const gate = await gateState.load(projectDir);
   const readBack = require('./read-back-summary').projectReadBackSummary(gate);
   const gateActions = require('./read-back-gate').operatorActions(gate);
   const readinessActions = await dependencyOperatorActions(projectDir);
-  gateActions.push(...readinessActions, ...await extractIntegrityActions(projectDir));
+  gateActions.push(...readinessActions, ...await extractIntegrityActions(projectDir), ...await sourceFilterActions(projectDir), ...await sourceUnreadActions(projectDir), ...await planSkipActions(projectDir));
   const blocked = gateActions.some(a => ['read-back-gate-stopped', 'read-back-suspect-interval'].includes(a.code));
+  const recordOnlyReadBack = gateActions.some(a => a.code === 'read-back-uncertain-write');
   let report = await joinSourceCoverage(projectDir, { ...censusReport,
     readBack,
-    status: blocked ? worseStatus(censusReport.status, 'incomplete_with_failures') : censusReport.status,
+    status: blocked ? worseStatus(censusReport.status, 'incomplete_with_failures') : recordOnlyReadBack ? worseStatus(censusReport.status, 'complete_with_warnings') : censusReport.status,
     operatorActions: [...(censusReport.operatorActions || []).filter(a => !a.code?.startsWith('read-back-')), ...gateActions] });
   const planFile=path.join(projectDir,'mapping/mapping-plan.json');
   let plan=null;try {plan=JSON.parse(await fs.readFile(planFile,'utf8'));} catch(e) {if(e.code!=='ENOENT') throw e;}
   if (plan?.fieldContractVersion===1) {
-    const {digest,deferredRunResult,deferredMappingActions}=require('./mapping-field-contract.js');
+    const {digest,deferredRunResult,deferredMappingActions,mappingGapCutoverActions,mappingGapLedgerDigest,planChoiceActions,plannedDropRows}=require('./mapping-field-contract.js');
     const pin=mappingPlanDigest || report.mappingPlanDigest;
     const retainedHeadlines=(Array.isArray(report.headline)?report.headline:[]).filter(row=>!['MAPPING_REPORT_BINDING_REQUIRED','MAPPING_SCOPE_DEFERRED'].includes(row?.code));
     if (!pin || pin!==digest(plan) || !plan.executionScope) {
       report={...report,status:'blocked',headline:[{code:'MAPPING_REPORT_BINDING_REQUIRED',message:'Migration is blocked by missing or stale mapping/report binding; independent import counters are retained.'},...retainedHeadlines],blocker:{type:'mapping_report_binding_required',artifact:'mapping/mapping-plan.json',requiredInput:'Regenerate importer/report against its pinned canonical mapping before resuming.'}};
       delete report.mappingPlanDigest; delete report.executionScope;
     } else {
-      const mappingActions = deferredMappingActions(plan);
-      const actions = [...(report.operatorActions || [])];
-      for (const action of mappingActions) if (!actions.some(existing => existing.code === action.code && existing.entity === action.entity)) actions.push(normalizeOperatorAction(action, actions.length));
-      report={...report,mappingPlanDigest:pin,executionScope:structuredClone(plan.executionScope),operatorActions:actions};
-      const deferred=deferredRunResult(plan);
-      if (deferred) report={...report,status:'blocked',headline:[{code:'MAPPING_SCOPE_DEFERRED',message:'Migration remains blocked because every executable entity is deferred; the retained mapping gaps remain visible for recovery.'},...retainedHeadlines],blocker:deferred.blocker};
-      else if (mappingActions.length) report={...report,status:worseStatus(report.status,'complete_with_deferred_records'),headline:[{code:'MAPPING_SCOPE_DEFERRED',message:'Some mapped entities remain deferred as cutover gaps; independent import outcomes are retained.'},...retainedHeadlines]};
+      let mappingLedger = [];
+      try { mappingLedger = JSON.parse(await fs.readFile(path.join(projectDir, 'mapping/review/mapping-gaps.json'), 'utf8')); }
+      catch (error) { if (error.code !== 'ENOENT') throw error; }
+      const ledgerDigest = mappingGapLedgerDigest(mappingLedger, plan);
+      if (plan.mappingGapLedgerDigest && plan.mappingGapLedgerDigest !== ledgerDigest) {
+        report={...report,mappingPlanDigest:pin,executionScope:structuredClone(plan.executionScope),status:'blocked',headline:[{code:'MAPPING_GAP_LEDGER_BINDING_REQUIRED',message:'Migration is blocked because the retained mapping-gap ledger is stale; independent import counters are retained.'},...retainedHeadlines],blocker:{type:'mapping_gap_ledger_binding_required',artifact:'mapping/review/mapping-gaps.json',requiredInput:'Regenerate the mapping plan and completion report from the same current mapping-gap ledger before resuming.'}};
+      } else {
+        const mappingActions = [...deferredMappingActions(plan), ...mappingGapCutoverActions(mappingLedger, plan, { expectedLedgerDigest: plan.mappingGapLedgerDigest })];
+        const actions = [...(report.operatorActions || [])];
+        for (const action of mappingActions) if (!actions.some(existing => existing.code === action.code && existing.entity === action.entity)) actions.push(normalizeOperatorAction(action, actions.length));
+        // Recorded choices (operator, one-click AI or suggestion) are cutover review items; one per decision.
+        for (const action of planChoiceActions(plan)) if (!actions.some(existing => existing.actionId === action.actionId)) actions.push(normalizeOperatorAction(action, actions.length));
+        // Fields the plan drops on purpose are reported as dropped, counted from the read-back inventory.
+        const inventories = new Map();
+        // The inventory is named by the read-back entity (crm/contact -> contact.json), not the plan's
+        // source entity (customer); the same targetRef -> DOMAINS lookup readiness uses.
+        const { DOMAINS } = require('./read-back-contract.js');
+        const countAt = (_source, p, row) => {
+          const domain = Object.keys(DOMAINS).find(name => `${DOMAINS[name]}/${name}` === row?.targetRef);
+          const entity = domain && require('./mapping-field-contract.js').readBackKeyFor(plan, domain, row.sourceEntity);
+          if (!entity) return null;
+          if (!inventories.has(entity)) { let inv = null; try { inv = JSON.parse(require('node:fs').readFileSync(path.join(projectDir, 'execution/read-back-inventory', `${entity}.json`), 'utf8')); } catch { /* none measured */ } inventories.set(entity, inv); }
+          const n = inventories.get(entity)?.sourcePaths?.[p]; return Number.isSafeInteger(n) ? n : null;
+        };
+        const dropped = [...(report.droppedFields || [])];
+        for (const row of plannedDropRows(plan, countAt)) if (!dropped.some(d => d.entity === row.entity && d.field === row.field)) dropped.push(normalizeDroppedField(row, dropped.length));
+        if (dropped.length !== (report.droppedFields || []).length) report = { ...report, droppedFields: dropped };
+        report={...report,mappingPlanDigest:pin,executionScope:structuredClone(plan.executionScope),mappingGapLedgerDigest:ledgerDigest,operatorActions:actions};
+        const deferred=deferredRunResult(plan);
+        if (deferred) report={...report,status:'blocked',headline:[{code:'MAPPING_SCOPE_DEFERRED',message:'Migration remains blocked because every executable entity is deferred; the retained mapping gaps remain visible for recovery.'},...retainedHeadlines],blocker:deferred.blocker};
+        else if (mappingActions.length) report={...report,status:worseStatus(report.status,'complete_with_deferred_records'),headline:[{code:'MAPPING_SCOPE_DEFERRED',message:'Some mapped entities remain deferred as cutover gaps; independent import outcomes are retained.'},...retainedHeadlines]};
+      }
     }
   }
   let redirectReport = null;
@@ -1970,17 +2370,43 @@ async function writeCompletionReport(projectDir, unjoinedReport, { runId = null,
   report = { ...report, notificationMute: mute.block,
     operatorActions: [...keptActions, ...mute.actions.map((row, index) => normalizeOperatorAction(row, keptActions.length + index))] };
   report = await require('./mapping-recovery').joinReport(projectDir, report);
+  // Every remaining issue kind (failed/held/unresolved records, plan choices and drops, open
+  // cutover user actions) becomes a structured cutover task; older rows get actionId and role.
+  report = await require('./cutover-coverage').joinCutoverCoverage(projectDir, report, { plan, normalize: normalizeOperatorAction,
+    worseStatus: (current, next) => (STATUS_RANK.has(current) ? worseStatus(current, next) : current) });
+  // Whole kind at 0 in Wix: named in the top headline, with one cutover task
+  // unless a deferred-mapping task already names that entity's records.
+  if (plan?.fieldContractVersion === 1 && STATUS_RANK.has(report.status) && report.status !== 'aborted' && !(await isDryRunPass(projectDir, dryRun))) {
+    const kindCoverage = await wholeKindCoverage(projectDir, plan);
+    const missing = kindCoverage.filter((kind) => kind.wholeKindMissing);
+    report = { ...report, kindCoverage };
+    if (missing.length) {
+      const actions = [...(report.operatorActions || [])];
+      for (const kind of missing) {
+        const named = actions.some((a) => a.entity === kind.entity && ['mapping-scope-deferred', 'whole-kind-not-imported'].includes(a.code) && (a.code !== 'whole-kind-not-imported' || a.actionId === `whole-kind-not-imported:${kind.entity}:${kind.subtype}`));
+        if (!named) actions.push(normalizeOperatorAction(wholeKindOperatorAction(kind, plan), actions.length));
+      }
+      // Never blocks the run (writers never block): an existing non-blocking status, with the
+      // shortfall as the top headline, never "succeeded" wording.
+      report = { ...report, status: worseStatus(report.status, 'complete_with_deferred_records'), operatorActions: actions,
+        headline: [{ code: 'WHOLE_KIND_NOT_IMPORTED', message: `Not everything was imported: ${missing.map((k) => `${k.subtype === 'all' ? k.entity : `${k.entity}/${k.subtype}`} 0 of ${k.sourceRecords}`).join(', ')}.` },
+          ...(report.headline || []).filter((row) => row?.code !== 'WHOLE_KIND_NOT_IMPORTED')] };
+    }
+  }
   // Fence: checked last, so a stop that latched while this report was being joined still lands.
   if (!report.interruption) {
     const latched = latchedInterruption(projectDir);
     if (latched) report = stampInterruption(report, latched);
   }
-  const reportPath = path.join(projectDir, COMPLETION_REPORT_FILE);
-  const summaryPath = path.join(projectDir, COMPLETION_SUMMARY_FILE);
+  const dry = await isDryRunPass(projectDir, dryRun);
+  if (dry) report = { ...report, dryRun: true };
+  const reportPath = path.join(projectDir, dry ? DRY_RUN_REPORT_FILE : COMPLETION_REPORT_FILE);
+  const summaryPath = path.join(projectDir, dry ? DRY_RUN_SUMMARY_FILE : COMPLETION_SUMMARY_FILE);
   const summary = renderCompletionSummary(report);
+  await fs.mkdir(path.dirname(reportPath), { recursive: true });
   await writeFileAtomic(reportPath, `${JSON.stringify(report, null, 2)}\n`);
   await writeFileAtomic(summaryPath, summary);
-  if (appendLog) {
+  if (appendLog && !dry) {
     await appendExecutionLog(projectDir, {
       runId: runId || report.runId || 'unknown-run',
       phase: 'completion',
@@ -1993,13 +2419,17 @@ async function writeCompletionReport(projectDir, unjoinedReport, { runId = null,
 }
 
 module.exports = {
-  dependencyOperatorActions,
+  wholeKindCoverage,
+  planSkipActions, dependencyOperatorActions,
   extractIntegrityActions,
+  sourceFilterActions,
+  sourceUnreadActions,
   COMPLETION_STATUS,
   VOUCHER_RECONCILIATION,
   handoffVoucherSignal,
   COMPLETION_REPORT_FILE,
   COMPLETION_SUMMARY_FILE,
+  DRY_RUN_REPORT_FILE,
   CAUSE_CONFIDENCE,
   normalizeCauseAttribution,
   renderCompletionSummary,

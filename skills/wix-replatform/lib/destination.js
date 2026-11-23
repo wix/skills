@@ -11,17 +11,19 @@ const path = require('node:path');
 
 const { readEnvFile, upsertEnvFile } = require('./config-env.js');
 const { CallTimeoutError, boundedRequest, isTransientStatus, retryAfterMs } = require('./destination-http.js');
-const { editorTypeFromUrls, HARMONY_EDITOR_TYPE } = require('./editor-type.js');
+const { editorTypeFromUrls, HARMONY_EDITOR_TYPE, STUDIO_TWO_EDITOR_TYPE } = require('./editor-type.js');
 
 const {
   getDecisionValue,
   getEffectiveDeliveryMode,
   isEditorSiteType,
+  isExplicitUserOneClick,
+  wixAccountRef,
   isNewSiteStrategy,
   readSiteTypeDecision,
 } = require('./orchestration-decisions.js');
 const { loadArtifacts, writeJsonAtomic } = require('./orchestration-state.js');
-const { createUserAction, readUserAction, listUserActions } = require('./user-actions.js');
+const { createUserAction, readUserAction, listUserActions, supersedeUserAction } = require('./user-actions.js');
 const { editorWebsiteRequestInput, siteTypeRequestInput, KNOWN_BUSINESS_TYPES } = require('./destination-choice.js');
 const { tokenExpiresAt } = require('./wix-auth.js');
 
@@ -35,7 +37,10 @@ const BLANK_TEMPLATES = Object.freeze({
 // "Developer Tools" gives a site its Secrets Manager and the `secrets` object. Headless sites
 // come with it; Harmony and Studio sites do not.
 const DEVELOPER_TOOLS_APP_DEF_ID = '4b10fcce-732d-4be3-9d46-801d271acda9';
-const EXPECTED_EDITOR = Object.freeze({ studio: 'WIX_STUDIO', harmony: HARMONY_EDITOR_TYPE, headless: 'EDITORLESS' });
+const EXPECTED_EDITOR = Object.freeze({ studio: 'WIX_STUDIO', harmony: HARMONY_EDITOR_TYPE, headless: 'EDITORLESS', studio2: STUDIO_TWO_EDITOR_TYPE });
+// The Studio 2 blank template is not fixed: Wix's Studio 2 start address redirects to the editor with the
+// current template id as `originTemplateId`. It is looked up on every create and never stored here.
+const STUDIO_TWO_TEMPLATE_ADDRESS = 'https://newstudio2.net';
 
 const URLS = Object.freeze({
   createFromTemplate: 'https://www.wixapis.com/msm/v1/meta-site/create-from-template',
@@ -56,6 +61,7 @@ const LIMITS = Object.freeze({
   publicationRetryAfterCapMs: 30_000,
   publicationBudgetMs: 90_000,
   publicationMinLeftMs: 1_000,
+  templateLookupTimeoutMs: 15_000,
 });
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -89,7 +95,7 @@ function validateReceipt(receipt) {
   if (!receipt || typeof receipt !== 'object' || receipt.invalid) return ['orchestration/destination.json is not valid JSON'];
   if (receipt.schemaVersion !== RECEIPT_SCHEMA_VERSION) errors.push(`destination receipt schemaVersion must be ${RECEIPT_SCHEMA_VERSION}`);
   if (!RECEIPT_STATUSES.includes(receipt.status)) errors.push(`destination receipt status must be one of ${RECEIPT_STATUSES.join(', ')}`);
-  if (!['headless', 'studio', 'harmony'].includes(receipt.requestedSiteType)) errors.push('destination receipt requestedSiteType is invalid');
+  if (!Object.keys(EXPECTED_EDITOR).includes(receipt.requestedSiteType)) errors.push('destination receipt requestedSiteType is invalid');
   if (receipt.metaSiteId != null && !UUID_RE.test(String(receipt.metaSiteId))) errors.push('destination receipt metaSiteId is not a metasite id');
   return errors;
 }
@@ -105,6 +111,23 @@ function normalizeSiteName(value, { fallback = 'replatform-site', suffix = '' } 
   name = name.replace(/-+$/, '');
   while (name.length < 4) name += '0';
   return name;
+}
+
+// The project id is a slug of the whole host (`beantownbedding-com`), and Wix shows the site name as
+// written, so the new site would read "Beantownbedding Com". Name it after the source host's own
+// label instead (`beantownbedding`). Returns null when nothing usable is left, so the project id is
+// still the fallback.
+const SECOND_LEVEL_LABELS = new Set(['co', 'com', 'org', 'net', 'ac', 'gov', 'edu']);
+function siteNameFromSourceUrl(sourceUrl) {
+  if (!sourceUrl) return null;
+  let host;
+  try { host = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(String(sourceUrl)) ? String(sourceUrl) : `https://${sourceUrl}`).hostname; } catch { return null; }
+  const labels = host.toLowerCase().replace(/^www\./, '').split('.').filter(Boolean);
+  if (labels.length < 2) return null;
+  labels.pop();
+  if (labels.length > 1 && SECOND_LEVEL_LABELS.has(labels[labels.length - 1])) labels.pop();
+  const name = labels[labels.length - 1];
+  return name && /^[a-z0-9][a-z0-9-]{3,}$/.test(name) ? name : null;
 }
 
 function identityRef(identity) {
@@ -403,6 +426,24 @@ async function createFromTemplate(deps, { accountToken, templateId, siteName }) 
   return { outcome: 'failed_before_create', error: errorFromCreateResponse(res) };
 }
 
+// The Studio 2 blank template id, read from the redirect of the Studio 2 start address. Any failure
+// (no answer, no redirect, no `originTemplateId`, an id that is not a UUID) returns an error and no id:
+// the caller creates nothing, and never falls back to another editor's template.
+async function lookUpStudioTwoTemplate(deps) {
+  const unavailable = (message) => ({ ok: false, error: { code: 'template_unavailable', message, nextAction: 'The Wix Studio 2 blank template could not be found (capability recovery). Retry later; do not switch editor or fall back to another site type.' } });
+  let res;
+  try {
+    res = await boundedRequest(deps, STUDIO_TWO_TEMPLATE_ADDRESS, { method: 'HEAD', redirect: 'manual' }, LIMITS.templateLookupTimeoutMs);
+  } catch (error) {
+    return unavailable(`the Studio 2 template lookup failed: ${String(error.message || error).slice(0, 200)}`);
+  }
+  if (!res.location) return unavailable(`the Studio 2 template address answered HTTP ${res.status} with no redirect`);
+  let templateId = null;
+  try { templateId = new URL(res.location, STUDIO_TWO_TEMPLATE_ADDRESS).searchParams.get('originTemplateId'); } catch { templateId = null; }
+  if (!templateId || !UUID_RE.test(templateId)) return unavailable('the Studio 2 template redirect named no valid originTemplateId');
+  return { ok: true, templateId, templateSource: STUDIO_TWO_TEMPLATE_ADDRESS };
+}
+
 function bearer(token) {
   const text = String(token).trim();
   return /^Bearer\s/i.test(text) ? text : `Bearer ${text}`;
@@ -587,7 +628,12 @@ async function checkPublication(deps, projectDir, receipt, siteToken, { recheckR
   const publicationRead = await readWithCredentialRetry(deps, receipt.metaSiteId, siteToken,
     (readToken) => readPublication(deps, { siteToken: readToken, metaSiteId: receipt.metaSiteId }));
   const observation = publicationRead.observation;
-  receipt.publication = { ...observation, ...(recheckRequestId ? { recheckRequestId } : {}) };
+  // H48: consecutive unpublished readbacks, so the router can stop asking every 10 minutes.
+  const previous = receipt.publication || {};
+  const unpublishedStreak = observation.state === 'unpublished'
+    ? (previous.state === 'unpublished' && Number.isInteger(previous.unpublishedStreak) ? previous.unpublishedStreak : previous.state === 'unpublished' ? 1 : 0) + 1
+    : 0;
+  receipt.publication = { ...observation, unpublishedStreak, ...(recheckRequestId ? { recheckRequestId } : {}) };
   if (observation.state === 'unpublished') {
     // First time this editor site verifies: install the app once, then save `verified` with the outcome.
     // `publicationRead.siteToken` is the credential the read succeeded with: after a 401 refresh it is the
@@ -642,7 +688,7 @@ async function freshPublicationReadback(deps, projectDir, receipt, { recheckRequ
 // --- intended account (confirm the intended account before mutation) ----------------
 
 const ACCOUNT_CONFIRMATION = 'destination_account_confirmation';
-const EDITOR_LABEL = Object.freeze({ studio: 'Wix Studio', harmony: 'Wix Harmony' });
+const EDITOR_LABEL = Object.freeze({ studio: 'Wix Studio', harmony: 'Wix Harmony', studio2: 'Wix Studio 2' });
 
 // The account the Wix CLI is logged into right now: the `whoami` identity (shown to the
 // operator, stored only as a hash) and the login's user id, which the creation response's
@@ -678,8 +724,16 @@ async function latestAccountConfirmation(projectDir) {
 // create. The newest confirmation request decides: pending waits; `confirm_account` binds the
 // account it showed, but only while that same account is still logged in; anything else
 // (switched login, `switched_account`) raises a new request that shows the current account.
-async function confirmIntendedAccount(projectDir, receipt, account) {
+// One-click: when the user named the account for this run (`wixAccount`) and that is the login,
+// it is confirmed without asking. A different login is a real blocker: the request stays.
+async function confirmIntendedAccount(projectDir, receipt, account, decisions = {}) {
   const latest = await latestAccountConfirmation(projectDir);
+  const named = getDecisionValue(decisions, 'wixAccount');
+  const namedMatches = Boolean(named) && wixAccountRef(named) === wixAccountRef(account.identity);
+  if (namedMatches && isExplicitUserOneClick(decisions)) {
+    if (latest && latest.status === 'pending') await supersedeUserAction(projectDir, latest.requestId);
+    return { ok: true, intended: { identityRef: account.identityRef, userId: account.userId, confirmationRequestId: null, confirmedBy: 'one_click_named_account', decisionRef: 'orchestration/decisions.json#wixAccount', confirmedAt: new Date().toISOString() } };
+  }
   if (latest && latest.status === 'pending') return { ok: false, awaiting: true, requestId: latest.requestId };
   if (latest && latest.status === 'answered' && latest.answer && latest.answer.choice === 'confirm_account' && sameAccount(latest.subject, account)) {
     return { ok: true, intended: { identityRef: account.identityRef, userId: account.userId, confirmationRequestId: latest.requestId, confirmedAt: latest.answer.answeredAt || null } };
@@ -689,7 +743,7 @@ async function confirmIntendedAccount(projectDir, receipt, account) {
     kind: 'question',
     stage: 'destination',
     title: 'Confirm the Wix account for the new site',
-    prompt: `RePlatform is about to create the new ${EDITOR_LABEL[receipt.requestedSiteType]} site "${siteName}" in the Wix account the Wix CLI is logged into: ${account.identity}. Confirm that this is the intended account; nothing is created until you do. If it is not, log the Wix CLI into the intended account first, then choose "I switched accounts" so the account is shown again.`,
+    prompt: `${named && !namedMatches ? 'The Wix CLI is not logged into the account named for this run. ' : ''}RePlatform is about to create the new ${EDITOR_LABEL[receipt.requestedSiteType]} site "${siteName}" in the Wix account the Wix CLI is logged into: ${account.identity}. Confirm that this is the intended account; nothing is created until you do. If it is not, log the Wix CLI into the intended account first, then choose "I switched accounts" so the account is shown again.`,
     response: { mode: 'choice', required: true },
     choices: [
       { id: 'confirm_account', label: 'Create the site in this account', description: 'This is the intended Wix account. The creation response must name this login as the site owner.' },
@@ -702,7 +756,7 @@ async function confirmIntendedAccount(projectDir, receipt, account) {
 
 // Before any create: the logged-in account must be the confirmed intended account. With
 // `confirm: false` it only re-checks a recorded binding.
-async function requireAccount(deps, projectDir, receipt, { confirm = true } = {}) {
+async function requireAccount(deps, projectDir, receipt, { confirm = true, decisions = {} } = {}) {
   const account = await readCurrentAccount(deps);
   if (!account.ok) return account;
   receipt.accountIdentityRef = account.identityRef;
@@ -711,7 +765,7 @@ async function requireAccount(deps, projectDir, receipt, { confirm = true } = {}
       return { ok: false, error: { code: 'account_mismatch', message: 'The Wix CLI is logged into a different account from the one confirmed for this site.', nextAction: 'Log the Wix CLI back into the confirmed account, then retry. To use another account instead, retry while logged into it and confirm that account when asked.' } };
     }
   } else if (confirm) {
-    const confirmation = await confirmIntendedAccount(projectDir, receipt, account);
+    const confirmation = await confirmIntendedAccount(projectDir, receipt, account, decisions);
     if (!confirmation.ok) return confirmation;
     receipt.intendedAccount = confirmation.intended;
   }
@@ -745,7 +799,7 @@ async function markAmbiguous(deps, projectDir, receipt, error) {
 
 async function createEditorSite(deps, projectDir, receipt, decisions) {
   const { clock } = deps;
-  const account = await requireAccount(deps, projectDir, receipt);
+  const account = await requireAccount(deps, projectDir, receipt, { decisions });
   // Awaiting the account confirmation writes nothing: no receipt status changes, no attempt.
   if (!account.ok && account.awaiting) return awaitingAccount(account);
   if (!account.ok) return failBeforeCreate(deps, projectDir, receipt, account.error);
@@ -753,7 +807,12 @@ async function createEditorSite(deps, projectDir, receipt, decisions) {
   // Harmony and Studio sites are both created from the public blank template. Harmony's AI site
   // generation lives behind a private service with no stability promise, so it is not used.
   receipt.creationMethod = 'blank_template';
-  receipt.templateId = BLANK_TEMPLATES[receipt.requestedSiteType];
+  if (receipt.requestedSiteType === 'studio2') {
+    const template = await lookUpStudioTwoTemplate(deps);
+    if (!template.ok) return failBeforeCreate(deps, projectDir, receipt, template.error);
+    receipt.templateId = template.templateId;
+    receipt.templateSource = template.templateSource;
+  } else receipt.templateId = BLANK_TEMPLATES[receipt.requestedSiteType];
   receipt.siteName = normalizeSiteName(receipt.siteName || receipt.projectId, { suffix: receipt.nameSuffix || '' });
   await saveReceipt(projectDir, receipt, clock);
   const created = await createFromTemplate(deps, { accountToken: account.accountToken, templateId: receipt.templateId, siteName: receipt.siteName });
@@ -1059,7 +1118,7 @@ async function ensureDestinationLocked(projectDir, deps) {
       const request = await createUserAction(projectDir, siteTypeRequestInput({
         contextBusinessType,
         evidenceRef: contextBusinessType ? clip(brief.businessTypeEvidenceRef, 200) : null,
-        siteName: normalizeSiteName(artifacts.run && artifacts.run.projectId),
+        siteName: normalizeSiteName(siteNameFromSourceUrl(getDecisionValue(decisions, 'sourceUrl')) || (artifacts.run && artifacts.run.projectId)),
       }));
       return { outcome: 'awaiting_site_type', requestId: request.requestId };
     }
@@ -1092,6 +1151,7 @@ async function ensureDestinationLocked(projectDir, deps) {
 
   if (!receipt) {
     receipt = newReceipt({ projectId: (artifacts.run && artifacts.run.projectId) || path.basename(projectDir), siteType, pair: choice, clock, randomUUID: deps.randomUUID });
+    receipt.siteName = siteNameFromSourceUrl(getDecisionValue(decisions, 'sourceUrl'));
     return createEditorSite(deps, projectDir, receipt, decisions);
   }
 
@@ -1133,6 +1193,7 @@ module.exports = {
   URLS,
   ensureDestination,
   normalizeSiteName,
+  siteNameFromSourceUrl,
   readPublication,
   readReceipt,
   receiptPath,

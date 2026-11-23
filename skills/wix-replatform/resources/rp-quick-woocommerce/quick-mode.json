@@ -50,6 +50,9 @@
       "dependsOn": [
         "product_category",
         "product_tag"
+      ],
+      "auxiliaryTargets": [
+        "stores/inventory-item"
       ]
     }
   ],

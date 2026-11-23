@@ -20,6 +20,7 @@
     }
   ],
   "dependsOn": ["stores/product"],
+  "dependencyModes": { "stores/product": "task-complete" },
   "preferredWrite": {
     "surface": "Manual -- no API; merchant connects/creates an eBay shop via the Wix dashboard",
     "endpoint": null,

@@ -1,5 +1,7 @@
 'use strict';
 
+const { isWixCollectionId, archiveCollectionIdMatchesSource } = require('./cms-collection-id.js');
+
 // A pending producer proves executable setup exists, never that setup has already run.
 function plannedProducer(plan, ref, projectDir) {
   const A = require('./operation-assessments');
@@ -7,7 +9,8 @@ function plannedProducer(plan, ref, projectDir) {
   for (const r of requirements) {
     if (!r || !Array.isArray(r.entityRefs) || !r.entityRefs.includes(ref) || !Array.isArray(r.evidence) || !r.evidence.length) continue;
     for (const e of r.evidence) A.artifact(projectDir, e);
-    if (r.id === 'create-cms-collections' && ref === 'cms/collection' && r.collections?.length && r.collections.every(c => c.id && Array.isArray(c.fields) && c.permissions)) {
+    if (r.id === 'create-cms-collections' && ref === 'cms/collection' && r.collections?.length && r.collections.every(c =>
+      isWixCollectionId(c.id) && (!c.sourceEntity || archiveCollectionIdMatchesSource(c.id, c.sourceEntity)) && Array.isArray(c.fields) && c.permissions)) {
       return {kind:'pending-setup', stepId:r.id, executor:'create-cms-collections'};
     }
     const writers = require('../resources/rp-target-wix/lib/wix-writers');

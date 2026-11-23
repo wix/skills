@@ -46,6 +46,9 @@
     "wpjm-internal": { "displayName": "WP Job Manager", "slug": "wp-job-manager" },
     "pw-woocommerce-gift-cards": { "displayName": "PW WooCommerce Gift Cards", "slug": "pw-woocommerce-gift-cards" },
     "ctxfeed": { "displayName": "CTX Feed", "slug": "webappick-product-feed-for-woocommerce" },
-    "sliderrevolution": { "displayName": "Slider Revolution", "slug": "revslider" }
+    "sliderrevolution": { "displayName": "Slider Revolution", "slug": "revslider" },
+    "code-snippets": { "displayName": "Code Snippets", "slug": "code-snippets" },
+    "wp-rocket": { "displayName": "WP Rocket", "slug": "wp-rocket" },
+    "wpcf7r": { "displayName": "Redirection for Contact Form 7", "slug": "wpcf7-redirect" }
   }
 }

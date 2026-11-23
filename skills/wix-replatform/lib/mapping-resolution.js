@@ -45,8 +45,8 @@ function entityResolution(row) {
     pending: F.pendingDecision(row, d),
     ...(d.disposition === 'deferred-field' ? {pendingRestoration:true, recovery:d.recovery} : {}),
     locations: F.decisionLocations(d).sort(),
-    outputs: (d.outputs || []).map(o => ({ ref: `${d.id}:${o.id}`, targetRef: o.targetRef, writeOperation: o.writeOperation, writePath: L.join(o.writeInput, o.targetPath), sourceLocations: F.outputLocations(d, o).sort(), ...(o.appliesWhen !== undefined ? { appliesWhen: o.appliesWhen } : {}) })),
-    omittedOutputs: (d.omittedOutputs || []).map(o => ({ writeOperation: o.writeOperation, writePath: L.join(o.writeInput, o.targetPath) }))
+    outputs: (d.outputs || []).map(o => ({ ref: `${d.id}:${o.id}`, targetRef: o.targetRef, writeOperation: o.writeOperation, writePath: require('./writer-request-shape.js').writePath(o), sourceLocations: F.outputLocations(d, o).sort(), ...(o.appliesWhen !== undefined ? { appliesWhen: o.appliesWhen } : {}) })),
+    omittedOutputs: (d.omittedOutputs || []).map(o => ({ writeOperation: o.writeOperation, writePath: require('./writer-request-shape.js').writePath({ targetRef: row.targetRef, ...o }) }))
   })).sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
   const claimed = new Set(decisions.flatMap(d => d.locations));
   const coverage = F.coverageLocations(row);

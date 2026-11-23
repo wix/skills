@@ -330,6 +330,88 @@ async function shopifySessionCheck(projectDir, probeShopifySession) {
   return makeCheck('source_credentials', label, 'pass', `Shopify CLI session checked for ${shopDomain}`, { shopDomain, cliVersion: receipt.cliVersion || null, apiVersion: receipt.apiVersion || null });
 }
 
+// --- source input files -------------------------------------------------------------------
+// The user's `inputs/source.<platform>.env` (in the project or the workspace that holds
+// `migrations/<project>`) is copied into `config/` with canonical key names and recorded as
+// `sourceCredentialRef`, so preflight never asks for a file the user already gave.
+const SOURCE_KEY_ALIASES = Object.freeze({
+  WP_BASE_URL: ['WP_SITE_URL', 'WP_URL', 'WORDPRESS_URL', 'WOOCOMMERCE_URL', 'WC_STORE_URL'],
+  WP_USERNAME: ['WP_USER', 'WP_ADMIN_USER', 'WORDPRESS_USERNAME', 'WORDPRESS_USER'],
+  WP_APPLICATION_PASSWORD: ['WP_APP_PASSWORD', 'WP_APPLICATION_PASS', 'WORDPRESS_APP_PASSWORD', 'WORDPRESS_APPLICATION_PASSWORD'],
+});
+const WP_FAMILY = new Set(['wordpress', 'woocommerce']);
+const usable = (value) => typeof value === 'string' && value.trim() !== '' && value !== 'REPLACE_WITH_REAL_VALUE';
+
+function sourceInputDirs(projectDir) {
+  const project = path.resolve(projectDir);
+  const configuredRoot = process.env.REPLATFORM_MIGRATIONS_DIR
+    ? path.resolve(process.env.REPLATFORM_MIGRATIONS_DIR)
+    : path.dirname(project);
+  const relative = path.relative(configuredRoot, project);
+  const projectUsesConfiguredRoot = relative && !relative.startsWith(`..${path.sep}`)
+    && relative !== '..' && !path.isAbsolute(relative);
+  const migrationsRoot = projectUsesConfiguredRoot ? configuredRoot : path.dirname(project);
+  return [...new Set([path.join(project, 'inputs'), path.resolve(migrationsRoot, '..', 'inputs')])];
+}
+
+// Canonical keys missing from `values`, filled from their aliases.
+function aliasUpdates(values) {
+  const updates = {};
+  for (const [key, aliases] of Object.entries(SOURCE_KEY_ALIASES)) {
+    if (usable(values[key])) continue;
+    const alias = aliases.find((name) => usable(values[name]));
+    if (alias) updates[key] = values[alias];
+  }
+  return updates;
+}
+
+async function adoptSourceInputFiles(projectDir, artifacts) {
+  const { upsertEnvFile } = require('./config-env.js');
+  const decisions = artifacts.decisions || {};
+  const recordedPlatform = getDecisionValue(decisions, 'sourcePlatform');
+  const adopted = [];
+  for (const dir of sourceInputDirs(projectDir)) {
+    let names = [];
+    try { names = fs.readdirSync(dir); } catch { continue; }
+    for (const name of names.sort()) {
+      const match = /^source\.([a-z0-9-]+)\.env$/.exec(name);
+      if (!match || !(match[1] in SOURCE_CONFIG_BY_PLATFORM)) continue;
+      const input = await readEnvFile(path.join(dir, name));
+      const values = { ...input, ...aliasUpdates(input) };
+      // A WordPress file also serves a WooCommerce run (same keys), and the reverse.
+      const platforms = new Set([match[1]]);
+      if (WP_FAMILY.has(match[1]) && WP_FAMILY.has(recordedPlatform)) platforms.add(recordedPlatform);
+      for (const platform of platforms) {
+        const target = configFileForPlatform(projectDir, platform);
+        let current = {};
+        try { current = await readEnvFile(target); } catch (error) { if (!error || error.code !== 'ENOENT') throw error; }
+        const updates = {};
+        for (const [key, value] of Object.entries(values)) if (usable(value) && !usable(current[key])) updates[key] = value;
+        if (Object.keys(updates).length) await upsertEnvFile(target, updates);
+        adopted.push({ platform, file: path.relative(projectDir, target), keys: Object.keys(updates).sort() });
+      }
+    }
+  }
+  // A config file written with alias names gets its canonical keys too.
+  for (const platform of Object.keys(PRIVATE_SOURCE_CONFIG_BY_PLATFORM)) {
+    const target = configFileForPlatform(projectDir, platform);
+    let current;
+    try { current = await readEnvFile(target); } catch { continue; }
+    const updates = aliasUpdates(current);
+    if (Object.keys(updates).length) {
+      await upsertEnvFile(target, updates);
+      adopted.push({ platform, file: path.relative(projectDir, target), keys: Object.keys(updates).sort() });
+    }
+  }
+  const ref = adopted.find((entry) => entry.platform === recordedPlatform) || adopted[0];
+  if (ref && !getDecisionValue(decisions, 'sourceCredentialRef')) {
+    const { updateDecisionObject, writeJsonAtomic } = require('./orchestration-state.js');
+    updateDecisionObject(decisions, 'sourceCredentialRef', ref.file, { source: 'deterministic_inference', rationale: 'source env file supplied in inputs/ or config/' });
+    await writeJsonAtomic(path.join(projectDir, 'orchestration', 'decisions.json'), decisions);
+  }
+  return adopted;
+}
+
 function configFileForPlatform(projectDir, platform) {
   return path.join(projectDir, 'config', `source.${platform}.env`);
 }
@@ -458,11 +540,22 @@ function toolkitDependenciesCheck(resolveModule) {
     : makeCheck('toolkit_dependencies', 'Toolkit dependencies', 'pass', 'bundled toolkit dependencies load');
 }
 
+// H49: free disk space before the extract writes anything.
+function diskSpaceCheck(projectDir, options = {}) {
+  const result = require('./disk-space.js').checkDiskSpace(projectDir, options.diskSpace || {});
+  const details = { freeBytes: result.freeBytes, neededBytes: result.neededBytes, records: result.records };
+  if (result.unknown) return makeCheck('disk_space', 'Free disk space', 'info', result.message, details);
+  return makeCheck('disk_space', 'Free disk space', result.ok ? 'pass' : 'blocked', result.message, details);
+}
+
 async function runPreflight(projectDir, artifacts, options = {}) {
   const probeWixCli = options.probeWixCli || defaultProbeWixCli;
   const progress = options.progress || null;
+  const adopted = await adoptSourceInputFiles(projectDir, artifacts);
   const checks = await localPreflightChecks(projectDir, artifacts, options);
+  if (adopted.length) checks.unshift(makeCheck('source_input_files', 'Source input files', 'info', `adopted ${adopted.map((entry) => entry.file).join(', ')}`, { adopted }));
   checks.push(toolkitDependenciesCheck(options.resolveModule));
+  checks.push(diskSpaceCheck(projectDir, options));
   progress?.progress('Wix CLI probe started', { phase: 'preflight', step: 'wix-cli' });
   const wixCli = progress
     ? await progress.withHeartbeat({ phase: 'preflight', step: 'wix-cli', message: 'Still probing Wix CLI' }, probeWixCli)
@@ -502,6 +595,7 @@ async function runPreflight(projectDir, artifacts, options = {}) {
 
 module.exports = {
   SCHEMA_VERSION,
+  adoptSourceInputFiles,
   defaultProbeWixCli,
   defaultProbeShopifySession,
   localPreflightChecks,

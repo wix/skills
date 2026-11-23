@@ -45,7 +45,7 @@ async function acquire(projectDir, fn) {
   const deadline = Date.now() + 30000;
   for (;;) {
     try {
-      return await local.withStateLock(projectDir, fn);
+      return await local.withStateLock(projectDir, fn, { script: 'read-back-state.js', reentrant: true });
     } catch (e) {
       if (!/state lock already held/.test(e.message) || Date.now() >= deadline) throw e;
       await new Promise(r => setTimeout(r, crypto.randomInt(10, 40)));

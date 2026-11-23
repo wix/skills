@@ -5,6 +5,14 @@ categories, blog posts, customers, orders, and more, depending on the source. Yo
 coding agent a source site (or export files); the skill discovers what is there, maps it to
 Wix, and imports it into a Wix site you approve.
 
+> Use this skill only to migrate websites and content that you have the right to transfer to Wix.
+
+Before a new migration reads anything from your source site, your agent shows you this sentence
+and asks you to approve it: **I confirm** or **Cancel**. Cancel stops the run. Your agent asks this
+in 1-click mode too. In a run started with the `replatform` command, the question normally arrives
+as a request you answer with `replatform answer`, but this isn't guaranteed.
+When telemetry is on, your answer is logged with the run's telemetry.
+
 It works in Claude Code, Cursor, and other agents that support skills. Migration progress is
 saved to disk, so a run that stops can be resumed instead of restarted.
 
@@ -47,8 +55,9 @@ website. Ask me once, up front, for anything you still need.
 ```
 
 You will be asked once, in one grouped question, only for what your prompt did not already
-say. The one choice that is never defaulted is the type of the new site (Headless, Wix Studio
-or Wix Harmony), plus the business type if you pick Harmony. After that the run continues on its own and finishes with a Migration review of what was imported and what
+say. Some answers are never defaulted, including your confirmation that you have the right to
+transfer the site to Wix and the type of the new site (Headless, Wix Studio or Wix Harmony), plus
+the business type if you pick Harmony. After that the run continues on its own and finishes with a Migration review of what was imported and what
 needs your attention.
 
 ### 2. Full migration with review before anything is imported
@@ -162,26 +171,6 @@ To pull in records that arrived after an import ("the source kept selling"), ask
 to re-run the import for the same project. It reuses the destination and mapping instead of
 starting over.
 
-### What the background agents may touch
-
-When a stage runs in a background agent, it runs confined, and the run stops instead of running
-unconfined if the confinement cannot start. There is no switch to turn the confinement off.
-
-- **Claude Code** runs its commands in Claude Code's OS sandbox and writes files only inside the
-  migration project (it is never started with a flag that skips permission checks). It can reach the Wix
-  endpoints, the source site you pass with `--source-url` and its subdomains, and any hosts you list in
-  `RP_AGENT_ALLOWED_DOMAINS` (comma-separated, for example a separate image CDN); every other host,
-  including cloud metadata addresses, is refused. Your SSH, cloud and Git credential folders are hidden
-  from its commands. Nothing in the project can add a host: a resumed run takes no `--source-url`, so set
-  `RP_AGENT_ALLOWED_DOMAINS` to the source host when a resumed stage needs to read the source.
-- **Codex** runs in its `workspace-write` sandbox: it writes only inside the migration project and the
-  temp directories. Codex's sandbox has only an on/off switch for the network, so it is on (the Wix and
-  source-site calls need it); it does not limit which hosts Codex reaches.
-
-The sandboxes need macOS, or Linux/WSL2 with `bubblewrap` and `socat` installed. On a machine without
-them (Windows, a minimal Linux), background agents do not start; run the stages in your own agent
-session instead.
-
 ### What the skill sends to Wix
 
 Each run sends two small messages to a Wix service: one when the run starts, with a random
@@ -240,11 +229,18 @@ shorthand for `node <skill>/scripts/replatform.js`; there is no separate install
 | `projects`, `doctor`, `account` | List projects, check prerequisites, show the Wix CLI identity. |
 | `completion <shell>`, `help` | Print bash, zsh or fish completion; show help for a command. |
 
+When the host agent is Codex, the supervised worker executes each routed resource directly
+and does not create nested Codex sub-workers. This keeps progress independent of the headless
+collaboration stream's startup status while preserving the same durable handoffs and QA checks.
+
 Useful `run` flags: `--source-mode`, `--file <path>` (repeatable, for `files_only`),
 `--delivery-mode`, `--destination new|existing:<site-id>`, `--notification-mute on|off`,
 `--dry-run`, `--detach`, `--format text|json|jsonl`, and the limits `--wall-timeout`
-(at least 60s), `--idle-timeout`, `--worker-startup-timeout` and `--max-agent-turns`. The
-runner records raw adapter events under `state/runner/vendor-events.ndjson` and retries once
+(at least 60s, default off), `--idle-timeout` (default `60m`, max `2h`),
+`--worker-startup-timeout` (default `120s`) and `--max-agent-turns` (default `60` agent turns).
+The idle clock resets on agent output and on any growth of `execution/progress.ndjson`, which
+the runner passes to the agent as `PROGRESS_LOG`, so a long background step (discovery, extract,
+import) is not counted as idle. The runner records raw adapter events under `state/runner/vendor-events.ndjson` and retries once
 only when a structured sub-worker has no session output, terminal event, or newly written
 handoff. Run `replatform run --help` for the full list.
 

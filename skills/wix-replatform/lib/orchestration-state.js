@@ -708,6 +708,15 @@ function explicitRunBlocker(resumeFrom) {
   };
 }
 
+// A recorded stop keeps its time so the router can tell whether the named owner stage ran
+// after it. Stops recorded before this stamp existed take the hold's last update on resume.
+function stampResumeFrom(run, status, resumeFrom, timestamp) {
+  if (!resumeFrom || typeof resumeFrom !== 'object' || Array.isArray(resumeFrom) || resumeFrom.recordedAt) return resumeFrom;
+  if (status === 'blocked') return { ...resumeFrom, recordedAt: timestamp };
+  if (run.status === 'blocked' && run.updatedAt) return { ...resumeFrom, recordedAt: run.updatedAt };
+  return resumeFrom;
+}
+
 function transitionRun(run, { state, activePhase, status = run.status, needsUserInput = run.needsUserInput, needsLlm = run.needsLlm, resumeFrom = run.resumeFrom, timestamp = nowIso() }) {
   if (!ORCHESTRATION_STATES.has(state)) {
     throw new Error(`invalid state: ${state}`);
@@ -718,6 +727,7 @@ function transitionRun(run, { state, activePhase, status = run.status, needsUser
   if (!RUN_STATUS.has(status)) {
     throw new Error(`invalid run status: ${status}`);
   }
+  resumeFrom = stampResumeFrom(run, status, resumeFrom, timestamp);
   return {
     ...run,
     currentState: state,

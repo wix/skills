@@ -28,6 +28,7 @@ const {
   invalidSourceModeMessage,
   isKnownSourceMode,
   normalizeAutomationMode,
+  wixAccountRef,
 } = require('../lib/orchestration-decisions.js');
 const notificationMute = require('../lib/notification-mute.js');
 const { applySiteTypePair, resolveSiteTypePair } = require('../lib/destination-choice.js');
@@ -40,7 +41,7 @@ function usage() {
   node scripts/orchestration-state.js validate --project-dir <dir>
   node scripts/orchestration-state.js status --project-dir <dir>
   node scripts/orchestration-state.js decide --project-dir <dir> --key <decisionKey> --value <jsonOrString> [--source user|deterministic_inference|prior_artifact] [--rationale <text>]
-      (targetSiteType: --value headless|studio|harmony [--business-type store|bookings|other|unknown] [--business-type-source user|context|not_asked] [--evidence-ref <ref>])
+      (targetSiteType: --value headless|studio|harmony|studio2 [--business-type store|bookings|other|unknown] [--business-type-source user|context|not_asked] [--evidence-ref <ref>])
       (notificationMute --value on|off records the existing-site mute answer and writes WIX_MUTE_NOTIFICATIONS; off is refused for a new site)
   node scripts/orchestration-state.js decide-cms-fallback --project-dir <dir> --capability <id> --value approved|declined --approved-by <text> [--rationale <text>] [--coverage <plugin-coverage.json>] [--plugins-root <dir>]
   node scripts/orchestration-state.js decide-mapping-target-override --project-dir <dir> --capability <id> --value cms --approved-by <text> [--rationale <text>] [--coverage <plugin-coverage.json>]
@@ -178,7 +179,8 @@ async function main() {
       throw new Error('decide requires --key and --value');
     }
     assertGenericDecisionKey(args.key);
-    const decisionValue = parseMaybeJson(args.value);
+    // The named Wix account is kept only as a hash of the login.
+    const decisionValue = args.key === 'wixAccount' ? wixAccountRef(args.value) : parseMaybeJson(args.value);
     if (['automationMode', 'interactionMode', 'runMode'].includes(args.key) &&
         normalizeAutomationMode(decisionValue) === 'one_click' && !args.source) {
       throw new Error('explicit one-click requires --source user');
@@ -379,13 +381,21 @@ async function main() {
     if (!args.state || !args.phase) {
       throw new Error('transition requires --state and --phase');
     }
+    // Only an operator may hold a run. A stage agent inside a supervised run (the run controller
+    // sets REPLATFORM_SUPERVISED_RUN) does not: its reason becomes a toolkit gap, the hand-back it
+    // names (resumeFrom) still routes, and the run goes on. Never block a user run.
+    let refusedHold = null;
+    if (args.status === 'blocked' && process.env.REPLATFORM_SUPERVISED_RUN) {
+      const reason = args.resumeFrom ? parseMaybeJson(args.resumeFrom) : null;
+      refusedHold = require('../lib/agent-hold.js').recordRefusedHold(projectDir, reason, { runId: process.env.REPLATFORM_SUPERVISED_RUN });
+    }
     artifacts.run = transitionRun(artifacts.run, {
-      state: args.state,
-      activePhase: args.phase,
-      status: args.status || artifacts.run.status,
-      needsUserInput: parseBoolean(args.needsUserInput, artifacts.run.needsUserInput),
+      state: refusedHold ? artifacts.run.currentState : args.state,
+      activePhase: refusedHold ? artifacts.run.activePhase : args.phase,
+      status: refusedHold ? artifacts.run.status : args.status || artifacts.run.status,
+      needsUserInput: refusedHold ? artifacts.run.needsUserInput : parseBoolean(args.needsUserInput, artifacts.run.needsUserInput),
       needsLlm: parseBoolean(args.needsLlm, artifacts.run.needsLlm),
-      resumeFrom: args.resumeFrom ? parseMaybeJson(args.resumeFrom) : artifacts.run.resumeFrom,
+      resumeFrom: refusedHold ? refusedHold.resumeFrom ?? artifacts.run.resumeFrom : args.resumeFrom ? parseMaybeJson(args.resumeFrom) : artifacts.run.resumeFrom,
       timestamp: nowIso(),
     });
     await saveArtifacts(projectDir, artifacts);
@@ -397,7 +407,8 @@ async function main() {
       type: 'state.transitioned',
       payload: { activePhase: artifacts.run.activePhase, runStatus: artifacts.run.status },
     });
-    console.log(JSON.stringify({ ok: true, state: artifacts.run.currentState, phase: artifacts.run.activePhase }, null, 2));
+    console.log(JSON.stringify({ ok: true, state: artifacts.run.currentState, phase: artifacts.run.activePhase,
+      ...(refusedHold ? { held: false, reason: 'agent_hold_refused', recorded: refusedHold.recorded, note: 'Only an operator may hold a run. Your reason is a toolkit gap; finish the stage or hand back instead.' } : {}) }, null, 2));
     progress.complete('Orchestration state transitioned', { phase: 'orchestration', step: 'transition', entity: args.state, artifact: projectDir });
     return;
   }

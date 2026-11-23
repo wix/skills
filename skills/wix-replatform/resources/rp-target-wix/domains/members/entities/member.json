@@ -14,6 +14,9 @@
   "dependsOn": [
     "crm/contact"
   ],
+  "dependencyModes": {
+    "crm/contact": "task-complete"
+  },
   "operationContracts": {
     "createMember": {
       "endpoint": "POST /members/v1/members",
@@ -97,6 +100,7 @@
     "surface": "Members V1",
     "endpoint": "POST /members/v1/members",
     "writerId": "createMember",
+    "requestInput": "member",
     "verification": "verified-live",
     "importSafe": true,
     "bulk": false

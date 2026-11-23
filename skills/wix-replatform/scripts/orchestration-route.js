@@ -52,9 +52,9 @@ async function main() {
   });
   progress.start('Orchestration route started', { phase: 'orchestration' });
 
-  const projectDirArg = parsed.args[0];
+  const projectDirArg = parsed.args.find((arg) => !arg.startsWith('--'));
   if (!projectDirArg) {
-    console.error('Usage: node scripts/orchestration-route.js <projectDir> [--progress-log <path>]');
+    console.error('Usage: node scripts/orchestration-route.js <projectDir> [--no-prepare] [--progress-log <path>]');
     progress.error('Missing project directory', { phase: 'orchestration' });
     process.exit(1);
   }
@@ -65,6 +65,17 @@ async function main() {
   }
   if (artifacts.run.status !== 'blocked') await resumeStaleTelemetry(projectDir);
   const result = await determineNextStep(projectDir, artifacts);
+  // The toolkit's own work for the selected stage runs here, before the stage's AI starts: the plan
+  // pre-fill on mapping, the extractor install and the import scaffold on codegen. It never changes
+  // the route; a failure is listed in stagePrepared.errors.
+  if (result.ok && !parsed.args.includes('--no-prepare')) {
+    try {
+      const stagePrepared = require('../lib/stage-entry.js').prepareStage(projectDir, result);
+      if (stagePrepared) result.stagePrepared = stagePrepared;
+    } catch (error) {
+      result.stagePrepared = { stage: result.nextState, steps: [], errors: [String((error && error.message) || error)] };
+    }
+  }
   console.log(JSON.stringify(result, null, 2));
   if (result.ok) {
     progress.complete('Orchestration route completed', { phase: 'orchestration', artifact: projectDir });

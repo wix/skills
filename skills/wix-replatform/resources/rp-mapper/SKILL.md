@@ -100,11 +100,11 @@ model that output separately or leave the record held. A held record is the buil
 as held with its reasons, and is outside applicability and canaries; validate judges only the
 records eligible to write. `inventory` writes the held counts per `decisionId:code` into the
 mapping review (`Held records: <entity>`); present them with the approval request.
-The gate derives its write path from `writeInput.targetPath`; do not create a second flat mapping
+The gate derives the write path from `targetPath`; do not create a second flat mapping
 or edit an entity projection independently. Copy the domain contract before final mapping approval.
 For deliberately proposed populated omissions in an exact plan, first record the exact
 `excluded` decisions, rationale and affected scope. If an intended target field is also lost,
-declare it explicitly in that decision's `omittedOutputs[]` with `writeOperation`, `writeInput`
+declare it explicitly in that decision's `omittedOutputs[]` with `writeOperation`
 and `targetPath`; it is coverage of a proposed loss, never a writer output. Prepare the final
 review before requesting approval:
 
@@ -142,6 +142,13 @@ Wix client or capability — `inventory` refuses a builder that references them)
 (`status: awaiting-approval`); (6) the normal named approval; (7) `validate` again. The live
 importer is generated only after approval and reuses that builder unchanged; the inventory
 pins the builder's SHA-256, so editing it makes the inventory stale.
+The route enforces step (5): while `validate` fails for any entity with an inventory, it stays in
+mapping (`read_back_invalid`, naming each entity and its errors), and one-click records no mapping approval.
+The check is per plan row: `<entity>` is the gated entity name when one row writes it, else
+`<entity>.<row>` (for example `contact.customer`, `order.order-buyer`); pass that key as
+`--entity`. Steps (2)-(5) are optional before approval: at codegen the toolkit itself builds and
+validates every resolved gated row's inventory with the scaffold's builder, and codegen stays open
+until each passes (an unchecked row never passes). The approval binds only rows checked here.
 Use an existing complete extract, or obtain it through the source adapter's read-only extraction
 path before the review. These commands run from the installed skill directory. If preparing
 a proposed omission, replace the plain `contract` command below with the review form above;
@@ -184,6 +191,47 @@ For every other target entity, declare `verificationKind` (`contact`, `product` 
 members and orders use `none`) and a concrete `reason` through
 `lib/read-back-gate.js`'s `declaration`; it is outside these four field gates and must never
 be described as having passed them.
+
+## The plan is pre-filled; map only what is left
+
+For an entity whose source pack has ready-made suggestions
+(`rp-source-<platform>/wix-map/*.json`; WooCommerce today: product, product-category,
+product-tag, product-brand, customer, order), **the toolkit has already written its field rows.**
+The route script runs the pre-fill (`lib/stage-entry.js`) every time it selects this stage, before
+you start, and writes the pre-filled entities into `mapping/mapping-plan.json` (it seeds a new plan
+with them). Each entity has the suggestion rows, one source-archive row for every other discovered
+leaf, the coverage digests, the projected `fieldDispositions` and the suggested choices
+(`decidedBy: "suggestion"`). `mapping/plan-prefill.json` holds the same entities.
+The records come from the toolkit's read-only source extract (`data/source-extract`, every reader,
+optional ones included). It starts in the background when discovery capture ends, and this stage
+entry waits for it. Do not run the extract yourself. If `stagePrepared` says it is still running,
+wait with the command it names, then route again. A reader it lists as failed is the only one
+to look at.
+
+Edit the plan in place; never rewrite those entities. Change or delete a pre-filled row only when the records disprove its rule; then put `toolkitGap: {rule, why}` on the row (rule that failed, record shape). Nothing blocks without it, but the gap is listed with no reason. Add your
+header fields (crosswalk, urlPolicy, readBackContract and the like) and your rows; they are kept.
+`stagePrepared.errors` in the route output names an entity whose rows fail the plan contract
+(`plan-prefill <entity> not merged: ...`): fix that row of yours, then route again.
+
+Your job for those entities is only:
+1. **Operator changes.** Write each one as a plan row with the same `id` as the suggestion row
+   it changes, using `affix` (with `base`), `constant`, `source-field`, `lookup` or
+   `instruction`. Record it with `choice: {name, value, default, reason, decidedBy: "operator"}`.
+   A dropped field is an `excluded` row with that same operator `choice`; the choice is what
+   makes it a deliberate drop that every check accepts.
+2. **The `prefill.review` list.** These are leftover leaves outside the suggestion's standard
+   archive list: plugin fields, site-specific meta keys. They are archived by default. Map one
+   natively only when a Wix field clearly fits. A value choice you make there records
+   `choice.decidedBy: "ai"`. Never mark your own decision as the operator's.
+3. **One-click:** when the operator said nothing, use the pre-fill unchanged. Every suggested
+   choice is already recorded, and the end report lists them.
+
+Each route keeps every row you wrote (rows without the `prefilled` marker). Such a row replaces
+the suggestion row with the same `id`, and the archive never claims a leaf it decides. Pre-filled
+rows are rebuilt from the suggestions. To refresh by hand, run
+`node skills/wix-replatform/scripts/orchestration-route.js <project>` again.
+
+Never edit a suggestion file during a run. Suggestions grow only through a reviewed PR.
 
 ## Deterministic first — resolve before you reason
 
@@ -271,6 +319,17 @@ writer nor the raw path is a missing-writer gap (`reasonCode: missing-writer`). 
 Import safety comes from the entity's knowledge file, not from your candidate: a native target
 with `preferredWrite.importSafe: false` is an `import-unsafe` gap carrying `importSafeReason`,
 whichever writer (reviewed or raw) it would use.
+An import-safe native target is never set aside because it has no reviewed writer, no
+`fieldContracts[]`, or a `blocker` pitfall. Read the request shape from the entity's own
+`evidence` docs and map it on the raw path; the first-record canary checks the shape. A
+`blocker` pitfall names what must be true before the write (a relation, a setup step, an
+order); satisfy it in the mapping. It sets nothing aside unless it says the target cannot
+be written at all.
+
+Guest buyer and guest reviewer contacts (`guest-buyer-contact`, `guest-review-contact`) are
+toolkit-derived on the contact task, never plan entities: do not add a plan row for them or list
+them in `requiredSourceEntityRefs`. Guest buyers follow the order's `guest-buyers` choice
+(`import-as-contacts` default, `email-only`, `not-imported`); an operator change edits that choice.
 
 Each entity declares `requiredSourceEntityRefs` (including an explicit empty array), and
 `discoveryCoverage: { paths, sourceSnapshotDigest, inventoryDigest, uninspectedAreas, evidence }`.
@@ -305,23 +364,50 @@ digests matching this entity's `discoveryCoverage`. Missing, stale or truncated 
 is pending even if the mapper declares zero; a reported zero never substitutes for evidence.
 
 Every `fieldMappings[]` row has stable `id`, exact `sourcePaths`, `disposition`, `reason`,
-`evidence`, and, when written, exact `outputs[]`, `transform`, `valuePolicy` and `examples`.
-Outputs have stable `id`, actual consumed `sourcePaths`, `targetRef`, `writeOperation`,
-`writeInput` and `targetPath`. Custom storage also names its concrete definition, field,
+`evidence`, and, when written, exact `outputs[]`, `transform` and `valuePolicy`.
+Outputs have stable `id`, actual consumed `sourcePaths`, `targetRef`, `writeOperation` and
+`targetPath`, the field on the Wix entity (`name` or `brand.name`). Never choose a request
+wrapper; the toolkit owns it. When the writer's `preferredWrite.requestFields` is listed, the
+gate refuses any other field: route it to CMS or exclusion. Custom storage also names its concrete definition, field,
 collection, permissions and parent linkage in `storage`. Bind constants/defaults too.
-Transforms are `identity`, a decided `expression`, a complete `lookup`, or a named `helper`
-with bound arguments and revision. Decide precedence/timezone/units/rounding and every
+Transforms are `identity`, a decided `expression`, a complete `lookup` (also the value map),
+or a named `helper` with bound arguments and revision. An operator change is one of
+`affix` (`prefix`/`suffix`), `constant` (`value`), `source-field` (`sourcePath`, one of the
+decision's `sourcePaths`) or `instruction` (`text`: plain words codegen implements); all but
+`constant` may keep the suggested transform as `base`, applied first. Dropping a field is an
+`excluded` disposition, not a transform. Record each one-click or operator choice on its row as
+`choice: {name, value, default, reason, decidedBy: ai|operator|suggestion}`, and a whole-entity choice
+(for example a deferred entity's default and reason) in the entity's `choices[]`; the end report lists them.
+When the operator says not to import an entity, record `{value: "skip", decidedBy: "operator"}` there:
+it is left out on purpose (`executionScope.skippedEntities`), not deferred. Drop links to it from
+other entities with the operator's choice and remove it from their `requiredSourceEntityRefs`.
+When the operator imports only some records of an entity ("only customers who bought", "skip expired
+coupons"), set the entity's `recordRule: {keepWhen, choice}`: `keepWhen` uses the `appliesWhen` grammar
+over the entity's inventoried locations (plus `before`/`after` on ISO date-times), and the choice is
+the operator's. Prefer a source filter when the source API can filter. Decide precedence/timezone/units/rounding and every
 missing/null/empty/zero/invalid/unknown case; no grouped chronology or "see schema" instruction
 can delegate meaning to codegen. Relationships state crosswalk inputs, destination, cardinality,
 ordering and missing/ambiguous/orphan outcomes in `referencePolicy`.
+Every leaf a `native`/`extended-field` decision lists in `sourcePaths` feeds one of its outputs
+(`outputs[].sourcePaths`, `appliesWhen` or `referencePolicy.input`); a leaf you mean to drop moves
+to an `excluded`/`unresolved` decision so it is a cutover gap (`mapping-source-leaf-unfed`). A leaf
+the target knowledge lists in `sourceReferenceLeaves` (order `customer_id`, line `product_id` /
+`variation_id`) must feed its own output at the `dependencyReferenceFields` path
+(`buyerInfo.contactId`, `lineItems[].catalogReference.catalogItemId` /
+`.options.variantId`); listing it beside `buyerInfo.email` or a custom line is refused
+(`mapping-reference-leaf-dropped`), unless the operator asked to drop the link: an `excluded`
+decision with its `choice` recorded as `decidedBy: operator`. A one-click run never drops a link on
+its own; it keeps the link and the gate holds a record whose parent cannot land. The builder never writes those ids; the dependency gate does.
 
-Examples are synthetic `{id, input, expected:[{outputId, writeOperation, value|values|omitted|noWrite,
-findingCodes?}]}` records authored from semantics before generated code runs. They include
-ordinary and relevant edge inputs. `noWrite: true` names the `findingCodes` that explain it.
-When the writer checks the whole request (`importOrder` needs status and buyer details;
-`createForm`/`createFormSubmission` need their form), give the entity one synthetic
-`exampleBase` record with only what the writer requires; each example's `input` is merged
-over it and wins. Keep base values out of the paths the examples assert. Review them independently; generated output cannot author
+Do not write `examples` or `exampleBase`. After codegen, the toolkit samples real records from
+`data/source-extract` and checks each prepared request against your decision: the value after
+`transform`, omissions and holds per `valuePolicy`, `appliesWhen`, and excluded fields absent. So
+make those exact; the check reads nothing else. A rule that writes nothing for some records (no
+consent evidence, a status the target cannot hold) is a `hold-record` with a named `code` in the
+row's `valuePolicy` (or an `appliesWhen`): generated code may raise only a code the plan declares.
+Only an entity with no extracted records still uses
+synthetic `{id, input, expected:[{outputId, writeOperation, value|values|omitted|noWrite,
+findingCodes?}]}` examples (merged over an optional `exampleBase`). Review them independently; generated output cannot author
 its own expected value. A changed ID on a matching remap requires explicit prior decision/gap
 `supersedes` refs; output-ID changes require matching output supersession. Keep gap history.
 
@@ -341,21 +427,53 @@ Source absence creates no value or business record. Runtime never edits shipped 
 else an admitted extended field, else a CMS archive location. Decide every leaf through that
 order (`choosePreservation`); a short scalar on an order, product or contact is an extended field
 before it is CMS. Never route a whole record to the archive because one of its leaves is
-unclaimed: only the `cms`-disposition leaves are archived, and a record with none gets no archive
-item. Every archive item counts against the site's plan-wide CMS item quota, so:
-- archive only records the import writes (the entity's own record selection; an out-of-scope
-  WordPress user or unreferenced library media file is not archived);
-- give two source entities for the same thing one identity (a WordPress user and the WooCommerce
-  customer with the same id share `parentKey` `person:<id>`), so it is archived once;
-- put same-parent sub-records (order notes, refunds) under their parent's `parentKey`.
-Report the expected archive item count (`expectedArchiveRows` in
-`resources/rp-target-wix/lib/cms-item-quota.js`) in the mapping review next to the quota.
+unclaimed: only the `cms`-disposition leaves are archived. Keep plumbing and personal fields as
+`cms` like any other unclaimed leaf: do not write `excluded` decisions for API links, hashes,
+modified dates, IP addresses or user agents. The archive module
+(`resources/rp-target-wix/lib/source-archive.js`) applies the shipped retention policy
+when it builds the archive, packs many records per CMS item, and skips paths a non-lossy native
+decision already writes; the mapping review needs no approval for it. Every archive item counts
+against the site's plan-wide CMS item quota, so archive only records the import writes (the
+entity's own record selection; an out-of-scope WordPress user or unreferenced library media file
+is not archived). Report the expected archive item count from
+`scripts/source-archive-plan.js --project-dir <dir>` (`expectedRows`) in the mapping review next
+to the quota.
 
 Existing mapper QA compares inventory coverage, individual output bindings against schema,
 precedence/absence/reference semantics, canonical/projection equality, stable IDs, all gaps
 and preservation-versus-native-behavior claims. Review manual-step coverage as before.
 For each gap record affected snapshot/inventory digests and measured IDs/count, or explicit
 null/unknown coverage; a sampled ID list is not the complete affected population.
+
+**Map every in-use entity.** Each in-use discovered entity is mapped through the order above
+(native, admitted extended field, CMS). The only alternative is a typed `limitation` on its
+pending row: `{status, detail}`, status `source-read-failed`, `missing-writer` or
+`target-limitation`, detail saying specifically why it cannot be mapped. That row becomes the
+entity's Cutover item. "Not mapped yet", "fields not reviewed" and "undecided" are never reasons.
+Interactive mode may ask the operator while mapping; one-click and quick ask nothing and pick
+through the order, recording assumptions. Never answer your own mapping review by deferring
+pending mappings. A discovered in-use entity (census count above 0) with no plan row needs a row
+or a decided census disposition in `mapping-gaps.json`; in one-click an open `pending` question
+is not one. A mapped row whose every record would still be left out is unmapped too
+(`outOfScope: true`, with the scope's `reason`): its `requiredSourceEntityRefs` names a
+prerequisite with no row, an operator-skipped one, or one deferred with no reason. Map the
+prerequisite, point the link at another mapped entity, drop the link (operator choice only), or
+put a typed `limitation` on the row. Every mapping approval refuses an unmapped in-use entity and the router
+returns it here (`mapping_incomplete`), in every mode; after 2 such passes it is the typed
+`mapping_incomplete` blocker naming the entities.
+
+**The toolkit writes the mechanical rows** at this stage's entry (`stagePrepared` step
+`mapping-defaults`, `lib/mapping-defaults.js`):
+- A plugin or custom entity with records, no suggestion and no source reader gets a default
+  set-aside: a plan entity with `limitation.status: source-read-failed` (listed in
+  `mapping/plan-defaults.json`).
+- A census entity row with 0 records gets a `no-data` gap.
+- A sub-part whose fields a planned row of its parent maps is added to the parent's `censusIds`.
+
+An entity that has a reader is never defaulted, because its Wix target may be import-safe: map it.
+Reference-only, duplicate and capability rows are still yours to decide. You may upgrade any
+default (add a reader extra and map it); put `toolkitGap: {rule, why}` on the entity, and the
+change is recorded as a toolkit gap.
 
 Resolve defaults and suitable preservation first. In customer mode an undecided mapping
 keeps the checkpoint pending; only an explicit human provisional subset can continue.
@@ -368,24 +486,32 @@ the plain form clears any leftover proposals, and those entities defer. A cited 
 policy or a general instruction to continue is not consent to new loss. Keep the approved omission in completion and Cutover;
 approval permits importing supported data, not claiming missing behavior was migrated.
 The authority writer derives unattended mode from the existing recorded user-authored
-one-click decision; a caller's mode string cannot authorize it. For those tests, retain
-selected scope, defer undecided entities, and defer dependents only when their retained writes
-need a whole-task prerequisite. Declared per-record references are left executable and their
-record-level holds remain visible in the dependency ledger. Record assumptions. Finish
-independent work without questions; never repeatedly redispatch an unchanged choice. Return
-codegen semantic defects here for one bounded evidence/rule resolution attempt; still-undecided
-work stays deferred. Do not turn deferral into an exclusion or a passed import. Persist the
-deferred entity as a Cutover gap after independent work and evidence retention finish; only an
-all-deferred plan remains blocked because no importer can start.
+one-click decision; a caller's mode string cannot authorize it. There, retain selected scope
+and defer dependents of a set-aside entity only when their retained writes need a whole-task
+prerequisite. Declared per-record references are left executable and their record-level holds
+remain visible in the dependency ledger. Never repeatedly redispatch an unchanged choice.
+Return codegen semantic defects here for one bounded evidence/rule resolution attempt and
+decide them through the same order. Do not turn a set-aside into an exclusion or a passed
+import; it stays a Cutover gap after independent work and evidence retention finish. An
+all-deferred plan remains typed-blocked because no importer can start, including in explicit
+one-click mode; mixed scope still continues resolved independent work, and its per-entity
+evidence remains visible for Cutover.
 
 ## Workflow
 
 1. Read the source discovery artifacts.
-2. **Run the deterministic resolver** (above) and read its residue.
+2. **Read the pre-filled plan** (the route already pre-filled entities with suggestions) and run the
+   deterministic resolver (above) for CSV sources; read their `prefill.review` / residue.
 3. Identify the target Wix entities for each source entity using the domain knowledge
    reader first. Start from `sourceMeta.candidateTargetRefs[]` when discovery supplied it;
    otherwise run `domain-knowledge.js resolve-source`; use semantic reasoning only when no
    candidate exists and record `unverified` confidence.
+   A candidate is not verified until the matching record has been read from the bundled
+   target-knowledge index. If that lookup fails, keep the mapping pending with
+   `cms-fallback-target-knowledge-unavailable`; never reinterpret a lookup failure as
+   "no native target" and never approve an archive-only core commerce row for `product`,
+   `contact` or `order`. A native candidate that is suitable for import must remain the
+   selected target even when individual fields also need CMS preservation.
 4. Decide the resolver residue only, then define any remaining transformations and defaults.
 5. Mark gaps where native Wix entities are insufficient — the resolver's `unsupportedTargets`
    already names them with reasons; carry those into the faithfulness ledger rather than restating.
@@ -396,11 +522,18 @@ all-deferred plan remains blocked because no importer can start.
    `_user_fields`. Admitted targets: orders, products, and contacts (default `contacts-v5`; legacy
    `contacts-v4` only by explicit choice). Other objects and nested subrecords go to CMS. Provisioning
    a field does not decide whether a source field may be kept; that is a separate retention decision.
+   CMS archive outputs use `buildCmsArchiveCollectionId(sourceEntity)` from
+   `lib/cms-collection-id.js`; never invent or concatenate a collection id.
 7. Save the mapping plan, including the reviewed dependency associations below.
-8. Detect authored `blockedSourceDependencies` on the selected target entities, aggregate them
-   by `sourceEntityRef`, and write the blocked-data request state and review artifact below.
+8. Check the blocked-data requests the stage entry wrote (`stagePrepared` step
+   `blocked-data-requests`, "Blocked source dependencies" below); do not build them yourself.
 9. Write a concise user-review summary after the plan is complete.
 10. Pause for a mapping review checkpoint before downstream setup/codegen work begins.
+
+When this stage is run by a top-level host, the host has already selected this resource;
+the mapper still reads this complete contract and the required source and `rp-target-wix`
+resources itself. Direct execution changes worker topology only. It does not remove the
+verified-target lookup or the Developer/QA pass before a mapping checkpoint is published.
 
 ## Artifacts to create or update
 
@@ -530,6 +663,13 @@ unverified shipping/tax fidelity keeps the affected order deferred. Never invent
 IDs, combine source lines without an approved disposition, or backfill existing orders.
 
 ## Blocked source dependencies
+
+The toolkit builds these requests at the mapping stage entry, on the way in and again on the way
+out before the mapping approval (`lib/blocked-data-entry.js`): the plan's Wix targets x their
+authored `blockedSourceDependencies` x the plugins discovery found, minus a source the plan maps
+as its own entity, with `askedInteractively: false`. The rules below are what it applies; you only
+read the result. Still plan structure-bridge entities yourself (below): a source planned as its
+own entity drops out of the requests on the next entry.
 
 Read only authored `blockedSourceDependencies[]` from selected target entity knowledge; never
 infer a request from `db-only`, `admin-page-only`, or another channel by itself. Use the shared
@@ -1006,17 +1146,17 @@ An override row (`cmsFallback.override: true`) is `warning` with its `featureLos
 `mapping-target-override-stale` row is `warning`; each native row's `notices[]` entry is one
 `warning` item with the notice text verbatim.
 
-**Mandatory step — bind the plan to the coverage it was built from.** After writing
-`mapping/mapping-plan.json`, stamp it (a no-op when the project has no plugin coverage):
+**Bind the plan to the coverage it was built from.** `writeMappingAuthority` copies
+`discovery/plugin-coverage.json` `inputs.cmsFallbackDigest` into `mapping-plan.json`
+`inputs.cmsFallbackDigest`. Only a plan written another way needs
+`node skills/wix-replatform/scripts/cms-fallback.js stamp-plan --project-dir <project> --plan mapping`.
+The router treats a plan without it, or with a different one, as stale
+(`mapping_plan_stale_cms_fallback`) and routes back here, including on one-click runs.
 
-```bash
-node skills/wix-replatform/scripts/cms-fallback.js stamp-plan --project-dir <project> --plan mapping
-```
-
-This copies `discovery/plugin-coverage.json` `inputs.cmsFallbackDigest` into
-`mapping-plan.json` `inputs.cmsFallbackDigest`. The router treats a plan without it, or with a
-different one, as stale (`mapping_plan_stale_cms_fallback`) and routes back here, including on
-one-click runs.
+After each write `writeMappingAuthority` also rebuilds what derives from the plan
+(`lib/refresh-derived.js`: mapping resolution, census reconciliation, discovered-set status) and
+moves approval and request pins to the new bytes when the reviewed content is unchanged; the
+router runs it again before routing. Do not rebuild these digests or edit pins by hand.
 
 **Mandatory trigger — hierarchical source taxonomy → flat Wix target.** When a source
 entity carries `"hierarchical": true` (or any `parent` self-relation) in
@@ -1246,8 +1386,9 @@ interactive mode and must pause here; file upload does not imply one-click.
 - Do not describe a source entity only by a generic label when the observed data is more
   specific; name the concrete subtype(s) present in the project.
 - Keep business rules explicit so `rp-import-codegen` can implement them deterministically.
-- Do not guess Wix field, enum, or app names when you cannot verify them. Mark them
-  `unverified` and surface the risk before execution.
+- Do not guess Wix field, enum, or app names when you cannot verify them: read them from the
+  entity's `evidence` docs. A name you still cannot verify is marked `unverified` with its
+  risk in the plan; it never sets an import-safe target aside (the raw path rule above).
 
 When structure-bridge planning discovers a new native/plugin entity in a revised plan,
 its fields remain `fieldMappingStatus:pending`, with empty inspected paths/decisions and
@@ -1257,9 +1398,9 @@ unknown inventory with exact inspected decisions; it never relabels native work 
 A bounded sample is not a reason to leave it pending: before the checkpoint, run the full
 read (`rp-source-wordpress/PLUGIN-READ-PLANS.md`, "Read in full before the mapping
 checkpoint") whatever the entity's size, then map from the complete output. It stays pending
-only when that read failed, and then its gap cites the typed extraction code. Never add
-"Requires Import Operator" to a gap yourself; that handoff comes only from the extraction
-deferral record.
+only when that read failed: record `limitation: {status: "source-read-failed", detail}` citing
+the typed extraction code. Never add "Requires Import Operator" to a gap yourself; that handoff
+comes only from the extraction deferral record.
 Re-running the authority regenerates this pending projection without inventing coverage.
 
 Source and intended disposition rows retain the affected scope of their contributing
@@ -1276,7 +1417,7 @@ Existing mapper QA calls `compareMappingProjections(projectDir, plan)` from the 
 
 Before presenting a standard-mode mapping review, run `node scripts/discovered-census.js build <projectDir>` and `node scripts/census-reconciliation.js build <projectDir>`. Fix structural errors only for the named census IDs. Each discovered entity, registered sub-part, capability and unlinked plugin needs exactly one assignment: plan `censusIds[]` or a gap `censusId` plus `disposition`. A parent entity never silently covers its sub-parts. An excluded gap's `count` must equal the census's measured `recordCount` (`excluded_count_mismatch`), or be `null`; where the census has no measurement, a stated count is shown as unmeasured. Show the generated **Discovered set** section, including its unknown counts, exclusions and pending questions. Ask the owner each pending question; record answers as closed states, rebuild, and present that rebuilt review. Approving this review approves the listed exclusions; provisional and explicit 1-click agent approvals do not establish owner approval of exclusions.
 
-The mapping approval user action must reference `{ "kind": "census-reconciliation", "path": "mapping/review/census-reconciliation.json", "sha256": "<current file SHA-256>" }` along with the summary. Let the approval scripts bind and persist the reference; never write a digest or approval directly. A stale answer must produce a fresh request. In explicit 1-click mode use `auto-approve`, leave cannot-tell rows pending, and report them as not decided after import. A run that started in user-chosen 1-click never asks pending questions mid-run, even after the mode changes or an owner joins to approve: record the approval with those rows still pending (the binder allows it), and the discovered-set status lists each as a not-decided cutover task.
+The mapping approval user action must reference `{ "kind": "census-reconciliation", "path": "mapping/review/census-reconciliation.json", "sha256": "<current file SHA-256>" }` along with the summary. Let the approval scripts bind and persist the reference; never write a digest or approval directly. A stale answer must produce a fresh request. In explicit 1-click mode the route records the approval itself when it leaves mapping (`stagePrepared`, `one-click-mapping-approval`); never run `auto-approve` yourself and never create an approval request. When that approval would be refused, the route stays in mapping (`mapping_approval_refused`, with the refusal code and its details in `errors`, for example `dependency_preflight_blocking` and each `dependency_unbound:<ref>`); fix what it names. If a preflight refusal remains after two passes, the run does not stop: it is recorded as a toolkit gap, the approval records, and the import's dependency gate holds the affected task (`route_settled` event). A `read_back_invalid` row settles the same way. Never leave a discovered in-use entity (census count above 0) pending in 1-click: the route returns it (`mapping_incomplete`) and, after 2 passes, stops the run. Map it (native, extended field, then CMS), or give it a pending plan row with a typed `limitation` (its Cutover item), or close its gap with a decided disposition (`excluded`, `unsupported`, `reference-only`). Other cannot-tell rows (sub-parts, capabilities, plugins, unmeasured counts) may stay pending and are reported as not decided after import. A run that started in user-chosen 1-click never asks pending questions mid-run, even after the mode changes or an owner joins to approve: the approval is recorded with those rows still pending (the binder allows it), and the discovered-set status lists each as a not-decided cutover task.
 
 For `mapping_approval_missing_census` or `mapping_approval_stale_census`, reset with `node scripts/orchestration-state.js approve --project-dir <projectDir> --type mapping --status pending`, rebuild from the existing discovery files, and present again. Explain once that this fresh review accounts for the complete discovered set; do not rerun discovery or imported records.
 

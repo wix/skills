@@ -28,7 +28,8 @@
     "tax/tax-group"
   ],
   "dependencyModes": {
-    "bookings/service": "per-record"
+    "bookings/service": "per-record",
+    "tax/tax-group": "task-complete"
   },
   "dependencyReferenceFields": {
     "bookings/service": [

@@ -1,4 +1,5 @@
 'use strict';
+const WriterShape = require('./writer-request-shape.js');
 
 const fs = require('node:fs');
 const path = require('node:path');
@@ -21,8 +22,8 @@ function shape(row, d) {
   if (!r.createWithoutField || !r.correction) return ['deferred field needs eligibility and correction evidence'];
   if (r.createWithoutField.optional !== true || r.createWithoutField.noMaterialBehaviorChange !== true || !r.createWithoutField.reason) errors.push('deferral requires optionality and unchanged material behavior');
   const create = r.createWithoutField;
-  if (!create.operation || !create.targetRef || !create.writeInput || !Array.isArray(create.paths) || !create.paths.length || create.paths.some(p => !L.isExact(p))) errors.push('deferral requires exact withheld create fields');
-  if (r.correction.mutable !== true || !r.correction.operation || !r.correction.targetRef || !r.correction.writeInput ||
+  if (!create.operation || !create.targetRef || (create.writeInput !== undefined && typeof create.writeInput !== 'string') || !Array.isArray(create.paths) || !create.paths.length || create.paths.some(p => !L.isExact(p))) errors.push('deferral requires exact withheld create fields');
+  if (r.correction.mutable !== true || !r.correction.operation || !r.correction.targetRef || (r.correction.writeInput !== undefined && typeof r.correction.writeInput !== 'string') ||
       !Array.isArray(r.correction.paths) || !r.correction.paths.length || r.correction.paths.some(p => !L.isExact(p))) errors.push('deferral requires a supported exact correction path');
   }
   if (!row.discoveryCoverage?.sourceSnapshotDigest || r.sourceSnapshotDigest !== row.discoveryCoverage.sourceSnapshotDigest ||
@@ -105,10 +106,12 @@ function assertPayload(projectDir, plan, targetRefs, payload, { writeInput = nul
     const members = JSON.parse(A.artifact(projectDir, d.recovery.membership));
     if (!sourceStableKey) fail('mapping_recovery_identity_required');
     if (!members.some(m => m.sourceStableKey === sourceStableKey)) continue;
-    const input = d.recovery.createWithoutField.writeInput;
-    const body = writeInput ? payload?.[writeInput] : payload && Object.hasOwn(payload,input) ? payload[input] : payload;
-    for (const p of d.recovery.createWithoutField.paths) {
-      const relative = p.startsWith(input + '.') ? p.slice(input.length + 1) : p;
+    // The request key comes from the writer's reviewed shape; a legacy writeInput still works.
+    const c = d.recovery.createWithoutField, known = WriterShape.shape(c.targetRef, c.operation);
+    const input = c.writeInput ?? (known && known.requestInput !== '$' ? known.requestInput : undefined);
+    const body = writeInput ? payload?.[writeInput] : input && payload && Object.hasOwn(payload,input) ? payload[input] : payload;
+    for (const p of c.paths) {
+      const relative = WriterShape.recordPath({ targetRef: c.targetRef, writeOperation: c.operation, writeInput: c.writeInput, targetPath: p });
       if (L.valuesAt(body, relative).some(v => v !== undefined)) fail('mapping_recovery_deferred_field_written');
     }
   }
@@ -240,7 +243,7 @@ async function repair({ projectDir, gapId, sourceId, targetId, mappingPlanDigest
   const sourceRecord=retained.byId.get(String(sourceId));
   if (!sourceRecord) fail('mapping_repair_source_missing');
   if (d.affectedScope?.sourceIdsComplete && !d.affectedScope.sourceIds?.map(String).includes(String(sourceId))) fail('mapping_repair_scope_invalid');
-  if (output.appliesWhen && !require('./output-applicability').evaluate(output.appliesWhen,sourceRecord)) fail('mapping_repair_scope_invalid');
+  if (output.appliesWhen && !require('./output-applicability').evaluate(output.appliesWhen,sourceRecord,{choices:require('./output-applicability').planChoiceValues(row)})) fail('mapping_repair_scope_invalid');
   const actual = await readTarget({ targetId, output });
   if (!fieldRepair && A.digest(actual) !== A.digest(expected)) fail('mapping_repair_created_record_unverified');
   const journal = await local.loadAttemptJournal(projectDir);

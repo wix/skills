@@ -36,6 +36,11 @@
     "surface": "Wix Data Items",
     "endpoint": "POST /wix-data/v2/items",
     "writerId": "insertDataItem",
+    "requestInput": "dataItem",
+    "requestFields": [
+      "data",
+      "id"
+    ],
     "verification": "verified-live",
     "importSafe": true,
     "bulk": false

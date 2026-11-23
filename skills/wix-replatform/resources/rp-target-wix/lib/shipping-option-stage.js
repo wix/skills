@@ -142,7 +142,7 @@ function regionWriteHistory(journalRows) {
 // (a 404 means it is already gone). An existing site keeps every option and only reports it.
 // `snapshots` are the stage's own per-region scans (advanced with the ids it created), reused so a
 // region is still read once per run; a region without one is read here.
-async function regionState(wix, { projectDir, zonePlans = [], regionIdByZone = {}, crosswalkBySource = {}, decisions = {}, mayDelete = false, snapshots = null, journalRows = [] } = {}) {
+async function regionState(wix, { projectDir, zonePlans = [], regionIdByZone = {}, crosswalkBySource = {}, decisions = {}, mayDelete = false, snapshots = null, journalRows = [], writeClient = () => wix } = {}) {
   const byZone = regionIdsByZone(regionIdByZone, crosswalkBySource);
   let regions = null;
   try {
@@ -180,7 +180,7 @@ async function regionState(wix, { projectDir, zonePlans = [], regionIdByZone = {
           await saveLedger();
         }
         try {
-          const result = await w.deleteShippingOption(wix, option.id);
+          const result = await w.deleteShippingOption(writeClient(regionId), option.id);
           Object.assign(entry, { status: result.deleted ? 'deleted' : 'already-gone', at: new Date().toISOString() });
         } catch (error) {
           if (wixAuth.isRunInterruption(error)) throw error;
@@ -242,7 +242,7 @@ function writableZonePlans(zones) {
   return s.planShippingZones(zones).filter((plan) => plan.destinations.length > 0 && plan.shippingOptions.length > 0);
 }
 
-async function runShippingOptionStage(wix, {
+async function runShippingOptionStageUnlocked(wix, {
   projectDir,
   regionIdByZone = {},
   sourceSystem = 'wordpress',
@@ -251,6 +251,7 @@ async function runShippingOptionStage(wix, {
   passMode = 'unfiltered',
   writeSpecId = 'ecom/shipping-option',
   newAttemptId = () => crypto.randomUUID(),
+  zoneClient = null,
 } = {}) {
   if (!projectDir) throw new Error('runShippingOptionStage: projectDir is required');
   if (!runId) throw new Error('runShippingOptionStage: runId is required');
@@ -264,6 +265,13 @@ async function runShippingOptionStage(wix, {
   const resolutionByKey = new Map(resolution.options.map((option) => [option.optionKey, option]));
   // A zone already written on an earlier run keeps its region through its crosswalk row.
   const regionByZone = regionIdsByZone(regionIdByZone, (await local.loadCrosswalk(projectDir)).bySource);
+  // Writes in a region go through the client of a zone that owns it (H34: under that zone's
+  // readiness grant, from the import task). Reads, and callers with no zoneClient, use wix.
+  const writeClient = (regionId) => {
+    if (typeof zoneClient !== 'function' || !regionId) return wix;
+    for (const [zoneId, id] of Object.entries(regionByZone)) if (id === regionId) { const client = zoneClient(zoneId); if (client) return client; }
+    return wix;
+  };
 
   // Planned payloads, keyed by the raw option key.
   const planned = [];
@@ -330,7 +338,7 @@ async function runShippingOptionStage(wix, {
       results.push({ optionKey: record.optionKey, route: 'recover', outcome: 'shipping-option-recovery-incomplete', errorCode: 'DELIVERY_REGION_MISSING' });
       continue; // nothing to compare against until the zone has a region; the row stays as it was
     }
-    const result = await w.recoverShippingOption(wix, latest, record.input, { decisions });
+    const result = await w.recoverShippingOption(writeClient(record.deliveryRegionId), latest, record.input, { decisions });
     if (result.outcome === 'shipping-option-recovery-incomplete') {
       results.push({ optionKey: record.optionKey, route: 'recover', outcome: result.outcome });
       continue; // the row stays exactly as it was
@@ -389,7 +397,7 @@ async function runShippingOptionStage(wix, {
       reconcile,
       updatedAt: new Date().toISOString(),
     });
-    const result = await w.createShippingOptionVerified(wix, record.input);
+    const result = await w.createShippingOptionVerified(writeClient(regionId), record.input);
     const { attempt, crosswalk } = s.shippingOptionWriteRecord(result, ctx);
     await local.markAttempt(projectDir, attemptId, { ...attempt, failure: attempt.failure });
     if (crosswalk) await local.appendCrosswalkRow(projectDir, crosswalk);
@@ -401,10 +409,17 @@ async function runShippingOptionStage(wix, {
 
   journal = await local.loadAttemptJournal(projectDir);
   const latestAttempts = latestShippingAttempts(journal.rows);
-  const regionReport = await regionState(wix, { projectDir, zonePlans, regionIdByZone: regionByZone, crosswalkBySource: (await local.loadCrosswalk(projectDir)).bySource, decisions, mayDelete: true, snapshots: regions, journalRows: journal.rows });
+  const regionReport = await regionState(wix, { projectDir, zonePlans, regionIdByZone: regionByZone, crosswalkBySource: (await local.loadCrosswalk(projectDir)).bySource, decisions, mayDelete: true, snapshots: regions, journalRows: journal.rows, writeClient });
   const fragment = s.shippingEstimateCompletionFragment({ resolution, readBack, latestAttempts, audit, projectDir, regions: regionReport });
   const estimates = await writeEstimates(projectDir, resolution, fragment, audit);
   return { resolution, estimates, fragment, audit, results, selection: selection.summary };
+}
+
+async function runShippingOptionStage(wix, options = {}) {
+  if (!options.projectDir) throw new Error('runShippingOptionStage: projectDir is required');
+  return local.withStateLock(options.projectDir, () => runShippingOptionStageUnlocked(wix, options), {
+    script: 'shipping-option-stage.js', reentrant: true,
+  });
 }
 
 // --- Finished projects -----------------------------------------------------------
@@ -432,7 +447,7 @@ async function rebuildCompletionWithFragment(projectDir, fragment) {
   return { completionReport: rebuilt, handoff };
 }
 
-async function runShippingEstimateAudit(wix, { projectDir } = {}) {
+async function runShippingEstimateAuditUnlocked(wix, { projectDir } = {}) {
   if (!projectDir) throw new Error('runShippingEstimateAudit: projectDir is required');
   const decisions = await readDecisions(projectDir);
   const zones = await readShippingZoneExtract(projectDir, { required: false });
@@ -456,6 +471,13 @@ async function runShippingEstimateAudit(wix, { projectDir } = {}) {
   const estimates = await writeEstimates(projectDir, base, fragment, audit);
   const rebuilt = await rebuildCompletionWithFragment(projectDir, fragment);
   return { resolution, audit, fragment, estimates, ...rebuilt };
+}
+
+async function runShippingEstimateAudit(wix, options = {}) {
+  if (!options.projectDir) throw new Error('runShippingEstimateAudit: projectDir is required');
+  return local.withStateLock(options.projectDir, () => runShippingEstimateAuditUnlocked(wix, options), {
+    script: 'shipping-option-stage.js', reentrant: true,
+  });
 }
 
 async function listShippingEstimateItems(projectDir, code) {

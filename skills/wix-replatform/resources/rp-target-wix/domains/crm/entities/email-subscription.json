@@ -43,6 +43,8 @@
     "surface": "Email Subscriptions",
     "endpoint": "POST /email-marketing/v1/email-subscriptions/bulk",
     "writerId": "bulkUpsertEmailSubscriptions",
+    "requestItems": "subscriptions",
+    "requestInput": "$",
     "verification": "verified-live",
     "importSafe": true,
     "bulk": true,

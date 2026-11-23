@@ -1,5 +1,6 @@
 'use strict';
 const {canonical,validateEntity}=require('./mapping-field-contract.js');
+const { buildCmsArchiveCollectionId, isWixCollectionId } = require('./cms-collection-id.js');
 function validateMappingRules(rules, targetRef) {
   if (rules === undefined) return [];
   if (!Array.isArray(rules)) return ['mappingRules must be an array'];
@@ -40,13 +41,13 @@ function matchMappingRules(rules=[], {sourceSystem,sourceEntity,coverage}={}) {
   }
   return {decisions:[...unique.values()],conflicts};
 }
-function choosePreservation({nativeCandidates=[],extended=null,cms=null}={}) {
+function choosePreservation({nativeCandidates=[],extended=null,cms=null,sourceEntity=null}={}) {
   const support=require('./target-import-support.js');
   // The entity's knowledge decides import safety; the candidate's own flag only
   // counts for a target with no knowledge file.
   const safe=c=>(c.output?.targetRef && support.knowledgeImportSafe(c.output.targetRef)) ?? c.importSafe;
   const routable=c=>c.suitable===true && c.writable===true &&
-    c.evidence?.length && c.output?.targetRef && c.output.writeOperation && c.output.writeInput && c.output.targetPath;
+    c.evidence?.length && c.output?.targetRef && c.output.writeOperation && c.output.targetPath;
   const native=nativeCandidates.find(c=>routable(c) && safe(c)===true);
   const unsafe=!native && nativeCandidates.find(c=>routable(c) && support.importUnsafe(c.output.targetRef));
   if (unsafe) { const why=support.importUnsafe(unsafe.output.targetRef); return {disposition:'unresolved',outputs:[],reasonCode:'import-unsafe',importSafeReason:why,
@@ -70,10 +71,15 @@ function choosePreservation({nativeCandidates=[],extended=null,cms=null}={}) {
     return {disposition:'extended-field',outputs:[extended.output],evidence:extended.evidence,
       setupRequirement:extended.setupRequirement};
   }
-  if (cms?.output?.storage?.collectionId && cms.output.storage.fieldKey && cms.output.storage.fieldType &&
-      cms.output.storage.permissionsPreset==='migration-internal' && cms.output.storage.parentLink && cms.evidence?.length &&
+  const cmsSourceEntity = cms?.sourceEntity || cms?.output?.sourceEntity || cms?.output?.storage?.sourceEntity || sourceEntity;
+  const cmsStorage = cms?.output?.storage;
+  const expectedCmsCollectionId = cmsSourceEntity ? buildCmsArchiveCollectionId(cmsSourceEntity) : cmsStorage?.collectionId;
+  const cmsCollectionIdValid = isWixCollectionId(cmsStorage?.collectionId) &&
+    (!cmsSourceEntity || cmsStorage.collectionId === expectedCmsCollectionId);
+  if (cmsCollectionIdValid && cmsStorage.fieldKey && cmsStorage.fieldType &&
+      cmsStorage.permissionsPreset==='migration-internal' && cmsStorage.parentLink && cms.evidence?.length &&
       (!cms.existingDefinition || cms.compatibilityVerified===true)) {
-    return {disposition:'cms',outputs:[cms.output],evidence:cms.evidence,
+    return {disposition:'cms',outputs:[{...cms.output,storage:{...cmsStorage,...(cmsSourceEntity ? {collectionId:expectedCmsCollectionId} : {})}}],evidence:cms.evidence,
       setupRequirement:{requirementClass:'create-cms-collections',...cms.setupRequirement}};
   }
   return {disposition:'unresolved',outputs:[],reason:'No suitable native operation or compatible admitted custom storage.'};

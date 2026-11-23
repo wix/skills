@@ -74,10 +74,6 @@ function inapplicableRefs(entityRef, operation) {
 }
 function guardPath(guard) { return typeof guard === 'string' ? guard : guard?.path; }
 function discriminated(guard) { return typeof guard === 'object' && guard !== null && guard.equals !== undefined; }
-function stripInput(targetPath, writeInput) {
-  if (typeof targetPath !== 'string') return null;
-  return writeInput && targetPath.startsWith(writeInput + '.') ? targetPath.slice(writeInput.length + 1) : targetPath;
-}
 // Path templates overlap when one is the other or an ancestor of it; `[]` and `[n]` compare equal.
 function pathsOverlap(a, b) {
   const norm = value => value.replace(/\[\d*\]/g, '[]');
@@ -100,12 +96,14 @@ function valuesAt(value, template) {
 }
 // A guarded path is present when a payload carries a value there (and, for a discriminated guard,
 // that value equals the discriminator). Presence contradicts a proof that no reference is written.
-function guardHits(payload, guards) {
+// `accept(value)`, when given, names values that do not count as a hit: a within-write dependency's
+// id that this same record's own in-task write produced (or the builder's pending marker for it).
+function guardHits(payload, guards, { accept = null } = {}) {
   const hits = [];
   for (const guard of guards || []) {
     const template = guardPath(guard);
     const values = valuesAt(payload, template).filter(value => value !== undefined && value !== null && value !== '');
-    if (values.some(value => typeof guard === 'string' || guard.equals === undefined || value === guard.equals)) hits.push(template);
+    if (values.some(value => (typeof guard === 'string' || guard.equals === undefined || value === guard.equals) && !(accept && accept(value)))) hits.push(template);
   }
   return hits;
 }
@@ -160,7 +158,8 @@ function rowsByTarget(plan, readEntityMappings) {
 function mappedPaths(rows, targetRef, operation, contract, allRows = []) {
   const ops = new Set([operation, ...(contract?.aliases || [])]);
   const paths = [];
-  const add = output => { const target = stripInput(output.targetPath, output.writeInput); if (target) paths.push(target); };
+  // The record path: the writer's request key (or a legacy writeInput) is not part of a guarded path.
+  const add = output => { const target = typeof output?.targetPath === 'string' ? require('./writer-request-shape.js').recordPath({ ...output, targetRef: output.targetRef || targetRef, writeOperation: output.writeOperation || operation }) : null; if (target) paths.push(target); };
   for (const row of rows) for (const output of rowOutputs(row)) {
     if (output.targetRef && output.targetRef !== targetRef) continue;
     if (output.writeOperation && !ops.has(output.writeOperation)) continue;
@@ -216,7 +215,7 @@ function measureZeroMatch(projectDir, absence, censusRow, work, stage) {
     scanCache.set(key, { stamp, value: scan }); scanTotals.scans++; scanTotals.records += records.length;
     if (work) { work.predicateScans++; work.recordsScanned += records.length; }
   }
-  if (!Number.isInteger(manifest.rowsWritten) || manifest.rowsWritten !== manifest.snapshotTotal || scan.population !== manifest.rowsWritten || stage !== 'runtime' && scan.population !== censusRow.recordCount) throw new Error('dependency_proof_population_incomplete');
+  if (!require('./extract-count.js').extractCount(manifest).finished || scan.population !== manifest.rowsWritten || stage !== 'runtime' && scan.population !== censusRow.recordCount && manifest.snapshotTotal !== censusRow.recordCount) throw new Error('dependency_proof_population_incomplete');
   return scan;
 }
 // Validate one proposed proof against the reviewed contract, the census and the mapping. `stage`
@@ -313,12 +312,35 @@ function validateProofs(proofs, context = {}) {
 }
 
 // --- graph resolution -------------------------------------------------------------------------
-// A setup step is never per-record: a ref that may come from either an import task or a setup step
-// (a tax group) is per-record only when an import task produces it.
+// The one rule for how long a dependent waits. Every reader of an edge's mode
+// (this resolver, the readiness gate, mapping scope) calls it.
+// - A setup step is never per-record: a ref that may come from either an import task or a setup
+//   step (a tax group) is per-record only when an import task produces it.
+// - A record-producing task (an import task, or a task whose verified receipt names the identity:
+//   secondary and child outputs) is per-record unless the entity file sets the ref to
+//   `task-complete`. Each record still waits for every record it references (generated code gets
+//   ids only through the gate's resolvers), so nothing gets weaker; one held parent holds only the
+//   records that name it.
+// - Any other producer (a disposition, a proof) is per-record only when the entity file says so.
 const SETUP_PRODUCERS = new Set(['setup-step', 'pending-setup']);
+const PER_RECORD_BY_DEFAULT = new Set(['import-task', 'secondary-output', 'child-output']);
+function entityMode(entity, ref, producerKind) {
+  if (SETUP_PRODUCERS.has(producerKind)) return 'task-complete';
+  const set = domain(entity).dependencyModes?.[ref];
+  if (set === 'per-record' || set === 'task-complete') return set;
+  // An import task's edge is per record by default only where the entity declares where the
+  // reference sits: the gate checks a per-record lookup against that path (REFERENCE_UNDECLARED
+  // otherwise). With no declared path the record waits for the producer's whole step, as before.
+  if (producerKind === 'import-task' && !(domain(entity).dependencyReferenceFields?.[ref] || []).length) return 'task-complete';
+  return PER_RECORD_BY_DEFAULT.has(producerKind) ? 'per-record' : 'task-complete';
+}
 function edgeMode(entityRefs, ref, producer) {
-  if (SETUP_PRODUCERS.has(producer?.kind)) return 'task-complete';
-  return entityRefs.every(entity => domain(entity).dependencyModes?.[ref] === 'per-record') ? 'per-record' : 'task-complete';
+  return entityRefs.every(entity => entityMode(entity, ref, producer?.kind) === 'per-record') ? 'per-record' : 'task-complete';
+}
+// True when a per-record edge is per-record only by the default (some entity sets no mode for it).
+// A manifest emitted before the default may still say task-complete for it; that waits for more.
+function perRecordByDefault(entityRefs, ref, producer) {
+  return edgeMode(entityRefs, ref, producer) === 'per-record' && entityRefs.some(entity => domain(entity).dependencyModes?.[ref] === undefined);
 }
 // Every ref a dependent needs, operation-aware, with the parents each transitive ref was reached
 // through. `operationFor(ref)` names the operation that produces an intermediate ref, if known.
@@ -358,6 +380,14 @@ function adoptOnlyRefsOf(plan, readEntityMappings) {
   }
   return { refs: refs.sort(), mixed: mixed.sort() };
 }
+// Target refs whose every plan row measured no source records (`inUse: false`,
+// `sourceRecordCount: 0`). Such a task writes nothing, so, like an adopt-only task, it needs no
+// producer for its own dependencies; it stays a producer for others (its census row is no-data).
+function noRecordRefsOf(plan, readEntityMappings) {
+  const refs = [];
+  for (const [targetRef, targetRows] of rowsByTarget(plan, readEntityMappings)) if (targetRows.every(row => row.inUse === false && row.sourceRecordCount === 0)) refs.push(targetRef);
+  return refs.sort();
+}
 // Resolve producers for every dependent. One function serves mapping preflight and codegen; the
 // stage adapters only supply who can produce what. A dependent marked `adoptOnly` is honoured only
 // when the plan marks every ref it owns adopt-only (`adoptOnlyRefs`); the reverse also holds: a
@@ -365,7 +395,8 @@ function adoptOnlyRefsOf(plan, readEntityMappings) {
 // treated as a creating task silently. Either mismatch is an error, and the creating-task rules still
 // run for that dependent, so the mark can never be used to skip a dependency. Setup at mapping time is `pending-setup`: it can
 // pass structural readiness but is never a producer of record.
-function resolveDependencyGraph({ dependents, imports, setupFor = () => null, dispositions = {}, proofs = new Map(), adoptOnlyRefs = [], adoptOnlyMixed = [] }) {
+function resolveDependencyGraph({ dependents, imports, setupFor = () => null, dispositions = {}, proofs = new Map(), adoptOnlyRefs = [], adoptOnlyMixed = [], noRecordRefs = [] }) {
+  const empty = new Set(noRecordRefs);
   const result = {}, errors = [], usedProofs = new Set();
   const approvedAdopt = new Set(adoptOnlyRefs), adopted = new Set(), adoptedTasks = new Set(), adoptErrors = new Map();
   for (const dependent of dependents) {
@@ -391,6 +422,8 @@ function resolveDependencyGraph({ dependents, imports, setupFor = () => null, di
     const taskErrors = [...(adoptErrors.get(dependent.id) || [])], edges = [], bound = new Map(), carried = new Set();
     // An adopt-only task writes nothing, so it needs no producer for any dependency of what it adopts.
     if (adoptedTasks.has(dependent.id)) { result[dependent.id] = { refs: [], edges: [], dependsOn: [], errors: taskErrors }; continue; }
+    // A task with no source records writes nothing either (noRecordRefsOf).
+    if (dependent.entityRefs.length && dependent.entityRefs.every(ref => empty.has(ref))) { result[dependent.id] = { refs: [], edges: [], dependsOn: [], errors: taskErrors }; continue; }
     let closure;
     try { closure = dependencyClosure(dependent.entityRefs, dependent.operations || {}, operationFor, adopted); }
     catch (error) { errors.push(error.message); result[dependent.id] = { refs: [], edges: [], dependsOn: [], errors: [error.message] }; continue; }
@@ -489,13 +522,26 @@ function diagnostic(code, dependent = null) {
   const next = name === 'dependency_unbound' && !producible(detail) ? UNPRODUCIBLE_NEXT : NEXT_STEPS[name];
   return { code: name, ...(dependent ? { dependent } : {}), detail, next: next || 'Correct the named dependency evidence, then re-run the preflight.' };
 }
-// The not-referenced proof a dependent's mapping already satisfies for `ref`, or null.
+// The proof a dependent's mapping already satisfies for `ref`, or null. When the mapping writes a
+// creating path of a within-write dependency (product modifiers by name), the dependent's own write
+// creates it: the within-write proof is suggested first. Otherwise (or when that proof does not
+// validate) the not-referenced proof, as before, when the mapping writes none of the guarded paths.
 function notReferencedProof(dependent, ref, context) {
   const operation = dependent?.operations?.[dependent.id], found = operationContract(dependent?.id, operation), dep = found?.contract.dependencies?.[ref];
   if (!dep || dep.conditional !== true || !Array.isArray(dep.guardedPaths) || !dep.guardedPaths.length) return null;
-  const proof = { id: `${dependent.id.split('/')[1]}-${ref.split('/')[1]}`, dependentRef: dependent.id, operation: found.name, ref, reason: 'not-referenced',
-    explanation: `The approved ${dependent.id} mapping writes none of ${dep.guardedPaths.map(guardPath).join(', ')}.`,
+  const base = { id: `${dependent.id.split('/')[1]}-${ref.split('/')[1]}`, dependentRef: dependent.id, operation: found.name, ref,
     evidenceRefs: [`mapping/mapping-plan.json#${dependent.id}`], operationContractDigest: contractDigest(found.contract), guardedPaths: dep.guardedPaths };
+  // Synchronous only: an asynchronous one (product media) keeps its own reviewed observation flow.
+  if (dep.withinWrite?.completion === 'synchronous' && Array.isArray(dep.creatingPaths) && dep.creatingPaths.length && context?.plan) {
+    const targetRows = rowsByTarget(context.plan, context.readEntityMappings).get(dependent.id) || [];
+    const mapped = mappedPaths(targetRows, dependent.id, found.name, found.contract, activeRows(context.plan, context.readEntityMappings));
+    if (mapped.some(target => dep.creatingPaths.some(p => pathsOverlap(target, p)))) {
+      const proof = { ...base, reason: 'within-write', creatingPaths: dep.creatingPaths,
+        explanation: `The approved ${dependent.id} mapping writes ${dep.creatingPaths.join(', ')}: the ${found.name} task creates or matches ${ref} in the same write.` };
+      if (validateProof(proof, { ...context, stage: 'mapping' }).ok) return proof;
+    }
+  }
+  const proof = { ...base, reason: 'not-referenced', explanation: `The approved ${dependent.id} mapping writes none of ${dep.guardedPaths.map(guardPath).join(', ')}.` };
   return validateProof(proof, { ...context, stage: 'mapping' }).ok ? proof : null;
 }
 function preflightMapping({ plan, reconciliation, dispositions = {}, readEntityMappings, projectDir = null }) {
@@ -524,7 +570,7 @@ function preflightMapping({ plan, reconciliation, dispositions = {}, readEntityM
   };
   const validated = validateProofs(plan?.dependencyProofs, { rows: rowsMap, plan, readEntityMappings, projectDir, stage: 'mapping', work });
   errors.push(...validated.errors);
-  const graph = resolveDependencyGraph({ dependents, imports, setupFor, dispositions, proofs: validated.proofs, adoptOnlyRefs: adoption.refs, adoptOnlyMixed: adoption.mixed });
+  const graph = resolveDependencyGraph({ dependents, imports, setupFor, dispositions, proofs: validated.proofs, adoptOnlyRefs: adoption.refs, adoptOnlyMixed: adoption.mixed, noRecordRefs: noRecordRefsOf(plan, readEntityMappings) });
   const taskErrors = new Set(Object.values(graph.tasks).flatMap(task => task.errors));
   errors.push(...graph.errors.filter(error => !taskErrors.has(error)));
   work.dependents = dependents.length; work.edges = Object.values(graph.tasks).reduce((sum, task) => sum + task.edges.length, 0);
@@ -587,8 +633,8 @@ function preflightMapping({ plan, reconciliation, dispositions = {}, readEntityM
 
 module.exports = {
   REASONS, canonical, domain, bundledDomain, useTargetKnowledgeRoot, contractDigest, operationContract, applicableDependsOn, inapplicableRefs, guardHits, guardPath, valuesAt,
-  validatePredicate, predicateMatches, resolveRowOperation, validateProof, validateProofs, proofKey, dependencyClosure, adoptOnlyRefsOf,
-  resolveDependencyGraph, preflightMapping, pathsOverlap, scanTotals: () => ({ ...scanTotals }),
+  validatePredicate, predicateMatches, resolveRowOperation, validateProof, validateProofs, proofKey, dependencyClosure, adoptOnlyRefsOf, noRecordRefsOf,
+  resolveDependencyGraph, preflightMapping, pathsOverlap, edgeMode, perRecordByDefault, scanTotals: () => ({ ...scanTotals }),
 };
 for (const name of ['preflightMapping', 'resolveDependencyGraph']) {
   const run = module.exports[name];

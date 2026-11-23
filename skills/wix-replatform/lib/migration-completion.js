@@ -55,13 +55,19 @@ async function readMappedEntities(projectDir, managementImportMode) {
     return Array.isArray(quickPlan && quickPlan.entities) ? quickPlan.entities : [];
   }
   const mappingPlan = await readJsonTolerant(path.join(projectDir, MAPPING_PLAN_FILE));
-  return readEntityMappings(mappingPlan);
+  // An entity written inside another task (its `entityRefs` lists it, no task binds it as a
+  // source: product customizations in the product task) has no report row of its own; the
+  // parent task's rows cover it.
+  const tasks = (await readJsonTolerant(path.join(projectDir, 'execution/execution-manifest.json')))?.tasks || [];
+  const bound = new Set(tasks.flatMap(task => (task?.sourceBindings || []).map(binding => binding?.ref)));
+  const inTask = new Set(tasks.filter(task => task?.kind === 'import' && task.sourceBindings?.length).flatMap(task => task.entityRefs || []).filter(ref => !bound.has(ref)));
+  return readEntityMappings(mappingPlan).filter(row => !inTask.has(row?.targetRef));
 }
 
 // This compatibility receipt test deliberately uses only the original receipt fields.
 // Later finalization requirements cannot prove that a legacy run really finished.
 async function classifyFinalizedRun(projectDir, { decisions = {}, receiptFile = COMPLETION_FILE } = {}) {
-  const { getDecisionValue, getEffectiveDeliveryMode } = require('./orchestration-decisions.js');
+  const { getDecisionValue, getCompletionDeliveryMode } = require('./orchestration-decisions.js');
   const receiptPath = path.join(projectDir, receiptFile);
   try { await fs.access(receiptPath); } catch (error) { if (error.code === 'ENOENT') return { kind: 'none', errors: [] }; throw error; }
   const [receipt, report] = await Promise.all([readJsonTolerant(receiptPath), readJsonTolerant(path.join(projectDir, BACKEND_COMPLETION_FILE))]);
@@ -74,7 +80,7 @@ async function classifyFinalizedRun(projectDir, { decisions = {}, receiptFile = 
   if (!object || receipt.schemaVersion !== 1) errors.push('schemaVersion');
   if (!object || !BACKEND_COMPLETE_STATUSES.has(receipt.status)) errors.push('status');
   if (typeof receipt?.finalizedAt !== 'string' || !Number.isFinite(Date.parse(receipt.finalizedAt))) errors.push('finalizedAt');
-  const mode = getEffectiveDeliveryMode(decisions);
+  const mode = getCompletionDeliveryMode(decisions);
   if (!['management','management_and_website'].includes(mode) || receipt?.deliveryMode !== mode) errors.push('deliveryMode');
   if (receipt?.backendCompletion !== BACKEND_COMPLETION_FILE) errors.push('backendCompletion');
   if (mode === 'management_and_website') {

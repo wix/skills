@@ -3,7 +3,7 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { validateArtifacts, explicitRunBlocker } = require('./orchestration-state.js');
-const { getDecisionValue, getEffectiveDeliveryMode, isEditorSiteType, isExplicitUserOneClick, isKnownSourceMode, requiresWebsiteContinuation } = require('./orchestration-decisions.js');
+const { getCompletionDeliveryMode, getDecisionValue, getEffectiveDeliveryMode, isExplicitUserOneClick, isKnownSourceMode, requiresWebsiteContinuation } = require('./orchestration-decisions.js');
 const { destinationGate, publicationRecheckGate } = require('./destination-route.js');
 const { validateWebsiteHandoff } = require('./website-handoff.js');
 const { statEnvKeys, readEnvFile } = require('./config-env.js');
@@ -24,6 +24,7 @@ const { readReport: readMigrationReview, readLatestHandoff } = require('./migrat
 const { pendingUserActionGate } = require('./user-actions.js');
 const { localPreflightChecks } = require('./orchestration-preflight.js');
 const { SESSION_RECEIPT_FILE } = require('./source-access.js');
+const { validatePlanSafety } = require('./mapping-field-contract.js');
 
 const { readReconciliation, censusReconciliationFreshness, mappingApprovalBound, reconcileSourceCoverageForMapping } = require('./census-reconciliation.js');
 const { readCoverageContract, reconcileProject, SourceCoverageError } = require('./source-coverage.js');
@@ -45,6 +46,18 @@ async function readJson(filePath) {
   }
 }
 
+// A report written before a later accepted mapping decision is not terminal when it records
+// rows the importer never attempted. Expected deferrals remain completion evidence; only the
+// report's dedicated unexpected-skip counter reopens the import. The stale-mapping gate below
+// then decides whether codegen/setup must refresh first or the journal-backed import can resume.
+function unexpectedSkipsNeedResume(report, mappingApproval) {
+  if (!Array.isArray(report?.entityCompleteness)
+    || !report.entityCompleteness.some((row) => Number(row?.unexpectedSkipped) > 0)) return false;
+  const reportAt = Date.parse(report.lastWriteAt);
+  const approvalAt = Date.parse(mappingApproval?.decidedAt);
+  return Number.isFinite(reportAt) && Number.isFinite(approvalAt) && approvalAt > reportAt;
+}
+
 // Rules for the two LLM-assisted outputs: parseable JSON whose top level is a
 // non-array object. Nothing else is read (no versioned contract exists; mapping row shape is
 // owned by the tolerant `readEntityMappings` consumer).
@@ -55,9 +68,9 @@ function validateSourceSchemaShape(value) {
 }
 
 function validateMappingPlanShape(value) {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? { ok: true, errors: [] }
-    : { ok: false, errors: ['mapping/mapping-plan.json must be a JSON object'] };
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return { ok: false, errors: ['mapping/mapping-plan.json must be a JSON object'] };
+  const safetyErrors = validatePlanSafety(value);
+  return safetyErrors.length ? { ok: false, errors: safetyErrors } : { ok: true, errors: [] };
 }
 
 function setupPlanRule(value, projectDir) {
@@ -101,8 +114,459 @@ async function checkGatedOutput(readArtifact, relativePath, rule, { validate }) 
   return { present: true, errors: result.ok ? null : result.errors };
 }
 
-function invalidOutputRoute(reason, nextResource, errors) {
-  return { ok: true, nextState: 'blocked', nextResource, reason, errors, blocking: true };
+// An agent's output that fails its schema goes back to the agent that wrote it, with the errors,
+// like a missing output. It gets OUTPUT_REPAIR_PASSES rewrites (each new invalid version is a pass;
+// a turn that rewrites nothing is the controller's no-progress stop). Still invalid after that, the
+// run stops: every later step reads this file, so nothing after it can run. Review-only routes and
+// a status display (observeOnly) count nothing.
+const OUTPUT_REPAIR_PASSES = 2;
+const OUTPUT_REPAIR_FILE = 'state/output-repair-passes.json';
+const WRITER_STATE = new Map([
+  ['resources/rp-discovery/', 'discovery_running'],
+  ['resources/rp-mapper/', 'mapping_running'],
+  ['resources/rp-setup-discovery/', 'setup_discovery_running'],
+  ['resources/rp-import-codegen/', 'codegen_running'],
+]);
+function outputRepairPasses(projectDir, reason, file, { record }) {
+  const store = path.join(projectDir, OUTPUT_REPAIR_FILE);
+  let doc = {};
+  try { doc = JSON.parse(require('node:fs').readFileSync(store, 'utf8')); } catch { doc = {}; }
+  const key = `${reason}:${file}`;
+  const versions = Array.isArray(doc.passes?.[key]) ? doc.passes[key] : [];
+  let digest = null;
+  try { digest = require('node:crypto').createHash('sha256').update(require('node:fs').readFileSync(path.join(projectDir, file))).digest('hex'); } catch { digest = null; }
+  if (digest && !versions.includes(digest)) {
+    versions.push(digest);
+    if (record) {
+      const next = { schemaVersion: 1, passes: { ...(doc.passes || {}), [key]: versions } };
+      require('node:fs').mkdirSync(path.dirname(store), { recursive: true });
+      require('node:fs').writeFileSync(`${store}.tmp`, `${JSON.stringify(next, null, 2)}\n`);
+      require('node:fs').renameSync(`${store}.tmp`, store);
+    }
+  }
+  // The first invalid version is the agent's own write; each later one is a repair pass.
+  return Math.max(0, versions.indexOf(digest) === -1 ? versions.length : versions.indexOf(digest));
+}
+function invalidOutputRoute(reason, nextResource, errors, ctx = {}) {
+  const stop = { ok: true, nextState: 'blocked', nextResource, reason, errors, blocking: true };
+  const nextState = ctx.nextState || WRITER_STATE.get(nextResource);
+  if (!ctx.projectDir || !ctx.file || ctx.reviewOnly || !nextState) return stop;
+  const passes = outputRepairPasses(ctx.projectDir, reason, ctx.file, { record: !ctx.observeOnly });
+  if (passes >= OUTPUT_REPAIR_PASSES) return { ...stop, passes, blocker: { type: 'agent_output_invalid', artifact: ctx.file, requiredInput: `${ctx.file} is still invalid after ${OUTPUT_REPAIR_PASSES} repair passes; every later step reads it, so the run cannot go on. Fix the file and resume.` } };
+  return { ok: true, nextState, nextResource, reason, errors, artifact: ctx.file, repairPass: passes + 1, repairPasses: OUTPUT_REPAIR_PASSES };
+}
+
+// The refusal the one-click mapping approval would get (the binding every approval writer uses,
+// read only), or null when it would be recorded.
+async function oneClickMappingRefusal(projectDir) {
+  try {
+    await require('./user-actions').approvalArtifactRefs(projectDir, { approvalType: 'mapping', status: 'approved', decidedBy: 'agent' });
+    return null;
+  } catch (error) {
+    const details = error.errors || error.failures || error.staleInputs || [];
+    return { errors: [error.code || error.message, ...details.map(d => (typeof d === 'string' ? d : [d.code, d.detail].filter(Boolean).join(':') || JSON.stringify(d)))] };
+  }
+}
+
+// A stage may finish with an unresolved decision for an earlier stage.  The stage handoff is
+// the durable source of that intent; do not let destination/publication or write gates turn it
+// into forward progress.  Handoffs in the wild use either a top-level resource or a route on
+// an individual blocker/open item, so accept both forms while restricting routes to known
+// pipeline resources.
+const PIPELINE_RESOURCES = new Map([
+  ['resources/rp-discovery/', { order: 10, nextState: 'discovery_running' }],
+  ['resources/rp-mapper/', { order: 20, nextState: 'mapping_running' }],
+  ['resources/rp-setup-discovery/', { order: 30, nextState: 'setup_discovery_running' }],
+  ['resources/rp-import-codegen/', { order: 40, nextState: 'codegen_running' }],
+]);
+const STAGE_HANDOFFS = [
+  { path: 'setup/llm-handoff.json', order: 30, stage: 'setup' },
+  { path: 'execution/llm-handoff.json', order: 40, stage: 'codegen' },
+];
+const CODEGEN_OWNERSHIP_HINT = /(?:rp-import-codegen|generated\s+(?:import\s+)?code|generated\s+importer|src\/import|run-import\.js|codegen)/i;
+const CODEGEN_DONE_OUTCOMES = new Set(['done', 'passed', 'complete', 'completed', 'success']);
+
+function normalizePipelineResource(value) {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const aliases = {
+    mapper: 'resources/rp-mapper/',
+    'rp-mapper': 'resources/rp-mapper/',
+    discovery: 'resources/rp-discovery/',
+    'rp-discovery': 'resources/rp-discovery/',
+    'setup-discovery': 'resources/rp-setup-discovery/',
+    'rp-setup-discovery': 'resources/rp-setup-discovery/',
+    codegen: 'resources/rp-import-codegen/',
+    'rp-import-codegen': 'resources/rp-import-codegen/',
+  };
+  if (aliases[trimmed]) return aliases[trimmed];
+  const withPrefix = trimmed.startsWith('resources/') ? trimmed : `resources/${trimmed.replace(/^\/+/, '')}`;
+  const normalized = withPrefix.endsWith('/') ? withPrefix : `${withPrefix}/`;
+  return PIPELINE_RESOURCES.get(normalized) ? normalized : null;
+}
+
+function handoffResources(handoff) {
+  const values = [];
+  const collect = (value) => {
+    if (typeof value === 'string') values.push(value);
+    else if (value && typeof value === 'object') {
+      for (const key of ['resource', 'nextResource', 'route', 'nextRoute', 'requiredResource']) collect(value[key]);
+    }
+  };
+  for (const key of ['resource', 'nextResource', 'route', 'nextRoute', 'requiredResource']) collect(handoff?.[key]);
+  for (const key of ['blockers', 'unresolved', 'openItems']) {
+    if (Array.isArray(handoff?.[key])) for (const item of handoff[key]) collect(item);
+  }
+  return [...new Set(values.map(normalizePipelineResource).filter(Boolean))];
+}
+
+function handoffText(value) {
+  try { return JSON.stringify(value); } catch { return ''; }
+}
+
+const IMPORT_RESOURCE = 'resources/rp-execute-import/';
+const CODEGEN_RESOURCE = 'resources/rp-import-codegen/';
+const IMPORT_HANDOFF_STAGES = new Set(['execute-import', 'import']);
+const CODEGEN_HANDOFF_STAGES = new Set(['import-codegen', 'codegen']);
+const CODEGEN_CHECKPOINT_DONE = new Set(['complete', 'partial']);
+
+// The pipeline resource a recorded run.json stop names. Writers use `nextResource`,
+// `resource` or put the owning skill in `owner`; all three are the same hand-back.
+function resumeFromResource(resumeFrom) {
+  if (!resumeFrom || typeof resumeFrom !== 'object' || Array.isArray(resumeFrom)) return null;
+  for (const key of ['nextResource', 'resource', 'owner']) {
+    const resource = normalizePipelineResource(resumeFrom[key]);
+    if (resource) return resource;
+  }
+  return null;
+}
+
+// Stage handoffs are named `<stage>-<round>.json` with a free-form stage, so classify them by
+// the resource they record and fall back to the known stage names.
+function handoffRole(value) {
+  const resource = typeof value?.resource === 'string' ? value.resource.trim().replace(/\/?$/, '/') : null;
+  if (resource === IMPORT_RESOURCE || IMPORT_HANDOFF_STAGES.has(value?.stage)) return 'import';
+  if (resource === CODEGEN_RESOURCE || CODEGEN_HANDOFF_STAGES.has(value?.stage)) return 'codegen';
+  return null;
+}
+
+function codegenOwnedImportSignal(signal) {
+  if (signal.kind === 'resume') return true;
+  const value = signal.value;
+  if (!value || typeof value !== 'object' || !CODEGEN_OWNERSHIP_HINT.test(handoffText(value))) return false;
+  if (signal.kind === 'qa') return value.verdict === 'fail' || value.status === 'failed';
+  return signal.role === 'import' && ['needs_decision', 'resume_limit', 'qa_findings', 'failed'].includes(value.outcome);
+}
+
+function codegenDoneSignal(signal) {
+  if (signal.kind === 'checkpoint') return true;
+  return signal.kind === 'handoff' && signal.role === 'codegen' && CODEGEN_DONE_OUTCOMES.has(signal.value?.outcome);
+}
+
+async function importRepairSignals(projectDir, artifacts) {
+  const signals = [];
+  for (const [directory, kind, pattern] of [
+    ['state/handoffs', 'handoff', /^[a-z0-9][a-z0-9-]*-\d+\.json$/i],
+    ['state/qa', 'qa', /^execute-import-qa-\d+\.json$/],
+  ]) {
+    let names;
+    try { names = await fs.readdir(path.join(projectDir, directory)); } catch { continue; }
+    for (const name of names.filter((candidate) => pattern.test(candidate))) {
+      const file = path.join(projectDir, directory, name);
+      let value;
+      try { value = JSON.parse(await fs.readFile(file, 'utf8')); } catch { continue; }
+      const role = kind === 'handoff' ? handoffRole(value) : null;
+      if (kind === 'handoff' && !role) continue;
+      let stat;
+      try { stat = await fs.stat(file); } catch { continue; }
+      const declared = value && (value.writtenAt || value.createdAt || value.updatedAt);
+      const timestamp = declared && Number.isFinite(Date.parse(declared)) ? Date.parse(declared) : stat.mtimeMs;
+      signals.push({ file: path.relative(projectDir, file), kind, role, value, timestamp });
+    }
+  }
+  // A recorded stop that names codegen is the most explicit hand-back. Its time is the stop
+  // time stamped by transitionRun (resumeFrom.recordedAt).
+  const resumeFrom = artifacts.run?.resumeFrom;
+  const recordedAt = Date.parse(resumeFrom?.recordedAt);
+  if (resumeFromResource(resumeFrom) === CODEGEN_RESOURCE && Number.isFinite(recordedAt)) {
+    signals.push({ file: 'orchestration/run.json', kind: 'resume', role: 'import', value: resumeFrom, timestamp: recordedAt });
+  }
+  // Codegen records its finished run on its checkpoint even when it writes no handoff.
+  const codegenCheckpoint = artifacts.checkpoints?.codegen;
+  const checkpointAt = Date.parse(codegenCheckpoint?.updatedAt);
+  if (CODEGEN_CHECKPOINT_DONE.has(codegenCheckpoint?.status) && Number.isFinite(checkpointAt)) {
+    signals.push({ file: 'orchestration/checkpoints.json', kind: 'checkpoint', role: 'codegen', value: codegenCheckpoint, timestamp: checkpointAt });
+  }
+  return signals.sort((a, b) => a.timestamp - b.timestamp);
+}
+
+async function latestMappingRejectionAt(projectDir, approval) {
+  let latest = approval?.status === 'rejected' ? Date.parse(approval.decidedAt) : NaN;
+  try {
+    const journal = await fs.readFile(path.join(projectDir, 'orchestration', 'events.jsonl'), 'utf8');
+    for (const line of journal.split('\n')) {
+      if (!line.trim()) continue;
+      let event;
+      try { event = JSON.parse(line); } catch { continue; }
+      if (event?.type !== 'approval.updated'
+        || event.payload?.approvalType !== 'mapping'
+        || event.payload?.status !== 'rejected') continue;
+      const timestamp = Date.parse(event.timestamp);
+      if (Number.isFinite(timestamp) && (!Number.isFinite(latest) || timestamp > latest)) latest = timestamp;
+    }
+  } catch {}
+  return Number.isFinite(latest) ? latest : null;
+}
+
+async function handoffTimestamp(projectDir, relativePath, value) {
+  const declared = value && (value.writtenAt || value.createdAt || value.updatedAt || value.generatedAt);
+  if (declared && Number.isFinite(Date.parse(declared))) return Date.parse(declared);
+  try { return (await fs.stat(path.join(projectDir, relativePath))).mtimeMs; } catch { return null; }
+}
+
+// After a settled import repair: resume the import once (the deferred tasks are held by its
+// dependency gate) unless a report newer than the settlement exists; then the ordinary flow goes on.
+async function settledResume(projectDir, readArtifact, settledAt, options = {}) {
+  const settlement = require('./route-settlement');
+  if (settlement.importRepairResumed(projectDir)) return null;
+  let reportAt = null;
+  try { reportAt = (await fs.stat(path.join(projectDir, 'execution', 'completion-report.json'))).mtimeMs; } catch { reportAt = null; }
+  const report = (await readArtifact('execution/completion-report.json')).value;
+  if (reportAt !== null && reportAt > settledAt && !report?.interruption) return null;
+  if (!options.observeOnly) settlement.markImportRepairResumed(projectDir);
+  return { ok: true, nextState: 'executing_import', nextResource: IMPORT_RESOURCE, reason: 'import_repair_settled_resume', resumeSameImport: true, settlement: 'execution/route-settlements.json' };
+}
+
+// A hand-back to codegen (import QA, an import handoff or run.json resumeFrom) holds until
+// codegen records newer finished work; only then does the same import resume. A later mapping
+// rejection supersedes that repair cycle until mapping is approved again; its journal event
+// keeps the old codegen signals retired after the current approval changes to pending/approved.
+async function codegenOwnedImportRoute(projectDir, artifacts, readArtifact, mappingRejectionAt, options = {}) {
+  const allSignals = await importRepairSignals(projectDir, artifacts);
+  let signals = allSignals;
+  if (mappingRejectionAt !== null) signals = signals.filter((signal) => signal.timestamp > mappingRejectionAt);
+  // Hand-backs the run settled at the repair pass limit are retired (lib/route-settlement.js).
+  const settlement = require('./route-settlement');
+  const retiredBefore = settlement.importRepairRetiredBefore(projectDir);
+  if (retiredBefore !== null) {
+    const live = signals.filter((signal) => signal.timestamp > retiredBefore);
+    // Nothing left codegen could unblock (every unfinished task is held): later hand-backs retire too.
+    if ((!live.length || settlement.importRepairCovered(projectDir)) && signals.length) return settledResume(projectDir, readArtifact, retiredBefore, options);
+    signals = live;
+  }
+  const latest = signals.at(-1);
+  if (!latest) return signals.length < allSignals.length ? { supersededByMapping: true } : null;
+  const fixRequiredRoute = (signal) => ({
+    ok: true,
+    nextState: 'codegen_running',
+    nextResource: CODEGEN_RESOURCE,
+    reason: 'import_codegen_fix_required',
+    handoff: signal.file,
+    handoffStage: signal.kind === 'handoff' ? signal.value.stage : signal.kind === 'resume' ? 'run-blocked' : 'execute-import',
+    requestedResource: CODEGEN_RESOURCE,
+    then: IMPORT_RESOURCE,
+    resumeSameImport: true,
+    handBackAt: signal.timestamp,
+  });
+  // Each hand-back is a codegen repair pass. Passes that leave the import where it was (no new
+  // imported records) are counted; at the limit the unfinished tasks are deferred and the rest of
+  // the import resumes. A status display (observeOnly) counts nothing and settles nothing.
+  const fixRequired = async (signal) => {
+    const route = fixRequiredRoute(signal);
+    const codegenAt = [...signals].reverse().find((s) => s.timestamp < signal.timestamp && codegenDoneSignal(s))?.timestamp ?? null;
+    const passes = await settlement.importRepairPasses(projectDir, { ...signal, codegenAt }, { record: !options.observeOnly });
+    if (!passes.exhausted || options.observeOnly) return route;
+    const settled = settlement.settleRoute(projectDir, route);
+    if (!settled.settled) return route;
+    return settledResume(projectDir, readArtifact, signal.timestamp, options);
+  };
+  const prior = (before) => [...signals].reverse().find((signal) => signal.timestamp < before.timestamp && codegenOwnedImportSignal(signal));
+
+  if (latest.role === 'codegen') {
+    if (!codegenDoneSignal(latest)) {
+      if (latest.value.stage === 'import-codegen' || prior(latest)) return fixRequired(latest);
+      // An unfinished forward round (any stage label) still owns the run: a partial manifest it
+      // wrote must not open setup or import. A round that names an earlier stage goes there.
+      const earlier = handoffResources(latest.value).some((resource) => (PIPELINE_RESOURCES.get(resource)?.order ?? Infinity) < PIPELINE_RESOURCES.get(CODEGEN_RESOURCE).order);
+      return earlier ? null : { ok: true, nextState: 'codegen_running', nextResource: CODEGEN_RESOURCE, reason: 'codegen_round_unfinished', handoff: latest.file, handoffStage: latest.value.stage };
+    }
+    const handBack = prior(latest);
+    if (!handBack) return null;
+    const report = (await readArtifact('execution/completion-report.json')).value;
+    const progress = await importProgressFields(projectDir);
+    const reportNeedsResume = report && !['complete', 'complete_with_warnings', 'complete_with_recovered_records', 'complete_with_deferred_records'].includes(report.status);
+    if (reportNeedsResume || progress.importProgress === 'interrupted') {
+      return {
+        ok: true,
+        nextState: 'executing_import',
+        nextResource: IMPORT_RESOURCE,
+        reason: 'import_codegen_fixed_resume',
+        repairedBy: latest.file,
+        priorHandoff: handBack.file,
+        resumeSameImport: true,
+        handBackAt: handBack.timestamp,
+      };
+    }
+    return null;
+  }
+
+  return codegenOwnedImportSignal(latest) ? fixRequired(latest) : null;
+}
+
+async function answeredMappingDeferralRepair(projectDir, readArtifact, { after = null, observeOnly = false } = {}) {
+  let names;
+  try { names = await fs.readdir(path.join(projectDir, 'orchestration', 'user-actions')); } catch { return null; }
+  const answered = [];
+  for (const name of names.filter((candidate) => candidate.endsWith('.json') && candidate !== 'index.json')) {
+    let value;
+    try { value = JSON.parse(await fs.readFile(path.join(projectDir, 'orchestration', 'user-actions', name), 'utf8')); } catch { continue; }
+    const answeredAt = Date.parse(value?.answer?.answeredAt);
+    if (value?.status === 'answered'
+      && value.subject?.routerReason === 'mapping_deferral_report_missing_or_stale'
+      && value.answer?.choice === 'fix-and-regenerate'
+      && (after === null || (Number.isFinite(answeredAt) && answeredAt > after))) answered.push(value);
+  }
+  const action = answered.sort((a, b) => String(a.answer?.answeredAt || '').localeCompare(String(b.answer?.answeredAt || ''))).at(-1);
+  if (!action) return null;
+
+  const report = (await readArtifact('execution/completion-report.json')).value;
+  const handoff = (await readArtifact('execution/review/migration-handoff.json')).value;
+  const answeredAt = Date.parse(action.answer.answeredAt);
+  const reportAt = report?.lastWriteAt ? Date.parse(report.lastWriteAt) : NaN;
+  const handoffAt = handoff?.generatedAt ? Date.parse(handoff.generatedAt) : NaN;
+  const stale = !report || !Number.isFinite(reportAt) || !handoff || !Number.isFinite(handoffAt)
+    || handoffAt <= reportAt
+    || (Number.isFinite(answeredAt) && (reportAt < answeredAt || handoffAt < answeredAt));
+  if (!stale) return null;
+  // Settled after the pass limit: the regeneration is a cutover task, not another import turn.
+  const route = boundedMappingDeferralRegenerate(projectDir, { observeOnly });
+  return route && { ...route, requestId: action.requestId };
+}
+
+// The regenerate route, at most IMPORT_REPAIR_PASSES failed passes per mapping plan; then it is
+// settled (null: the run goes on). Both readers (the completion gate and an answered
+// fix-and-regenerate) share this count and this settlement.
+function boundedMappingDeferralRegenerate(projectDir, { observeOnly = false } = {}) {
+  const settlement = require('./route-settlement');
+  if (settlement.mappingDeferralReportSettled(projectDir)) return null;
+  const route = mappingDeferralRegenerateRoute();
+  const { exhausted } = settlement.mappingDeferralRegeneratePasses(projectDir, { record: !observeOnly });
+  if (!exhausted || observeOnly) return route;
+  return settlement.settleRoute(projectDir, route).settled ? null : route;
+}
+
+function mappingDeferralRegenerateRoute() {
+  return {
+    ok: true,
+    nextState: 'executing_import',
+    nextResource: IMPORT_RESOURCE,
+    reason: 'mapping_deferral_report_regenerate',
+    resumeSameImport: true,
+    blocker: {
+      type: 'mapping_deferral_evidence_required',
+      artifact: 'execution/completion-report.json',
+      requiredInput: 'Regenerate the existing report/handoff through shared writers using the importer mapping pin; retained counters must not be reported as completed.',
+    },
+  };
+}
+
+async function backwardHandoffRoute(projectDir, artifacts, readArtifact, options = {}) {
+  const mappingRejectionAt = await latestMappingRejectionAt(projectDir, artifacts.approvals?.mapping);
+  if (artifacts.approvals?.mapping?.status === 'rejected') {
+    return { ok: true, nextState: 'mapping_running', nextResource: 'resources/rp-mapper/', reason: 'mapping_approval_rejected' };
+  }
+  for (const definition of STAGE_HANDOFFS) {
+    const entry = await readArtifact(definition.path);
+    if (!entry.present || entry.parseError || !entry.value || entry.value.needsLlm !== true) continue;
+    const timestamp = await handoffTimestamp(projectDir, definition.path, entry.value);
+    if (mappingRejectionAt !== null && Number.isFinite(timestamp) && mappingRejectionAt > timestamp) continue;
+    const resources = handoffResources(entry.value);
+    // A run resume record is also a durable route emitted by the supervisor.  It is only a
+    // fallback: a handoff's explicit route always wins.
+    if (!resources.length) {
+      const resumeResource = resumeFromResource(artifacts.run?.resumeFrom);
+      if (resumeResource) resources.push(resumeResource);
+    }
+    const earlier = resources
+      .map((resource) => ({ resource, ...PIPELINE_RESOURCES.get(resource) }))
+      .filter((candidate) => candidate.order < definition.order)
+      .sort((a, b) => a.order - b.order)[0];
+    if (earlier) {
+      return {
+        ok: true,
+        nextState: earlier.nextState,
+        nextResource: earlier.resource,
+        reason: 'backward_handoff',
+        handoff: definition.path,
+        handoffStage: definition.stage,
+        requestedResource: earlier.resource,
+      };
+    }
+  }
+  // A pending codegen hand-back wins over an answered report-repair action: that action resumes
+  // rp-execute-import, which cannot repair generated code (the live loop on 2026-11-09).
+  const importRepair = await codegenOwnedImportRoute(projectDir, artifacts, readArtifact, mappingRejectionAt, options);
+  if (importRepair?.nextResource === CODEGEN_RESOURCE || importRepair?.nextResource === 'resources/rp-mapper/') return importRepair;
+  const mappingDeferralRepair = await answeredMappingDeferralRepair(projectDir, readArtifact, { after: mappingRejectionAt, observeOnly: options.observeOnly });
+  if (mappingDeferralRepair) return mappingDeferralRepair;
+  if (importRepair?.supersededByMapping) return null;
+  return importRepair;
+}
+
+const mappingPlanDigest = require('./mapping-plan-digest.js');
+
+function downstreamMappingDigest(value, artifact) {
+  if (!value || typeof value !== 'object') return null;
+  if (artifact === 'setup') {
+    return value.inputs?.mappingPlanDigest || value.inputs?.mappingPlanSha256 || value.mappingPlanDigest || value.mappingPlanSha256 || null;
+  }
+  return value.mappingPlanDigest || value.mappingPlanSha256 || null;
+}
+
+async function staleMappingBoundArtifactRoute(projectDir, readArtifact, { allowLegacyUnboundSetup = false } = {}) {
+  const current = mappingPlanDigest.current(projectDir);
+  if (!current) return null;
+  const setupEntry = await readArtifact('setup/setup-plan.json');
+  const setupDigest = setupEntry.present && !setupEntry.parseError
+    ? downstreamMappingDigest(setupEntry.value, 'setup') : null;
+  if (setupEntry.present && !setupEntry.parseError && !setupDigest && !allowLegacyUnboundSetup) {
+    return {
+      ok: true,
+      nextState: 'setup_discovery_running',
+      nextResource: 'resources/rp-setup-discovery/',
+      reason: 'setup_plan_stale_mapping',
+      staleArtifact: 'setup/setup-plan.json',
+      expectedMappingPlanDigest: current,
+      actualMappingPlanDigest: null,
+    };
+  }
+  if (setupDigest && !mappingPlanDigest.matches(projectDir, setupDigest)) {
+    return {
+      ok: true,
+      nextState: 'setup_discovery_running',
+      nextResource: 'resources/rp-setup-discovery/',
+      reason: 'setup_plan_stale_mapping',
+      staleArtifact: 'setup/setup-plan.json',
+      expectedMappingPlanDigest: current,
+      actualMappingPlanDigest: setupDigest,
+    };
+  }
+  const manifestEntry = await readArtifact('execution/execution-manifest.json');
+  if (!manifestEntry.present || manifestEntry.parseError) return null;
+  const manifestDigest = downstreamMappingDigest(manifestEntry.value, 'manifest');
+  if (manifestDigest && !mappingPlanDigest.matches(projectDir, manifestDigest)) {
+    return {
+      ok: true,
+      nextState: 'codegen_running',
+      nextResource: 'resources/rp-import-codegen/',
+      reason: 'execution_manifest_stale_mapping',
+      staleArtifact: 'execution/execution-manifest.json',
+      expectedMappingPlanDigest: current,
+      actualMappingPlanDigest: manifestDigest,
+    };
+  }
+  return null;
 }
 
 // The setup plan mutes exactly when the answer says so; otherwise setup discovery
@@ -247,6 +711,7 @@ async function determineNextStepUnfiltered(projectDir, artifacts, { reviewOnly =
     };
   }
 
+  const outputCtx = (file, nextState) => ({ projectDir, file, nextState, reviewOnly, observeOnly: options.observeOnly });
   if (artifacts.run.status === 'cancel_requested') {
     return { ok: true, nextState: 'cancel_requested', nextResource: null, reason: 'cancellation_cleanup_required', blocking: true };
   }
@@ -303,6 +768,22 @@ async function determineNextStepUnfiltered(projectDir, artifacts, { reviewOnly =
     }
     return { ok: true, nextState: 'storefront_running', nextResource: 'resources/rp-website-continuation/', reason: 'website_only_frontend' };
   }
+
+  // Rebuild what is derived from the mapping plan before any standard route can return (a
+  // status read only observes). A finalized review-only run keeps its evidence as it is.
+  if (managementImportMode !== 'quick' && !reviewOnly && !options.observeOnly) {
+    // A refresh that cannot run leaves the files as they are; later gates still see them stale.
+    const refreshed = await require('./refresh-derived.js').refreshDerived(projectDir).catch(() => ({ rebinds: [] }));
+    // A re-bound approval is read from disk again; the loaded copy still pins the old bytes.
+    if (refreshed.rebinds.some((move) => move.files.includes('orchestration/approvals.json'))) {
+      Object.assign(approvals, await readJson(path.join(projectDir, 'orchestration', 'approvals.json')));
+    }
+  }
+
+  // A later stage can explicitly hand work back to an earlier stage.  This must precede every
+  // destination/publication and write decision, including one-click runs.
+  const backwardHandoff = await backwardHandoffRoute(projectDir, artifacts, readArtifact, options);
+  if (backwardHandoff) return backwardHandoff;
 
   if (!targetSiteStrategy) {
     return { ok: true, nextState: 'awaiting_destination_strategy', nextResource: 'resources/rp-destination/', reason: 'missing_target_site_strategy' };
@@ -435,6 +916,9 @@ async function determineNextStepUnfiltered(projectDir, artifacts, { reviewOnly =
 
   // Scope boundary: phase-output validation runs only before backend accounting.
   const completionReportPresent = await liveCompletionReportPresent(projectDir);
+  const completionReport = await readJson(path.join(projectDir, 'execution', 'completion-report.json'));
+  const unexpectedSkipResume = unexpectedSkipsNeedResume(completionReport, approvals.mapping);
+  const resumableCompletionReport = !completionReportPresent || Boolean(completionReport?.interruption) || unexpectedSkipResume;
   // A recorded rejection is never an approval, in any mode (one-click included).
   const executionRejected = Boolean(approvals.execution && approvals.execution.status === 'rejected');
   const executionRejectedRoute = { ok: true, nextState: 'blocked', nextResource: 'resources/rp-execution-policy/', reason: 'execution_approval_rejected', blocking: true };
@@ -473,14 +957,14 @@ async function determineNextStepUnfiltered(projectDir, artifacts, { reviewOnly =
     if (!quickSetupPlan.present || !quickSetupRequirements.present) {
       return { ok: true, nextState: 'setup_discovery_running', nextResource: 'resources/rp-setup-discovery/', reason: 'quick_mode_setup_plan_missing' };
     }
-    if (quickSetupPlan.errors) return invalidOutputRoute('setup_plan_invalid', 'resources/rp-setup-discovery/', quickSetupPlan.errors);
-    if (quickSetupRequirements.errors) return invalidOutputRoute('setup_requirements_invalid', 'resources/rp-setup-discovery/', quickSetupRequirements.errors);
+    if (quickSetupPlan.errors) return invalidOutputRoute('setup_plan_invalid', 'resources/rp-setup-discovery/', quickSetupPlan.errors, outputCtx('setup/setup-plan.json'));
+    if (quickSetupRequirements.errors) return invalidOutputRoute('setup_requirements_invalid', 'resources/rp-setup-discovery/', quickSetupRequirements.errors, outputCtx('setup/setup-requirements.json'));
 
     const quickManifest = await checkGatedOutput(readArtifact, path.join('execution', 'execution-manifest.json'), validateQuickExecutionManifest, { validate: !completionReportPresent });
     if (!quickManifest.present) {
       return { ok: true, nextState: 'quick_mode_plan_required', nextResource: quickResource, reason: 'quick_mode_execution_manifest_missing' };
     }
-    if (quickManifest.errors) return invalidOutputRoute('execution_manifest_invalid', quickResource, quickManifest.errors);
+    if (quickManifest.errors) return invalidOutputRoute('execution_manifest_invalid', quickResource, quickManifest.errors, outputCtx('execution/execution-manifest.json', 'quick_mode_plan_required'));
 
     if (executionRejected) return executionRejectedRoute;
     { const regional = await regionalRoute(projectDir); if (regional) return regional; }
@@ -539,7 +1023,7 @@ async function determineNextStepUnfiltered(projectDir, artifacts, { reviewOnly =
     if (!sourceSchema.present) {
       return { ok: true, nextState: 'discovery_running', nextResource: 'resources/rp-discovery/', reason: 'missing_source_schema' };
     }
-    if (sourceSchema.errors) return invalidOutputRoute('source_schema_invalid', 'resources/rp-discovery/', sourceSchema.errors);
+    if (sourceSchema.errors) return invalidOutputRoute('source_schema_invalid', 'resources/rp-discovery/', sourceSchema.errors, outputCtx('source-schema.json'));
     // Discovery promoted under the coverage contract must also have promoted the store's regional
     // settings; without them nothing can compare the destination's currency with the source's.
     if (await exists(path.join(projectDir, 'discovery', 'source-coverage.json')) && !(await exists(path.join(projectDir, 'discovery', 'source-locale.json')))) {
@@ -573,7 +1057,7 @@ async function determineNextStepUnfiltered(projectDir, artifacts, { reviewOnly =
     if (!mappingPlan.present) {
       return { ok: true, nextState: 'mapping_running', nextResource: 'resources/rp-mapper/', reason: 'missing_mapping_plan' };
     }
-    if (mappingPlan.errors) return invalidOutputRoute('mapping_plan_invalid', 'resources/rp-mapper/', mappingPlan.errors);
+    if (mappingPlan.errors) return invalidOutputRoute('mapping_plan_invalid', 'resources/rp-mapper/', mappingPlan.errors, outputCtx('mapping/mapping-plan.json'));
     if (reviewOnly) {
       const gaps = await readArtifact('mapping/review/mapping-gaps.json');
       if (gaps.present && (gaps.parseError || !gaps.value || typeof gaps.value !== 'object')) return invalidOutputRoute('mapping_plan_invalid', 'resources/rp-mapper/', ['mapping/review/mapping-gaps.json is invalid']);
@@ -584,13 +1068,49 @@ async function determineNextStepUnfiltered(projectDir, artifacts, { reviewOnly =
     if (approvals.mapping && approvals.mapping.status === 'rejected') {
       return { ok: true, nextState: 'mapping_running', nextResource: 'resources/rp-mapper/', reason: 'mapping_approval_rejected' };
     }
+    // Before any mapping review or approval: an in-use entity left pending without a typed
+    // reason goes back to the mapper in every mode, whatever approval or answer is recorded.
+    // After the bounded refused passes it is a typed blocker naming the entities.
+    if (!reviewOnly) {
+      const { mappingCompleteness, recordMappingHandBack, clearMappingPasses, MAPPING_COMPLETION_PASSES } = require('./mapping-field-contract.js');
+      const planValue = (await readArtifact(path.join('mapping', 'mapping-plan.json'))).value;
+      let completeness = mappingCompleteness(projectDir, planValue);
+      // Each hand-back is a counted pass; a status display (observeOnly) never counts one.
+      if (!completeness.ok && !completeness.exhausted && !options.observeOnly) {
+        recordMappingHandBack(projectDir, planValue, completeness.unmapped);
+        completeness = mappingCompleteness(projectDir, planValue);
+      } else if (completeness.ok && !options.observeOnly) clearMappingPasses(projectDir);
+      // The passes ran out: the entities are settled (not imported, reported as cutover items) and
+      // the run continues. A status display only shows the stop; it writes nothing.
+      if (!completeness.ok && completeness.exhausted && !options.observeOnly) {
+        require('./route-settlement').settleRoute(projectDir, { nextState: 'mapping_running', reason: 'mapping_incomplete', unmappedEntities: completeness.unmapped });
+        completeness = mappingCompleteness(projectDir, planValue);
+        if (completeness.ok) clearMappingPasses(projectDir);
+      }
+      if (!completeness.ok && completeness.exhausted) {
+        return { ok: true, nextState: 'blocked', nextResource: null, blocking: true, reason: 'mapping_incomplete',
+          blocker: { type: 'mapping_incomplete', artifact: 'mapping/mapping-plan.json', entities: completeness.unmapped, passes: completeness.passes,
+            requiredInput: `Mapping did not converge after ${MAPPING_COMPLETION_PASSES} passes. Map each named in-use entity (native, extended field, then CMS) or record a typed limitation on its row, then approve the mapping again.` } };
+      }
+      if (!completeness.ok) {
+        return { ok: true, nextState: 'mapping_running', nextResource: 'resources/rp-mapper/', reason: 'mapping_incomplete', unmappedEntities: completeness.unmapped, passes: completeness.passes };
+      }
+      // Mapping never leaves its stage (and one-click never records its approval) while the
+      // read-back check fails for an entity whose builder it has measured. Same verdict as
+      // `read-back-gate.js validate`; only the missing named approval may remain.
+      const readBack = await require('./read-back-validate').readBackFailures(projectDir);
+      if (readBack.length) {
+        return { ok: true, nextState: 'mapping_running', nextResource: 'resources/rp-mapper/', reason: 'read_back_invalid', entities: readBack };
+      }
+    }
   }
 
   if (managementImportMode !== 'quick') {
     const bound = await mappingApprovalBound(projectDir, approvals.mapping);
     const coverageGate = bound ? await sourceCoverageGate(projectDir) : await reconcileSourceCoverageForMapping(projectDir, { mappingStatus: 'approved' });
-    if (!coverageGate.ok) {
-      return { ok: true, nextState: 'mapping_running', nextResource: 'resources/rp-mapper/', reason: 'source_coverage_unreconciled', errors: coverageGate.failures };
+    const coverageFailures = coverageGate.ok ? [] : require('./route-settlement').unsettledErrors(projectDir, 'source-coverage', coverageGate.failures);
+    if (coverageFailures.length) {
+      return { ok: true, nextState: 'mapping_running', nextResource: 'resources/rp-mapper/', reason: 'source_coverage_unreconciled', errors: coverageFailures };
     }
   }
 
@@ -600,7 +1120,8 @@ async function determineNextStepUnfiltered(projectDir, artifacts, { reviewOnly =
     if (!reconciliation) return route('census_reconciliation_missing');
     const freshness = await censusReconciliationFreshness(projectDir, reconciliation);
     if (!freshness.ok) return route('census_reconciliation_stale', { staleInputs: freshness.staleInputs });
-    if (reconciliation.errors?.length) return route('census_reconciliation_blocking', { errors: reconciliation.errors });
+    const censusErrors = require('./route-settlement').unsettledErrors(projectDir, 'census', reconciliation.errors);
+    if (censusErrors?.length) return route('census_reconciliation_blocking', { errors: censusErrors });
     if (['approved','provisional'].includes(approvals.mapping?.status)) {
       const ref = approvals.mapping.artifactRefs?.find(ref => ref && typeof ref === 'object' && ref.kind === 'census-reconciliation' && ref.path === 'mapping/review/census-reconciliation.json' && /^[0-9a-f]{64}$/i.test(ref.sha256 || ''));
       if (!ref) return route('mapping_approval_missing_census');
@@ -608,8 +1129,12 @@ async function determineNextStepUnfiltered(projectDir, artifacts, { reviewOnly =
     }
   }
 
-  if (managementImportMode !== 'quick' && !isOneClick && approvals.mapping && approvals.mapping.status === 'pending') {
-    return { ok: true, nextState: 'awaiting_mapping_approval', nextResource: 'resources/rp-mapper/', reason: 'mapping_approval_pending' };
+  if (managementImportMode !== 'quick' && approvals.mapping && approvals.mapping.status === 'pending') {
+    if (!isOneClick) return { ok: true, nextState: 'awaiting_mapping_approval', nextResource: 'resources/rp-mapper/', reason: 'mapping_approval_pending' };
+    // One-click: the stage entry records this approval through the same binding, so a refusal
+    // keeps mapping open instead of routing past an approval that can never be recorded.
+    const refused = await oneClickMappingRefusal(projectDir);
+    if (refused) return { ok: true, nextState: 'mapping_running', nextResource: 'resources/rp-mapper/', reason: 'mapping_approval_refused', ...refused };
   }
 
   if (managementImportMode !== 'quick') {
@@ -628,13 +1153,22 @@ async function determineNextStepUnfiltered(projectDir, artifacts, { reviewOnly =
   if (!setupPlan.present) {
     return { ok: true, nextState: 'setup_discovery_running', nextResource: 'resources/rp-setup-discovery/', reason: 'missing_setup_plan' };
   }
-  if (setupPlan.errors) return invalidOutputRoute('setup_plan_invalid', 'resources/rp-setup-discovery/', setupPlan.errors);
+  if (setupPlan.errors) return invalidOutputRoute('setup_plan_invalid', 'resources/rp-setup-discovery/', setupPlan.errors, outputCtx('setup/setup-plan.json'));
 
   const setupRequirements = await checkGatedOutput(readArtifact, path.join('setup', 'setup-requirements.json'), validateSetupRequirementsShape, { validate: validateOutputs });
   if (!setupRequirements.present) {
     return { ok: true, nextState: 'setup_discovery_running', nextResource: 'resources/rp-setup-discovery/', reason: 'missing_setup_requirements' };
   }
-  if (setupRequirements.errors) return invalidOutputRoute('setup_requirements_invalid', 'resources/rp-setup-discovery/', setupRequirements.errors);
+  if (setupRequirements.errors) return invalidOutputRoute('setup_requirements_invalid', 'resources/rp-setup-discovery/', setupRequirements.errors, outputCtx('setup/setup-requirements.json'));
+
+  // The mapping plan is the authority for every downstream plan.  A stale setup plan or
+  // execution manifest must be regenerated in pipeline order before setup/import writes.
+  if (resumableCompletionReport) {
+    const staleMappingArtifact = await staleMappingBoundArtifactRoute(projectDir, readArtifact, {
+      allowLegacyUnboundSetup: notificationMute.source === 'legacy_config',
+    });
+    if (staleMappingArtifact) return staleMappingArtifact;
+  }
 
   if (requiresWebsiteContinuation(decisions) && deliveryMode === 'management_and_website' && !websiteScope && !isOneClick) {
     return { ok: true, nextState: 'awaiting_website_scope', nextResource: 'resources/rp-project-intake/', reason: 'missing_website_scope' };
@@ -676,7 +1210,16 @@ async function determineNextStepUnfiltered(projectDir, artifacts, { reviewOnly =
     if (!manifest.present) {
       return { ok: true, nextState: 'codegen_running', nextResource: 'resources/rp-import-codegen/', reason: 'missing_execution_manifest' };
     }
-    if (manifest.errors) return invalidOutputRoute('execution_manifest_invalid', 'resources/rp-import-codegen/', manifest.errors);
+    if (manifest.errors) return invalidOutputRoute('execution_manifest_invalid', 'resources/rp-import-codegen/', manifest.errors, outputCtx('execution/execution-manifest.json'));
+    // The read-back check runs here, where the builders exist (codegen scaffold), for every plan
+    // row that writes a product, contact, order or member: the toolkit builds each inventory and
+    // validates it. Not checked is never passed: codegen stays open until every unit passes.
+    if (!completionReportPresent) {
+      // The source archive is fully planned by the toolkit: its task joins codegen's manifest here.
+      await require('./codegen-scaffold').addSourceArchiveTask(projectDir);
+      const readBack = await require('./read-back-validate').ensureReadBack(projectDir);
+      if (readBack.length) return { ok: true, nextState: 'codegen_running', nextResource: 'resources/rp-import-codegen/', reason: 'read_back_invalid', entities: readBack };
+    }
   }
 
   // Sample-preview sub-gate: codegen emits the extractor, runs it in sample
@@ -701,17 +1244,18 @@ async function determineNextStepUnfiltered(projectDir, artifacts, { reviewOnly =
     return { ok: true, nextState: 'executing_setup', nextResource: 'resources/rp-execute-setup/', reason: 'missing_setup_verification' };
   }
 
-  // A stopped run leaves an `aborted` report with an interruption. It is not
-  // completion: the route is the same resume, never finalizing.
-  const interruptedReport = completionReportPresent
-    && Boolean((await readJson(path.join(projectDir, 'execution', 'completion-report.json')))?.interruption);
-  if (!completionReportPresent || interruptedReport) {
+  // A stopped run, or a pre-approval report with unexpected skips, is not completion: route the
+  // same journal/crosswalk-backed import again, never finalizing the unattempted records.
+  const interruptedReport = Boolean(completionReport?.interruption);
+  if (!completionReportPresent || interruptedReport || unexpectedSkipResume) {
     const progress = await importProgressFields(projectDir);
     return {
       ok: true,
       nextState: 'executing_import',
       nextResource: 'resources/rp-execute-import/',
-      reason: interruptedReport ? 'import_interrupted' : 'missing_completion_report',
+      reason: unexpectedSkipResume ? 'unexpected_skips_after_mapping_change'
+        : interruptedReport ? 'import_interrupted' : 'missing_completion_report',
+      ...(unexpectedSkipResume ? { resumeSameImport: true } : {}),
       ...progress,
       // A run killed before it could record its stop: write the aborted report from the journal
       // (scripts/interrupted-completion-report.js) so cutover sees the pause, then resume.
@@ -720,20 +1264,11 @@ async function determineNextStepUnfiltered(projectDir, artifacts, { reviewOnly =
   }
 
   const completionInputs = await loadMigrationCompletionInputs(projectDir);
-  if (deliveryMode === 'management_and_website') {
+  // An Editor destination has no automatic frontend continuation: its backend import completes
+  // the run and the website stays open as cutover tasks; never route into the Headless clone.
+  const completionMode = getCompletionDeliveryMode(decisions);
+  if (completionMode === 'management_and_website') {
     const frontend = validateFrontendCompletion(completionInputs.frontendCompletion, completionInputs.handoff);
-    // An Editor destination has no automatic frontend continuation. The website
-    // obligation stays outstanding as a handoff; never route into the Headless clone.
-    if (!frontend.ok && isEditorSiteType(getDecisionValue(decisions, 'targetSiteType'))) {
-      return {
-        ok: true,
-        nextState: 'blocked',
-        nextResource: 'resources/rp-website-continuation/',
-        reason: 'editor_website_handoff_outstanding',
-        requiredArtifacts: ['website/completion.json'],
-        blocking: true,
-      };
-    }
     if (!frontend.ok) {
       return {
         ok: frontend.reason !== 'frontend_blocked',
@@ -756,15 +1291,20 @@ async function determineNextStepUnfiltered(projectDir, artifacts, { reviewOnly =
       summary?.mappingPlanDigest===digest(mappingPlan) &&
       canonical(summary.executionScope)===canonical(mappingPlan.executionScope) &&
       completionInputs.executionLogPresent && completionInputs.postExecutionHandoff.lastWriteAt===report.lastWriteAt;
-    if (!retained) return {ok:true,nextState:'blocked',nextResource:null,blocking:true,reason:'mapping_deferral_report_missing_or_stale',blocker:{type:'mapping_deferral_evidence_required',artifact:'execution/completion-report.json',requiredInput:'Regenerate the existing report/handoff through shared writers using the importer mapping pin; retained counters must not be reported as completed.'}};
+    // A missing or stale report never stops a user run, and one-click never asks: regenerate it at
+    // once (the same route an answered `fix-and-regenerate` takes). Still stale after the pass limit,
+    // the run controller settles it (lib/route-settlement.js: a toolkit gap and an Import Operator
+    // cutover task) and the run goes on to the ordinary completion gate. The router counts the
+    // passes (the controller's same-route count resets when a regenerate turn writes progress).
+    if (!retained) { const route = boundedMappingDeferralRegenerate(projectDir, options); if (route) return route; }
     // Mixed scopes have already retained their mapping evidence; resolved entities
-    // continue through the ordinary completion gate. Only an all-deferred plan has
-    // no importer to run and remains a blocked, typed mapping result.
+    // continue through the ordinary completion gate. When every selected entity is
+    // deferred, no importer can start, so every run mode retains a typed blocker.
     const deferred=deferredRunResult(mappingPlan);
     if (deferred) return {ok:true,nextState:'blocked',nextResource:null,reason:'mapping_scope_deferred',blocking:true,blocker:deferred.blocker};
   }
   const aggregate = validateMigrationCompletion(completionInputs.completion, {
-    deliveryMode,
+    deliveryMode: completionMode,
     backendCompletion: completionInputs.backendCompletion,
     frontendCompletion: completionInputs.frontendCompletion,
     handoff: completionInputs.handoff,

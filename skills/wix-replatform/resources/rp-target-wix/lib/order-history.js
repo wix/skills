@@ -444,7 +444,7 @@ function withPlaceholderLineItem(order, { derivedId }) {
 // The composite. Returns outcomes; throws only for CALLER errors (a malformed contract), never for
 // a target failure -- each stage's failure is a named outcome so a resumed run reconciles what
 // landed and retries only what did not.
-async function importOrderHistory(wix, {
+async function importOrderHistoryUnlocked(wix, {
   order,
   sourceId,
   sourceSiteHost,
@@ -859,11 +859,16 @@ async function importOrderHistory(wix, {
 // module exists to survive -- into a run that fails every order after it. Here a TRAILING partial
 // line (no newline terminator, not parseable) is dropped and reported; any other bad line still
 // throws, because that is corruption, not a crash.
+// The crosswalk key an order is written under. One function for the writer below and for every
+// reader that must find the row again (the import loop's skip and resume check).
+function orderCrosswalkKey({ sourceSystem = 'wordpress', sourceEntityType = 'order', sourceId } = {}) {
+  return `${sourceSystem}:${sourceEntityType}:${String(sourceId)}`;
+}
 function createProjectOrderCrosswalk({ projectDir, sourceSystem = 'wordpress', sourceEntityType = 'order' } = {}) {
   if (!projectDir) throw new Error('createProjectOrderCrosswalk needs the migration projectDir');
   const filePath = localState.crosswalkPath(projectDir);
   const pendingPath = path.join(path.dirname(filePath), 'pending-invoice-files.ndjson');
-  const key = (sourceId) => `${sourceSystem}:${sourceEntityType}:${String(sourceId)}`;
+  const key = (sourceId) => orderCrosswalkKey({ sourceSystem, sourceEntityType, sourceId });
   const index = new Map();
   // Bytes of COMPLETE lines already indexed. The file is append-only, so a refresh reads from here
   // rather than re-parsing seven thousand rows -- and a MISS always refreshes first, because
@@ -1020,7 +1025,7 @@ function createProjectOrderCrosswalk({ projectDir, sourceSystem = 'wordpress', s
     }
   }
 
-  return {
+  const api = {
     async get(sourceId) {
       await ensureLoaded();
       const hit = index.get(key(sourceId));
@@ -1073,6 +1078,17 @@ function createProjectOrderCrosswalk({ projectDir, sourceSystem = 'wordpress', s
     droppedPartialLine() { return state.droppedPartialLine; },
     droppedPendingPartialLine() { return state.droppedPendingPartialLine; },
   };
+  Object.defineProperty(api, 'projectDir', { value: path.resolve(projectDir), enumerable: false });
+  return api;
+}
+
+// Order history is a hand-written composite rather than a per-record runner task. Its persisted
+// crosswalk is the durable project identity, so use it to acquire the same exclusive writer lock
+// that protects every generated import path.
+async function importOrderHistory(wix, options = {}) {
+  const projectDir = options.crosswalk && options.crosswalk.projectDir;
+  if (!projectDir) return importOrderHistoryUnlocked(wix, options);
+  return localState.withStateLock(projectDir, () => importOrderHistoryUnlocked(wix, options), { script: 'order-history.js', reentrant: true });
 }
 
 // The attempt-journal row for one importOrderHistory result -- the only place that decides it, so
@@ -1109,6 +1125,7 @@ function orderHistoryAttempt(result, { sourceStableKey } = {}) {
 }
 
 module.exports = {
+  orderCrosswalkKey,
   ORDER_OUTCOMES,
   PLACEHOLDER_LINE_NAME,
   PLACEHOLDER_GAP_CODE,

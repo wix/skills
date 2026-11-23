@@ -1,0 +1,857 @@
+{
+  "schemaVersion": 1,
+  "kind": "wix-map-suggestions",
+  "sourceSystem": "woocommerce",
+  "sourceEntity": "customer",
+  "targetRef": "crm/contact",
+  "preferredWrite": {
+    "writerId": "bulkUpsertContacts",
+    "composite": "rp-target-wix/lib/contact-import.js#importContacts"
+  },
+  "builders": "rp-source-wordpress/wix-map/contact.build.js",
+  "about": "Ready-made map for a WooCommerce customer to a Wix contact. Rows use the mapping plan fieldMappings format, so a pre-fill copies them as-is. The AI uses them unless the operator asks otherwise; an operator change edits the copied plan row, never this file. Grows only through a reviewed PR.",
+  "sources": [
+    "Tuti 11-15 rev 3 (tuti-work/step6-2026-11-15)",
+    "Poratus 11-15 (poratus-woo-20261115-1133)",
+    "Tuti and Poratus 11-10 runs"
+  ],
+  "matchKey": {
+    "sourceKey": "id",
+    "dedupe": "importContacts matches an existing contact by main email; two customers sharing an email become one contact and both ids point to it in the crosswalk."
+  },
+  "fieldMappings": [
+    {
+      "id": "contact-name",
+      "sourcePaths": [
+        "first_name",
+        "last_name",
+        "billing.first_name",
+        "billing.last_name",
+        "shipping.first_name",
+        "shipping.last_name"
+      ],
+      "disposition": "native",
+      "reason": "Account name first, then billing name, then shipping name; HTML entities decoded, spaces trimmed. Same in the Tuti and Poratus runs.",
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/contact.build.js#contactName",
+        "revision": "wix-map-v1",
+        "arguments": {
+          "first": [
+            "first_name",
+            "billing.first_name",
+            "shipping.first_name"
+          ],
+          "last": [
+            "last_name",
+            "billing.last_name",
+            "shipping.last_name"
+          ]
+        },
+        "precedence": [
+          "first_name",
+          "billing.first_name",
+          "shipping.first_name"
+        ]
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "account-name",
+          "input": {
+            "first_name": "Dana",
+            "last_name": "Levi",
+            "billing": {
+              "first_name": "D"
+            }
+          },
+          "expected": [
+            {
+              "outputId": "first",
+              "value": "Dana",
+              "writeOperation": "bulkUpsertContacts"
+            },
+            {
+              "outputId": "last",
+              "value": "Levi",
+              "writeOperation": "bulkUpsertContacts"
+            }
+          ]
+        },
+        {
+          "id": "billing-fallback",
+          "input": {
+            "first_name": "",
+            "last_name": "",
+            "billing": {
+              "first_name": "Noa",
+              "last_name": "Cohen &amp; Co"
+            }
+          },
+          "expected": [
+            {
+              "outputId": "first",
+              "value": "Noa",
+              "writeOperation": "bulkUpsertContacts"
+            },
+            {
+              "outputId": "last",
+              "value": "Cohen & Co",
+              "writeOperation": "bulkUpsertContacts"
+            }
+          ]
+        },
+        {
+          "id": "no-name",
+          "input": {
+            "first_name": "",
+            "last_name": "",
+            "billing": {},
+            "shipping": {}
+          },
+          "expected": [
+            {
+              "outputId": "first",
+              "omitted": true,
+              "writeOperation": "bulkUpsertContacts"
+            },
+            {
+              "outputId": "last",
+              "omitted": true,
+              "writeOperation": "bulkUpsertContacts"
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "first",
+          "sourcePaths": [
+            "first_name",
+            "billing.first_name",
+            "shipping.first_name"
+          ],
+          "targetRef": "crm/contact",
+          "writeOperation": "bulkUpsertContacts",
+          "targetPath": "name.first",
+          "verification": {
+            "readPath": "contact.name.first"
+          }
+        },
+        {
+          "id": "last",
+          "sourcePaths": [
+            "last_name",
+            "billing.last_name",
+            "shipping.last_name"
+          ],
+          "targetRef": "crm/contact",
+          "writeOperation": "bulkUpsertContacts",
+          "targetPath": "name.last",
+          "verification": {
+            "readPath": "contact.name.last"
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "kind": "run",
+          "ref": "Tuti 11-15 rev 3 mapping-plan.json customer rows"
+        },
+        {
+          "kind": "run",
+          "ref": "Poratus 11-15 mapping-plan.json customer rows"
+        },
+        {
+          "kind": "target",
+          "ref": "rp-target-wix/domains/crm/entities/contact.json intendedFields"
+        }
+      ],
+      "builder": "rp-source-wordpress/wix-map/contact.build.js#contactName"
+    },
+    {
+      "id": "contact-email",
+      "sourcePaths": [
+        "email"
+      ],
+      "disposition": "native",
+      "reason": "The account email is the main email and the key the contact upsert matches on. billing.email is not used: on Tuti 7 of 2,565 differ and the account email is the login.",
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/contact.build.js#contactEmail",
+        "revision": "wix-map-v1",
+        "arguments": {
+          "email": "email"
+        }
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record",
+          "code": "contact-email-invalid"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "trimmed",
+          "input": {
+            "email": " buyer1@example.com "
+          },
+          "expected": [
+            {
+              "outputId": "email",
+              "value": "buyer1@example.com",
+              "writeOperation": "bulkUpsertContacts"
+            }
+          ]
+        },
+        {
+          "id": "invalid",
+          "input": {
+            "email": "not-an-email"
+          },
+          "expected": [
+            {
+              "outputId": "email",
+              "noWrite": true,
+              "findingCodes": [
+                "contact-email-invalid"
+              ],
+              "writeOperation": "bulkUpsertContacts"
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "email",
+          "sourcePaths": [
+            "email"
+          ],
+          "targetRef": "crm/contact",
+          "writeOperation": "bulkUpsertContacts",
+          "targetPath": "email.email",
+          "verification": {
+            "readPath": "contact.email.email"
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "kind": "run",
+          "ref": "Tuti 11-15 rev 3 mapping-plan.json customer rows"
+        },
+        {
+          "kind": "run",
+          "ref": "Poratus 11-15 mapping-plan.json customer rows"
+        },
+        {
+          "kind": "target",
+          "ref": "rp-target-wix/domains/crm/entities/contact.json intendedFields"
+        }
+      ],
+      "builder": "rp-source-wordpress/wix-map/contact.build.js#contactEmail"
+    },
+    {
+      "id": "contact-phone",
+      "sourcePaths": [
+        "billing.phone",
+        "shipping.phone"
+      ],
+      "disposition": "native",
+      "reason": "Main phone: billing phone, else shipping phone. Kept as written (no reformatting): Contacts stores the text.",
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/contact.build.js#contactPhone",
+        "revision": "wix-map-v1",
+        "arguments": {
+          "phone": [
+            "billing.phone",
+            "shipping.phone"
+          ]
+        },
+        "precedence": [
+          "billing.phone",
+          "shipping.phone"
+        ]
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "billing",
+          "input": {
+            "billing": {
+              "phone": "050-1234567"
+            },
+            "shipping": {
+              "phone": "052-7654321"
+            }
+          },
+          "expected": [
+            {
+              "outputId": "phone",
+              "value": "050-1234567",
+              "writeOperation": "bulkUpsertContacts"
+            }
+          ]
+        },
+        {
+          "id": "shipping-fallback",
+          "input": {
+            "billing": {
+              "phone": ""
+            },
+            "shipping": {
+              "phone": "052-7654321"
+            }
+          },
+          "expected": [
+            {
+              "outputId": "phone",
+              "value": "052-7654321",
+              "writeOperation": "bulkUpsertContacts"
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "phone",
+          "sourcePaths": [
+            "billing.phone",
+            "shipping.phone"
+          ],
+          "targetRef": "crm/contact",
+          "writeOperation": "bulkUpsertContacts",
+          "targetPath": "phone.phone",
+          "verification": {
+            "readPath": "contact.phone.phone"
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "kind": "run",
+          "ref": "Tuti 11-15 rev 3 mapping-plan.json customer rows"
+        },
+        {
+          "kind": "run",
+          "ref": "Poratus 11-15 mapping-plan.json customer rows"
+        },
+        {
+          "kind": "target",
+          "ref": "rp-target-wix/domains/crm/entities/contact.json intendedFields"
+        }
+      ],
+      "builder": "rp-source-wordpress/wix-map/contact.build.js#contactPhone"
+    },
+    {
+      "id": "contact-company",
+      "sourcePaths": [
+        "billing.company",
+        "shipping.company"
+      ],
+      "disposition": "native",
+      "reason": "Company name has a native contact field (the guest buyer rows already write it). Tuti rev 3 archived it; the native field is visible to the merchant, so it wins.",
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/contact.build.js#contactCompany",
+        "revision": "wix-map-v1",
+        "arguments": {
+          "company": [
+            "billing.company",
+            "shipping.company"
+          ]
+        },
+        "precedence": [
+          "billing.company",
+          "shipping.company"
+        ]
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "company",
+          "input": {
+            "billing": {
+              "company": "Example Co 7"
+            }
+          },
+          "expected": [
+            {
+              "outputId": "company",
+              "value": "Example Co 7",
+              "writeOperation": "bulkUpsertContacts"
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "company",
+          "sourcePaths": [
+            "billing.company",
+            "shipping.company"
+          ],
+          "targetRef": "crm/contact",
+          "writeOperation": "bulkUpsertContacts",
+          "targetPath": "company.name",
+          "verification": {
+            "readPath": "contact.company.name"
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "kind": "run",
+          "ref": "Tuti 11-15 rev 3 mapping-plan.json customer rows"
+        },
+        {
+          "kind": "run",
+          "ref": "Poratus 11-15 mapping-plan.json customer rows"
+        },
+        {
+          "kind": "target",
+          "ref": "rp-target-wix/domains/crm/entities/contact.json intendedFields"
+        }
+      ],
+      "builder": "rp-source-wordpress/wix-map/contact.build.js#contactCompany"
+    },
+    {
+      "id": "contact-addresses",
+      "sourcePaths": [
+        "billing.address_1",
+        "billing.address_2",
+        "billing.city",
+        "billing.postcode",
+        "billing.country",
+        "billing.state",
+        "shipping.address_1",
+        "shipping.address_2",
+        "shipping.city",
+        "shipping.postcode",
+        "shipping.country",
+        "shipping.state"
+      ],
+      "disposition": "native",
+      "reason": "Billing address then shipping address, each a Contacts V5 address item (address_1 -> addressLine, never addressLine1; #662). A state code becomes an ISO 3166-2 subdivision (US + CO -> US-CO). A country alone is not an address.",
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/contact.build.js#contactAddresses",
+        "revision": "wix-map-v1",
+        "arguments": {
+          "items": [
+            "billing",
+            "shipping"
+          ],
+          "tags": {
+            "billing": "BILLING",
+            "shipping": "SHIPPING"
+          },
+          "fields": {
+            "address_1": "addressLine",
+            "address_2": "addressLine2",
+            "city": "city",
+            "postcode": "postalCode",
+            "country": "country",
+            "state": "subdivision"
+          },
+          "choice": "contact-same-address-once"
+        }
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "billing-only",
+          "input": {
+            "billing": {
+              "address_1": "12 Example St",
+              "city": "Testville 3",
+              "postcode": "1234567",
+              "country": "IL",
+              "state": ""
+            },
+            "shipping": {
+              "country": "IL"
+            }
+          },
+          "expected": [
+            {
+              "outputId": "addressLine",
+              "values": [
+                "12 Example St"
+              ],
+              "writeOperation": "bulkUpsertContacts"
+            },
+            {
+              "outputId": "city",
+              "values": [
+                "Testville 3"
+              ],
+              "writeOperation": "bulkUpsertContacts"
+            },
+            {
+              "outputId": "postalCode",
+              "values": [
+                "1234567"
+              ],
+              "writeOperation": "bulkUpsertContacts"
+            },
+            {
+              "outputId": "country",
+              "values": [
+                "IL"
+              ],
+              "writeOperation": "bulkUpsertContacts"
+            },
+            {
+              "outputId": "tag",
+              "values": [
+                "BILLING"
+              ],
+              "writeOperation": "bulkUpsertContacts"
+            }
+          ]
+        },
+        {
+          "id": "us-state",
+          "input": {
+            "billing": {
+              "address_1": "5 Example St",
+              "city": "Testville 1",
+              "country": "US",
+              "state": "CO"
+            },
+            "shipping": {
+              "address_1": "9 Example St",
+              "city": "Testville 2",
+              "country": "US",
+              "state": "WA"
+            }
+          },
+          "expected": [
+            {
+              "outputId": "addressLine",
+              "values": [
+                "5 Example St",
+                "9 Example St"
+              ],
+              "writeOperation": "bulkUpsertContacts"
+            },
+            {
+              "outputId": "subdivision",
+              "values": [
+                "US-CO",
+                "US-WA"
+              ],
+              "writeOperation": "bulkUpsertContacts"
+            },
+            {
+              "outputId": "tag",
+              "values": [
+                "BILLING",
+                "SHIPPING"
+              ],
+              "writeOperation": "bulkUpsertContacts"
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "tag",
+          "sourcePaths": [
+            "billing.address_1",
+            "billing.address_2",
+            "billing.city",
+            "billing.postcode",
+            "billing.country",
+            "billing.state",
+            "shipping.address_1",
+            "shipping.address_2",
+            "shipping.city",
+            "shipping.postcode",
+            "shipping.country",
+            "shipping.state"
+          ],
+          "targetRef": "crm/contact",
+          "writeOperation": "bulkUpsertContacts",
+          "targetPath": "addresses[].tag",
+          "verification": {
+            "readPath": "contact.addresses[].tag"
+          }
+        },
+        {
+          "id": "addressLine",
+          "sourcePaths": [
+            "billing.address_1",
+            "shipping.address_1"
+          ],
+          "targetRef": "crm/contact",
+          "writeOperation": "bulkUpsertContacts",
+          "targetPath": "addresses[].address.addressLine",
+          "verification": {
+            "readPath": "contact.addresses[].address.addressLine"
+          }
+        },
+        {
+          "id": "addressLine2",
+          "sourcePaths": [
+            "billing.address_2",
+            "shipping.address_2"
+          ],
+          "targetRef": "crm/contact",
+          "writeOperation": "bulkUpsertContacts",
+          "targetPath": "addresses[].address.addressLine2",
+          "verification": {
+            "readPath": "contact.addresses[].address.addressLine2"
+          }
+        },
+        {
+          "id": "city",
+          "sourcePaths": [
+            "billing.city",
+            "shipping.city"
+          ],
+          "targetRef": "crm/contact",
+          "writeOperation": "bulkUpsertContacts",
+          "targetPath": "addresses[].address.city",
+          "verification": {
+            "readPath": "contact.addresses[].address.city"
+          }
+        },
+        {
+          "id": "postalCode",
+          "sourcePaths": [
+            "billing.postcode",
+            "shipping.postcode"
+          ],
+          "targetRef": "crm/contact",
+          "writeOperation": "bulkUpsertContacts",
+          "targetPath": "addresses[].address.postalCode",
+          "verification": {
+            "readPath": "contact.addresses[].address.postalCode"
+          }
+        },
+        {
+          "id": "country",
+          "sourcePaths": [
+            "billing.country",
+            "shipping.country"
+          ],
+          "targetRef": "crm/contact",
+          "writeOperation": "bulkUpsertContacts",
+          "targetPath": "addresses[].address.country",
+          "verification": {
+            "readPath": "contact.addresses[].address.country"
+          }
+        },
+        {
+          "id": "subdivision",
+          "sourcePaths": [
+            "billing.state",
+            "shipping.state"
+          ],
+          "targetRef": "crm/contact",
+          "writeOperation": "bulkUpsertContacts",
+          "targetPath": "addresses[].address.subdivision",
+          "verification": {
+            "readPath": "contact.addresses[].address.subdivision"
+          },
+          "appliesWhen": {
+            "op": "fact",
+            "name": "woo.contactSubdivisionWritten",
+            "values": [
+              true
+            ]
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "kind": "run",
+          "ref": "Tuti 11-15 rev 3 mapping-plan.json customer rows"
+        },
+        {
+          "kind": "run",
+          "ref": "Poratus 11-15 mapping-plan.json customer rows"
+        },
+        {
+          "kind": "target",
+          "ref": "rp-target-wix/domains/crm/entities/contact.json intendedFields"
+        }
+      ],
+      "builder": "rp-source-wordpress/wix-map/contact.build.js#contactAddresses",
+      "choice": {
+        "name": "contact-same-address-once",
+        "value": "once",
+        "default": "once",
+        "reason": "Two identical address items on a contact are noise for the merchant; nothing is lost because the values are equal. Tuti rev 3 wrote both.",
+        "decidedBy": "suggestion",
+        "question": "When the shipping address equals the billing address, write it once or twice?",
+        "options": [
+          "once",
+          "twice"
+        ],
+        "forElad": false
+      }
+    }
+  ],
+  "leftovers": {
+    "disposition": "cms",
+    "transform": {
+      "kind": "helper",
+      "name": "source-archive.buildArchiveRecord",
+      "revision": "source-archive-retention-v1",
+      "arguments": {
+        "sourceEntity": "customer",
+        "sourceKeyPath": "id"
+      }
+    },
+    "reason": "Every customer field no row above writes (dates, username, role, is_paying_customer, avatar_url, meta_data, billing.email, _links) is kept in the private source-archive collection, the same as the Tuti and Poratus runs. IP address and user agent are dropped by the archive helper."
+  },
+  "choices": [
+    {
+      "decisionId": null,
+      "name": "contact-role-label",
+      "value": "none",
+      "default": "none",
+      "reason": "Every customer on Tuti and Poratus has role \"customer\", so the label carries no information. The role stays in the source archive. A label would need crm/label + crm/contact-label writes (never tags inside the upsert body: OVERWRITE replaces existing tags).",
+      "decidedBy": "suggestion",
+      "question": "Put a contact label for the WordPress role (for example \"customer\")?",
+      "options": [
+        "none",
+        "role-label"
+      ],
+      "forElad": false
+    },
+    {
+      "decisionId": null,
+      "name": "contact-accounts-as-members",
+      "value": "contacts-only",
+      "default": "contacts-only",
+      "reason": "Members need consent and a password reset email to the customer; contacts carry the full history without any message. A members import is its own entity and decision.",
+      "decidedBy": "suggestion",
+      "question": "Make WooCommerce customer accounts site members?",
+      "options": [
+        "contacts-only",
+        "members"
+      ],
+      "forElad": true
+    },
+    {
+      "decisionId": null,
+      "name": "order-referenced-users",
+      "value": "import-as-contacts",
+      "default": "import-as-contacts",
+      "reason": "The WooCommerce customer list returns role customer only. A shop manager or administrator who placed orders is left out, and those orders cannot link to a buyer contact. The extractor reads each such user by id (GET /wc/v3/customers/{id}, read-only) after the orders and maps them with the same contact rows, so their orders import. No message is sent; they are contacts, not members.",
+      "decidedBy": "suggestion",
+      "question": "Import WordPress users who placed orders but are not WooCommerce customers (for example staff or admin accounts) as contacts, so their orders import?",
+      "options": [
+        "import-as-contacts",
+        "not-imported"
+      ],
+      "forElad": false
+    }
+  ],
+  "guestBuyer": {
+    "about": "Orders placed without an account (customer_id 0; 5,164 of 7,861 Tuti orders) still need a buyer contact. The toolkit builds those contacts; no row or plan entity is written by the AI. Whether they are built follows the order's guest-buyers choice (order.json: import-as-contacts default, email-only, not-imported).",
+    "sourceEntity": "guest-buyer-contact",
+    "fromSourceEntity": "order",
+    "when": "order.customer_id is 0",
+    "key": "rp-target-wix/order-buyer.js#guestBuyerContactKey (one contact per normalized billing email, else per order)",
+    "rows": "rp-target-wix/order-buyer.js#guestBuyerContactRows (name, email, phone, company from the order billing, else shipping, details)",
+    "orderSide": "rp-target-wix/order-buyer.js#guestBuyerContactId resolves buyerInfo.contactId with the same key",
+    "write": "the same importContacts composite as customers, before the order task"
+  }
+}

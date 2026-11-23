@@ -12,6 +12,8 @@ const {
   attemptJournalPath,
   readAttemptJournalSince,
   foldAttemptsBySourceKey,
+  supersedesAttempt,
+  isNotAttempted,
 } = require('./local-state.js');
 const { updateSupportFor } = require('./rerun-conflicts.js');
 const { appendExecutionLog } = require('./execution-log.js');
@@ -302,7 +304,7 @@ function foldAttemptsBySource(attemptRows = []) {
     if (!row || !row.sourceStableKey) {
       continue;
     }
-    bySource[row.sourceStableKey] = row;
+    if (supersedesAttempt(bySource[row.sourceStableKey], row)) bySource[row.sourceStableKey] = row;
   }
   return bySource;
 }
@@ -350,7 +352,8 @@ function selectImportRecords(records, options = {}) {
       excluded.push({ sourceStableKey: stableKey, reason: 'not_failed' });
       continue;
     }
-    if (filters.deferredOnly && (!latestAttempt || !DEFERRED_ATTEMPT_STATUSES.has(latestAttempt.status))) {
+    // A record its task never reached is still waiting: a deferred-only resume tries it.
+    if (filters.deferredOnly && (!latestAttempt || !(DEFERRED_ATTEMPT_STATUSES.has(latestAttempt.status) || isNotAttempted(latestAttempt)))) {
       excluded.push({ sourceStableKey: stableKey, reason: 'not_deferred' });
       continue;
     }

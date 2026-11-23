@@ -7,6 +7,25 @@ const crypto = require('node:crypto');
 
 const RUNNING_EVENTS = new Set(['start', 'progress', 'heartbeat', 'warning']);
 
+// The one progress file per project. The runner and the import supervisor pass it to their
+// children as PROGRESS_LOG and count its growth as activity; the health check reads it.
+const PROJECT_PROGRESS_LOG = path.join('execution', 'progress.ndjson');
+
+function projectProgressLog(projectDir) {
+  return path.join(path.resolve(projectDir), PROJECT_PROGRESS_LOG);
+}
+
+// Size + mtime of a progress file, or null when it does not exist. A change between two
+// reads means some step wrote progress (heartbeats included).
+function progressMark(filePath) {
+  try {
+    const stat = fs.statSync(filePath);
+    return `${stat.size}:${stat.mtimeMs}`;
+  } catch {
+    return null;
+  }
+}
+
 function slugify(value) {
   return String(value || 'script')
     .toLowerCase()
@@ -64,6 +83,10 @@ function createProgressLogger(options = {}) {
   const runId = options.runId || defaultRunId(script);
   const parentRunId = options.parentRunId || null;
   const heartbeatIntervalMs = options.heartbeatIntervalMs || 30000;
+  // A caller-chosen path (a flag, or a generated script's own path) must not hide progress from
+  // the runner: records are also copied to the inherited PROGRESS_LOG when it is a different file.
+  const envLog = options.mirrorLog !== undefined ? options.mirrorLog : (process.env.PROGRESS_LOG || null);
+  const mirrorLog = progressLog && envLog && path.resolve(envLog) !== path.resolve(progressLog) ? envLog : null;
 
   let seq = 0;
   let started = false;
@@ -105,6 +128,12 @@ function createProgressLogger(options = {}) {
       message: String(message || event),
     };
     fs.appendFileSync(progressLog, `${JSON.stringify(record)}\n`, { encoding: 'utf8', flag: 'a' });
+    if (mirrorLog) {
+      try {
+        fs.mkdirSync(path.dirname(mirrorLog), { recursive: true });
+        fs.appendFileSync(mirrorLog, `${JSON.stringify(record)}\n`, { encoding: 'utf8', flag: 'a' });
+      } catch { /* the copy is best effort; the caller's own log is the record */ }
+    }
     // BUG FIX: this used to only reset on a NON-heartbeat event, so once
     // the ticker's own `elapsed >= heartbeatIntervalMs` check first became true, `lastProgressAt`
     // never moved again and every subsequent tick re-fired a heartbeat -- flooding the log at the
@@ -235,6 +264,9 @@ function createProgressLogger(options = {}) {
 }
 
 module.exports = {
+  PROJECT_PROGRESS_LOG,
   createProgressLogger,
   parseProgressArgs,
+  progressMark,
+  projectProgressLog,
 };

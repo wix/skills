@@ -122,4 +122,31 @@ function evaluateCurrencyGate({ settingsCurrency, orderCurrencies, targetSiteCur
   };
 }
 
-module.exports = { OUTCOMES, evaluateCurrencyGate, tallyOrderCurrencies };
+// The hold is scoped per order, not per task (writers never block: hold only what truly cannot
+// import). When the store's main currency and the site currency are both known and equal, every
+// order in that currency imports; only an order in another currency (or one whose currency could not
+// be resolved) is held. The whole task is held only when there is nothing to compare against: the
+// store or site currency is unknown, or they differ -- then no order's money can be trusted.
+// Wix Import Order takes a per-order `currency`, but importing a foreign-currency order next to
+// site-currency history is a money-policy choice the merchant has not made, so it stays held.
+// `orders` is [{ key, currency }] with currency already resolved (null when unresolved).
+function scopeOrderCurrencyHold({ settingsCurrency, targetSiteCurrency, orders = [], configuredCurrencies = [] } = {}) {
+  const store = normalizeCode(settingsCurrency);
+  const target = normalizeCode(targetSiteCurrency);
+  if (!store || !target || store !== target) {
+    return { scope: 'task', gate: evaluateCurrencyGate({ settingsCurrency, targetSiteCurrency, configuredCurrencies,
+      orderCurrencies: orders.map(order => order.currency) }) };
+  }
+  const held = [], heldCounts = {};
+  let importable = 0;
+  for (const { key, currency } of orders) {
+    const code = normalizeCode(currency);
+    if (code === target) { importable += 1; continue; }
+    const label = code || 'unknown';
+    held.push({ key, currency: label });
+    heldCounts[label] = (heldCounts[label] || 0) + 1;
+  }
+  return { scope: 'record', siteCurrency: target, importable, held, heldCounts };
+}
+
+module.exports = { OUTCOMES, evaluateCurrencyGate, scopeOrderCurrencyHold, tallyOrderCurrencies };

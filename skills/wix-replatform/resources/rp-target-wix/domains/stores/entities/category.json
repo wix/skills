@@ -40,6 +40,7 @@
     "surface": "Categories",
     "endpoint": "POST /categories/v1/categories",
     "writerId": "createStoresCategory",
+    "requestInput": "category",
     "verification": "verified-live",
     "importSafe": true,
     "bulk": false

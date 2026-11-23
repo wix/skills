@@ -16,11 +16,11 @@ including an explicit `editorWebsiteDecision=management_only`, never enters this
 
 **Editor destinations.** When `targetSiteType` is `studio` or `harmony`, there is no
 supported automatic website migration: never invoke `wix-headless-replatform`, never scaffold
-`frontend/`, and never publish the site. The router reports
-`editor_website_handoff_outstanding`; keep the website obligation outstanding as the
-completion report's `editor_website_unfinished` / `editor_publication_outstanding` operator
-actions (site owner/designer, then Cutover Operator) and do not claim combined completion until
-a valid released `website/completion.json` exists for the bound site.
+`frontend/`, and never publish the site. The backend import completes the run (the completion
+receipt binds `deliveryMode: management`, `getCompletionDeliveryMode`); the website stays open as
+the completion report's `editor_website_unfinished` / `editor_publication_outstanding` operator
+actions (site owner/designer, then Cutover Operator) until a valid released
+`website/completion.json` exists for the bound site.
 
 For `deliveryMode=website`, this is a frontend-only run — but it still needs a destination,
 and that destination is still `rp-destination`'s job, not this skill's or

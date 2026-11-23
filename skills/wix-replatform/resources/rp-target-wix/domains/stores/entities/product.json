@@ -19,15 +19,37 @@
     "stores/product-customization"
   ],
   "dependencyModes": {
+    "stores/brand": "task-complete",
     "stores/product-tag": "per-record",
     "media/media-file": "per-record"
   },
   "dependencyReferenceFields": {
+    "stores/category": [
+      "categoryIds[]"
+    ],
     "stores/product-tag": [
       "tags.publicTags.tagIds[]"
     ],
     "media/media-file": [
       "media.itemsInfo.items[].id"
+    ]
+  },
+  "sourceReferenceLeaves": {
+    "stores/category": [
+      "categories[].id"
+    ]
+  },
+  "sourceReferenceLeafNotes": {
+    "media/media-file": "WooCommerce product images are sent as URLs (media.itemsInfo.items[].url); the WordPress media id images[].id is not a Wix media reference and is archived.",
+    "stores/product-tag": "Not declared: a product plan may exclude tags[].id under a reviewed product-tag census disposition (product-tag gap continuation, when no tag can be written), which this leaf rule would refuse. The dependency gate still holds a product whose written tag ids do not resolve."
+  },
+  "auxiliaryReferenceFields": {
+    "stores/category": [
+      "categoryIds[]",
+      "categories.ids[]",
+      "categoryAssignment.categoryIds[]",
+      "product.categoryIds[]",
+      "items.categoryId[]"
     ]
   },
   "retiredHoldCodes": {
@@ -85,6 +107,23 @@
           "guardedPaths": [
             "tags.publicTags.tagIds[]"
           ]
+        },
+        "stores/product-customization": {
+          "conditional": true,
+          "guardedPaths": [
+            "modifiers[].id"
+          ],
+          "creatingPaths": [
+            "modifiers[].name",
+            "modifiers[].choicesSettings.choices[].name"
+          ],
+          "withinWrite": {
+            "completion": "synchronous",
+            "outcome": "creates-or-matches",
+            "identityOutput": "product.modifiers[].id",
+            "verification": "stores-product-read-back",
+            "pendingIdPrefix": "pending-customization:"
+          }
         }
       },
       "childOutputs": {
@@ -112,7 +151,8 @@
         "LIVE 2026-09-01 (Update Product, see patchStoresProductMediaVerified): an accepted URL item is queued (UNKNOWN_MEDIA_TYPE + uploadId) and may be dropped after the 200; only a read with fields=MEDIA_ITEMS_INFO establishes ingestion. Create timing is not separately observed.",
         "Brand by existing name links the existing brand (stores/brand pitfalls); normalization and broad idempotency are not established.",
         "bulkCreateProductsWithInventory is a different operation with no reviewed contract and cannot share this proof.",
-        "Create Product returns product.variantsInfo.variants[] with server-assigned ids. product-import.js matches each source variant expectation to exactly one returned variant by its source-fixed projection and stores { sourceKey, variantId } in the verified product receipt (write-verification.js verifyProduct re-checks each variantId against the read-back); those are the child identities."
+        "Create Product returns product.variantsInfo.variants[] with server-assigned ids. product-import.js matches each source variant expectation to exactly one returned variant by its source-fixed projection and stores { sourceKey, variantId } in the verified product receipt (write-verification.js verifyProduct re-checks each variantId against the read-back); those are the child identities.",
+        "Product customizations (\"Any\" attributes routed to modifiers): the product task writes each customization just before the product (import-task-runner connectPendingModifiers; createStoresCustomization forProduct reuses one with the same name and settings) and connects it by id. The builder leaves pending-customization:<n> ids; only ids this record's own customization write returned are sent (dependency-readiness recordWithinWriteIdentity). Live 2026-10-27: a product created with the connected modifier kept the customization id."
       ]
     }
   },
@@ -139,6 +179,7 @@
     "surface": "Stores Catalog V3 Products",
     "endpoint": "POST /stores/v3/products",
     "writerId": "createStoresProduct",
+    "requestInput": "product",
     "verification": "verified-live",
     "importSafe": true,
     "bulk": false
@@ -248,11 +289,11 @@
     "Preserve recurring offers natively via product.subscriptionDetails.subscriptions[] when the source exposes clear cadence data; live create coverage was verified on July 26, 2026, while patch/update coverage remains unverified.",
     "Plan the slug for the WHOLE catalog before writing the first product, not per record. Two source shapes decide the target slug and neither is visible one record at a time: a percent-encoded non-Latin slug must be tolerantly percent-decoded first and then kept as the decoded Unicode value (see wordpress-percent-encoded-slug), and an empty source slug must be filled in rather than left for the platform to derive (see empty-source-slug-derives-and-can-collide). Build the source-slug -> planned-target-slug map up front, assert it is unique across the catalog after coercion, and carry the ORIGINAL source slug beside the planned one so a later URL-preservation report can tell a faithful slug from a deviated one.",
     "Product images: pass every candidate url the source record offers to the source adapter's image resolver and use its result, never a hardcoded field such as src. Carry altText and displayName through to the media item. When the resolver reports that only a downscaled crop existed, record those images in the run's faithfulness ledger rather than importing them silently.",
-    "Product SEO: build seoData with buildProduct(canonical, { seoPlan }) from product-seo.js planProductSeo; never map rendered source SEO into seoTitle/seoDescription for an evidence-contract source."
+    "Product SEO: build seoData with buildProduct(canonical, { seoPlan }) from product-seo.js planProductSeo; never map rendered source SEO into seoTitle/seoDescription for an evidence-contract source.",
+    "Product custom fields use the native Data Extension Schema writer: read the existing schema, merge migration fields, save the full schema, and verify by reading it back."
   ],
   "setupRequirements": [
     "Wix Stores app",
-    "Product data extension schema when source-only product fields are preserved natively.",
     "Product data extension schema (FQDN wix.stores.catalog.*.product, provision-extended-fields step) before any writer emits product extendedFields values."
   ],
   "evidence": [
@@ -260,19 +301,27 @@
       "type": "wix-docs",
       "url": "https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/product-object",
       "note": "object page (docs-survey sweep 2026-08-11)"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-management/data-extension-schema/introduction",
+      "note": "live writer verification on 2026-11-05 and 2026-11-08 confirmed schema create/update, product extendedFields create/read-back, and cleanup; the accepted concurrency limitation is recorded in extendedFields.liveVerification"
     }
   ],
   "extendedFields": {
     "schemaKind": "data-extension-schema",
     "definitionSurface": "Data Extension Schema API",
-    "definitionOperation": "Create/Update Data Extension Schema (FQDN wix.stores.catalog.*.product)",
+    "definitionOperation": "Create/Update Data Extension Schema (FQDN wix.stores.catalog.*.product) using read, merge, full-schema save, and existing read-back",
     "valuePath": "extendedFields.namespaces._user_fields",
     "namespaceForCreatedFields": "_user_fields",
     "dataExtensionSchemaBacked": true,
     "fqdn": "wix.stores.catalog.*.product",
     "supportsFiltering": true,
     "nestedSubrecordExtendedFields": "none known",
-    "liveVerification": "UNVERIFIED — offline contract only; disposable-site create and concurrent-edit proof pending.",
+    "liveVerification": "VERIFIED LIVE 2026-11-05 and 2026-11-08: on muted disposable sites, GET/POST/PUT/GET schema calls returned the expected envelopes; a string field with migration-internal permissions was created, product extendedFields.namespaces._user_fields values were written and read back exactly, and cleanup succeeded. The accepted limitation is last-write-wins: a stale full-schema PUT after a concurrent field edit returned 200 and erased that edit on both proofs. The native writer therefore deliberately uses the normal read, merge, full-schema save, and existing read-back, with no extra conditional-write machinery, block, or CMS fallback.",
+    "acceptedLimitations": [
+      "last-write-wins if a merchant edit lands between the schema read and full-schema save; the rare concurrency risk is accepted"
+    ],
     "admittedFieldTypes": [
       "string"
     ],
@@ -315,6 +364,34 @@
       {
         "path": "product.updatedDate",
         "reason": "server timestamp"
+      },
+      {
+        "path": "product.modifiers[].id",
+        "reason": "server-assigned: Wix gives the connected modifier its own id (live run 09895795, product 27838)"
+      },
+      {
+        "path": "product.modifiers[].choicesSettings.choices[].id",
+        "reason": "server-assigned choice id"
+      },
+      {
+        "path": "product.modifiers[].choicesSettings.choices[].choiceId",
+        "reason": "server-assigned choice id"
+      },
+      {
+        "path": "product.modifiers[].choicesSettings.choices[].primaryChoiceIds",
+        "reason": "customization-owned: the connected customization's server default, never echoed on the product read (live run 09895795, 16 products)"
+      },
+      {
+        "path": "product.modifiers[].choicesSettings.sortOrder",
+        "reason": "customization-owned: the connected customization's server default (UNKNOWN_CHOICE_SORT_STRATEGY), never echoed on the product read (live run 09895795)"
+      },
+      {
+        "path": "product.options[].id",
+        "reason": "server-assigned option id"
+      },
+      {
+        "path": "product.options[].choicesSettings.choices[].choiceId",
+        "reason": "server-assigned choice id"
       }
     ],
     "read": "getStoresProductForVerification",

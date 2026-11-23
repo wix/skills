@@ -1,0 +1,346 @@
+{
+  "schemaVersion": 1,
+  "kind": "wix-map-suggestion",
+  "sourcePlatform": "woocommerce",
+  "primaryKey": "id",
+  "sourceEntity": "tax-rate",
+  "targetRef": "tax/manual-tax-mapping",
+  "targetEntity": "manual-tax-mapping",
+  "preferredWrite": "createManualTaxMapping",
+  "requiredSourceEntityRefs": [
+    "tax-class"
+  ],
+  "provenance": [
+    "store P 11-10 plan"
+  ],
+  "whenUsed": "Only when the store has tax rates (tax-build shouldSkipTaxDomain). Store T has none. The tax composite (lib/import-composites-tax.js) writes each rate's region and default-group mappings.",
+  "holdCodes": {
+    "tax-rate-postcode-or-city": {
+      "role": "cutover-operator",
+      "severity": "high",
+      "action": "These tax rates apply to postcodes or cities, which Wix tax regions cannot hold. Set them up in Business Manager > Settings > Tax, or confirm the state-level rate is right.",
+      "resolutionEvidence": "The tax setting on Wix matches the merchant's choice."
+    },
+    "tax-rate-compound": {
+      "role": "cutover-operator",
+      "severity": "high",
+      "action": "These tax rates are compound (tax on tax), which Wix does not support. Set an equivalent rate in Business Manager > Settings > Tax.",
+      "resolutionEvidence": "The tax setting on Wix matches the merchant's choice."
+    },
+    "tax-rate-country-missing": {
+      "role": "cutover-operator",
+      "severity": "high",
+      "action": "These tax rates have no country and were not imported. Set them up in Business Manager > Settings > Tax.",
+      "resolutionEvidence": "The tax setting on Wix matches the merchant's choice."
+    },
+    "tax-rate-country-not-supported": {
+      "role": "cutover-operator",
+      "severity": "high",
+      "action": "These tax rates are for a country Wix tax cannot hold. Confirm you do not sell there.",
+      "resolutionEvidence": "The tax setting on Wix matches the merchant's choice."
+    },
+    "tax-rate-invalid": {
+      "role": "cutover-operator",
+      "severity": "high",
+      "action": "These tax rates are not numbers and were not imported. Set them in Business Manager > Settings > Tax.",
+      "resolutionEvidence": "The tax setting on Wix matches the merchant's choice."
+    },
+    "tax-default-groups-unmatched": {
+      "role": "cutover-operator",
+      "severity": "high",
+      "action": "These standard tax rates were not imported: the site's default tax groups Products or Shipping and delivery could not be found by name (maybe the site is in another language). In the dashboard go to Tax, select each listed location (or add it with +Add Location), and enter the listed rate on the groups for products, additional fees and, only when the rate says shipping yes, shipping and delivery. Leave Form payments without a rate.",
+      "resolutionEvidence": "Each listed rate is set on Products, Additional fees and (shipping yes) Shipping and delivery for its location."
+    },
+    "tax-group-not-ready": {
+      "role": "import-operator",
+      "severity": "high",
+      "action": "Requires Import Operator: the tax group of these custom-class rates was not created yet, so they wait.",
+      "importOperatorPrompt": "Run the tax group step (tax-class import), then rerun the tax-rate import for these ids.",
+      "resolutionEvidence": "Each listed rate is imported."
+    }
+  },
+  "fieldMappings": [
+    {
+      "id": "tax-rate-mapping",
+      "sourcePaths": [
+        "rate",
+        "name",
+        "class",
+        "country",
+        "state",
+        "compound",
+        "postcode",
+        "city",
+        "postcodes[]",
+        "cities[]",
+        "shipping"
+      ],
+      "disposition": "native",
+      "reason": "Each rate becomes manual tax mappings on its region (country, state). A standard or blank class rate goes on the default groups Products and Additional fees, and on Shipping and delivery only when the rate says shipping yes (never Form payments); a custom class rate goes on its own group. The region and the default groups are per-site ids: the tax composite (lib/import-composites-tax.js) finds or creates the region and reads the default groups at send time, from loopInput; the body carries the rate, its name and a custom group.",
+      "evidence": [
+        "resources/rp-target-wix/lib/tax-build.js buildManualTaxMappingInput",
+        "standard rate -> Products, Additional fees, Shipping and delivery when shipping (tax composite)",
+        "store P 11-10 plan (tax-rate -> manual tax mapping)"
+      ],
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/tax.builder.js#taxRateMapping",
+        "revision": "rp-source-wordpress/wix-map/tax.builder.js",
+        "arguments": {}
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "tr-1",
+          "input": {
+            "country": "US",
+            "state": "CA",
+            "rate": "10.0000",
+            "name": "Tax",
+            "class": "standard",
+            "compound": false,
+            "postcode": "",
+            "city": "",
+            "postcodes": [],
+            "cities": [],
+            "shipping": true
+          },
+          "expected": [
+            {
+              "outputId": "taxRate",
+              "writeOperation": "createManualTaxMapping",
+              "value": "0.1"
+            },
+            {
+              "outputId": "taxGroupId",
+              "writeOperation": "createManualTaxMapping",
+              "omitted": true
+            }
+          ]
+        },
+        {
+          "id": "tr-2",
+          "input": {
+            "country": "US",
+            "state": "",
+            "rate": "5",
+            "class": "standard",
+            "compound": true,
+            "shipping": true
+          },
+          "expected": [
+            {
+              "outputId": "taxRate",
+              "writeOperation": "createManualTaxMapping",
+              "noWrite": true,
+              "findingCodes": [
+                "tax-rate-compound"
+              ]
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "taxRate",
+          "sourcePaths": [
+            "rate",
+            "compound",
+            "postcode",
+            "city",
+            "postcodes[]",
+            "cities[]",
+            "country",
+            "state",
+            "shipping"
+          ],
+          "targetRef": "tax/manual-tax-mapping",
+          "writeOperation": "createManualTaxMapping",
+          "targetPath": "taxRate",
+          "verification": {
+            "readPath": "manualTaxMapping.taxRate"
+          }
+        },
+        {
+          "id": "taxName",
+          "sourcePaths": [
+            "name"
+          ],
+          "targetRef": "tax/manual-tax-mapping",
+          "writeOperation": "createManualTaxMapping",
+          "targetPath": "taxName",
+          "verification": {
+            "readPath": "manualTaxMapping.taxName"
+          }
+        },
+        {
+          "id": "taxGroupId",
+          "sourcePaths": [
+            "class"
+          ],
+          "targetRef": "tax/manual-tax-mapping",
+          "writeOperation": "createManualTaxMapping",
+          "targetPath": "taxGroupId",
+          "verification": {
+            "readPath": "manualTaxMapping.taxGroupId"
+          }
+        }
+      ],
+      "choice": {
+        "name": "tax-rate-mapping",
+        "value": {
+          "tax-rate-postcode-city": "hold-record",
+          "tax-rate-compound": "hold-record",
+          "tax-rate-shipping-flag": "archived"
+        },
+        "default": {
+          "tax-rate-postcode-city": "hold-record",
+          "tax-rate-compound": "hold-record",
+          "tax-rate-shipping-flag": "archived"
+        },
+        "reason": "This row decides several values; each part has its own default and reason.",
+        "decidedBy": "suggestion",
+        "parts": [
+          {
+            "name": "tax-rate-postcode-city",
+            "value": "hold-record",
+            "default": "hold-record",
+            "reason": "Wix tax regions are country and subdivision only; a postcode or city rate applied to the whole state would charge the wrong tax.",
+            "decidedBy": "suggestion"
+          },
+          {
+            "name": "tax-rate-compound",
+            "value": "hold-record",
+            "default": "hold-record",
+            "reason": "Wix has no compound rates.",
+            "decidedBy": "suggestion"
+          },
+          {
+            "name": "tax-rate-shipping-flag",
+            "value": "archived",
+            "default": "archived",
+            "reason": "Whether shipping is taxed is a site tax setting in Wix, not per rate.",
+            "decidedBy": "suggestion"
+          }
+        ]
+      }
+    },
+    {
+      "id": "source-archive",
+      "sourcePaths": [
+        "_links.collection[].href",
+        "_links.self[].href",
+        "_links.self[].targetHints.allow[]",
+        "id",
+        "order",
+        "priority",
+        "shipping"
+      ],
+      "disposition": "cms",
+      "reason": "Every other tax rate field (priority, order, links) is kept in the private source-archive collection.",
+      "evidence": [
+        "resources/rp-target-wix/lib/source-archive.js PACKED_ARCHIVE_FIELDS",
+        "store T 11-15 run plan (source-archive rows)"
+      ],
+      "transform": {
+        "kind": "helper",
+        "name": "source-archive.buildArchiveRecord",
+        "revision": "source-archive-retention-v1",
+        "arguments": {
+          "sourceEntity": "tax-rate",
+          "sourceKeyPath": "id",
+          "collectionId": "ImportArchive_tax-rate_363deb86"
+        }
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "archive-as-is"
+        },
+        "invalid": {
+          "action": "archive-as-is"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "tax-rate-archive-1",
+          "input": {
+            "id": 3
+          },
+          "expected": [
+            {
+              "outputId": "records",
+              "writeOperation": "insertDataItem",
+              "values": [
+                {
+                  "3": {
+                    "fields": {}
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "records",
+          "sourcePaths": [
+            "_links.collection[].href",
+            "_links.self[].href",
+            "_links.self[].targetHints.allow[]",
+            "id",
+            "order",
+            "priority"
+          ],
+          "targetRef": "cms/data-item",
+          "writeOperation": "insertDataItem",
+          "targetPath": "data.records",
+          "storage": {
+            "collectionId": "ImportArchive_tax-rate_363deb86"
+          },
+          "verification": {
+            "unverifiableReason": "Packed archive items are verified by the archive step read-back."
+          }
+        }
+      ],
+      "choice": {
+        "name": "leftover-fields",
+        "value": "source archive",
+        "default": "source archive",
+        "reason": "No native Wix field holds them; nothing is dropped silently.",
+        "decidedBy": "suggestion"
+      }
+    }
+  ]
+}

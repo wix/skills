@@ -1,0 +1,1593 @@
+{
+  "schemaVersion": 1,
+  "kind": "wix-map-suggestion",
+  "sourcePlatform": "woocommerce",
+  "primaryKey": "id",
+  "sourceEntity": "post",
+  "targetRef": "blog/post",
+  "targetEntity": "post",
+  "preferredWrite": "createDraftPost",
+  "requiredSourceEntityRefs": [
+    "category",
+    "tag"
+  ],
+  "builder": "rp-source-wordpress/wix-map/blog.builder.js",
+  "exampleConventions": "Example input merges onto a base published post; references resolve as \"<ref:key>\".",
+  "provenance": [
+    "store T 11-15 run plan (post rows)",
+    "store P 11-10 and 11-15 plans (post, tag)"
+  ],
+  "holdCodes": {
+    "blog-post-not-published-at-source": {
+      "role": "site-owner",
+      "severity": "low",
+      "action": "These posts were drafts or pending at the source and were not imported, so nothing unpublished went live. Recreate any you still want in Business Manager > Blog.",
+      "resolutionEvidence": "Each listed post exists on Wix or is confirmed unwanted."
+    },
+    "blog-post-title-missing": {
+      "role": "site-owner",
+      "severity": "low",
+      "action": "These posts have no title and were not imported. Add them in Business Manager > Blog if still wanted.",
+      "resolutionEvidence": "Each listed post exists on Wix or is confirmed unwanted."
+    },
+    "blog-post-date-invalid": {
+      "role": "import-operator",
+      "severity": "medium",
+      "action": "Requires Import Operator: these posts have a publish date that is not a date.",
+      "importOperatorPrompt": "Re-read the listed posts (GET /wp/v2/posts/<id>?context=edit), check date_gmt, and rerun the post import for these ids.",
+      "resolutionEvidence": "Each listed post is imported."
+    },
+    "blog-category-not-landed": {
+      "role": "import-operator",
+      "severity": "high",
+      "action": "Requires Import Operator: the blog category of these posts was not imported yet, so the posts wait.",
+      "importOperatorPrompt": "Run or rerun the blog category import, then rerun the post import for these ids.",
+      "resolutionEvidence": "Each listed post is imported with its categories."
+    },
+    "blog-tag-not-landed": {
+      "role": "import-operator",
+      "severity": "high",
+      "action": "Requires Import Operator: a blog tag of these posts was not imported yet, so the posts wait.",
+      "importOperatorPrompt": "Run or rerun the blog tag import, then rerun the post import for these ids.",
+      "resolutionEvidence": "Each listed post is imported with its tags."
+    }
+  },
+  "fieldMappings": [
+    {
+      "id": "post-title",
+      "sourcePaths": [
+        "title.raw",
+        "title.rendered",
+        "status"
+      ],
+      "disposition": "native",
+      "reason": "The edit-context title (entities decoded). Only posts published at the source are imported.",
+      "evidence": [
+        "resources/rp-target-wix/domains/blog/entities/post.json",
+        "store T 11-15 run plan (post rows)"
+      ],
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/blog.builder.js#postTitle",
+        "revision": "rp-source-wordpress/wix-map/blog.builder.js",
+        "arguments": {
+          "statuses": [
+            "publish"
+          ]
+        }
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "hold-record",
+          "code": "blog-post-title-missing"
+        },
+        "null": {
+          "action": "hold-record",
+          "code": "blog-post-title-missing"
+        },
+        "empty": {
+          "action": "hold-record",
+          "code": "blog-post-title-missing"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "pt-1",
+          "input": {
+            "status": "publish",
+            "title": {
+              "raw": "Brewing &amp; beans"
+            }
+          },
+          "expected": [
+            {
+              "outputId": "title",
+              "writeOperation": "createDraftPost",
+              "value": "Brewing & beans"
+            }
+          ]
+        },
+        {
+          "id": "pt-2",
+          "input": {
+            "status": "draft",
+            "title": {
+              "raw": "Draft"
+            }
+          },
+          "expected": [
+            {
+              "outputId": "title",
+              "writeOperation": "createDraftPost",
+              "noWrite": true,
+              "findingCodes": [
+                "blog-post-not-published-at-source"
+              ]
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "title",
+          "sourcePaths": [
+            "title.raw",
+            "title.rendered",
+            "status"
+          ],
+          "targetRef": "blog/post",
+          "writeOperation": "createDraftPost",
+          "targetPath": "title",
+          "verification": {
+            "readPath": "post.title"
+          }
+        }
+      ],
+      "choice": {
+        "name": "blog-post-unpublished",
+        "value": "hold-record (not imported)",
+        "default": "hold-record (not imported)",
+        "reason": "A draft or pending post would go live: the post composite publishes. Store P: 3 drafts, 3 pending. The cutover task lists them.",
+        "decidedBy": "suggestion",
+        "alternatives": [
+          "import as published"
+        ]
+      }
+    },
+    {
+      "id": "post-content",
+      "sourcePaths": [
+        "content.rendered"
+      ],
+      "disposition": "native",
+      "reason": "The rendered HTML goes to the post composite, which converts it to Wix rich content and imports inline images.",
+      "evidence": [
+        "resources/rp-target-wix/domains/blog/entities/post.json",
+        "store T 11-15 run plan (post rows)"
+      ],
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/blog.builder.js#postContent",
+        "revision": "rp-source-wordpress/wix-map/blog.builder.js",
+        "arguments": {}
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "pc-1",
+          "input": {
+            "content": {
+              "rendered": "<p>Hi</p>"
+            }
+          },
+          "expected": [
+            {
+              "outputId": "richContent",
+              "writeOperation": "createDraftPost",
+              "noWrite": true,
+              "findingCodes": [
+                "converted-by-composite"
+              ]
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "richContent",
+          "sourcePaths": [
+            "content.rendered"
+          ],
+          "targetRef": "blog/post",
+          "writeOperation": "createDraftPost",
+          "targetPath": "richContent",
+          "verification": {
+            "unverifiableReason": "Converted to Ricos by the post composite (convertHtmlToRichContent); its read-back checks the document."
+          }
+        }
+      ]
+    },
+    {
+      "id": "post-excerpt",
+      "sourcePaths": [
+        "excerpt.rendered"
+      ],
+      "disposition": "native",
+      "reason": "The excerpt as plain text.",
+      "evidence": [
+        "resources/rp-target-wix/domains/blog/entities/post.json",
+        "store T 11-15 run plan (post rows)"
+      ],
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/blog.builder.js#postExcerpt",
+        "revision": "rp-source-wordpress/wix-map/blog.builder.js",
+        "arguments": {}
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "pe-1",
+          "input": {
+            "excerpt": {
+              "rendered": "<p>Short &amp; sweet</p>"
+            }
+          },
+          "expected": [
+            {
+              "outputId": "excerpt",
+              "writeOperation": "createDraftPost",
+              "value": "Short & sweet"
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "excerpt",
+          "sourcePaths": [
+            "excerpt.rendered"
+          ],
+          "targetRef": "blog/post",
+          "writeOperation": "createDraftPost",
+          "targetPath": "excerpt",
+          "verification": {
+            "readPath": "post.excerpt"
+          }
+        }
+      ]
+    },
+    {
+      "id": "post-slug",
+      "sourcePaths": [
+        "slug"
+      ],
+      "disposition": "native",
+      "reason": "The percent-decoded source slug keeps the post URL.",
+      "evidence": [
+        "resources/rp-target-wix/domains/blog/entities/post.json",
+        "store T 11-15 run plan (post rows)"
+      ],
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/blog.builder.js#postSlug",
+        "revision": "rp-source-wordpress/wix-map/blog.builder.js",
+        "arguments": {}
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "ps-1",
+          "input": {
+            "slug": "%d7%91%d7%a7%d7%a8"
+          },
+          "expected": [
+            {
+              "outputId": "seoSlug",
+              "writeOperation": "createDraftPost",
+              "value": "בקר"
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "seoSlug",
+          "sourcePaths": [
+            "slug"
+          ],
+          "targetRef": "blog/post",
+          "writeOperation": "createDraftPost",
+          "targetPath": "seoSlug",
+          "verification": {
+            "readPath": "post.seoSlug"
+          }
+        }
+      ]
+    },
+    {
+      "id": "post-date",
+      "sourcePaths": [
+        "date_gmt"
+      ],
+      "disposition": "native",
+      "reason": "The original publish time, UTC.",
+      "evidence": [
+        "resources/rp-target-wix/domains/blog/entities/post.json",
+        "store T 11-15 run plan (post rows)"
+      ],
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/blog.builder.js#postDate",
+        "revision": "rp-source-wordpress/wix-map/blog.builder.js",
+        "arguments": {}
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record",
+          "code": "blog-post-date-invalid"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "pd-1",
+          "input": {
+            "date_gmt": "2026-09-23T07:27:07"
+          },
+          "expected": [
+            {
+              "outputId": "firstPublishedDate",
+              "writeOperation": "createDraftPost",
+              "value": "2026-09-23T07:27:07.000Z"
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "firstPublishedDate",
+          "sourcePaths": [
+            "date_gmt"
+          ],
+          "targetRef": "blog/post",
+          "writeOperation": "createDraftPost",
+          "targetPath": "firstPublishedDate",
+          "verification": {
+            "readPath": "post.firstPublishedDate"
+          }
+        }
+      ]
+    },
+    {
+      "id": "post-categories",
+      "sourcePaths": [
+        "categories[]"
+      ],
+      "disposition": "native",
+      "reason": "Blog category ids in source order, resolved per record by the dependency gate (blog/post dependencyReferenceFields categoryIds[]). A category not landed yet holds the post until it lands.",
+      "evidence": [
+        "resources/rp-target-wix/domains/blog/entities/post.json",
+        "store T 11-15 run plan (post rows)"
+      ],
+      "transform": {
+        "kind": "helper",
+        "name": "dependency-gate.resolveReference",
+        "revision": "lib/dependency-readiness.js",
+        "arguments": {
+          "entityRef": "category",
+          "input": "categories[]"
+        }
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "pcat-1",
+          "input": {
+            "categories": [
+              117
+            ]
+          },
+          "expected": [
+            {
+              "outputId": "categoryIds",
+              "writeOperation": "createDraftPost",
+              "findingCodes": [
+                "gate-supplied-reference"
+              ],
+              "omitted": true
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "categoryIds",
+          "sourcePaths": [
+            "categories[]"
+          ],
+          "targetRef": "blog/post",
+          "writeOperation": "createDraftPost",
+          "targetPath": "categoryIds[]",
+          "verification": {
+            "unverifiableReason": "Gate-supplied reference; verified by the dependency-gate receipt, not the builder read-back."
+          }
+        }
+      ],
+      "choice": {
+        "name": "blog-category-not-landed",
+        "value": "hold the post until the category lands",
+        "default": "hold the post until the category lands",
+        "reason": "A post without its category is a silent change; the loop waits per record.",
+        "decidedBy": "suggestion"
+      },
+      "referencePolicy": {
+        "cardinality": "many",
+        "order": "source order",
+        "entityRef": "category",
+        "input": "categories[]",
+        "targetPath": "categoryIds[]",
+        "missing": "no categories written",
+        "ambiguous": "hold record (dependency gate)",
+        "orphan": "the post waits for its category (per-record); a category never imported is a dependency cutover item"
+      }
+    },
+    {
+      "id": "post-tags",
+      "sourcePaths": [
+        "tags[]"
+      ],
+      "disposition": "native",
+      "reason": "Blog tag ids. Store P: 40 posts carry tags.",
+      "evidence": [
+        "resources/rp-target-wix/domains/blog/entities/post.json",
+        "store T 11-15 run plan (post rows)"
+      ],
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/blog.builder.js#postTags",
+        "revision": "rp-source-wordpress/wix-map/blog.builder.js",
+        "arguments": {
+          "entityRef": "tag"
+        }
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "ptag-1",
+          "input": {
+            "tags": [
+              9
+            ]
+          },
+          "expected": [
+            {
+              "outputId": "tagIds",
+              "writeOperation": "createDraftPost",
+              "values": [
+                "<blog/tag:tag:9>"
+              ]
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "tagIds",
+          "sourcePaths": [
+            "tags[]"
+          ],
+          "targetRef": "blog/post",
+          "writeOperation": "createDraftPost",
+          "targetPath": "tagIds",
+          "verification": {
+            "readPath": "post.tagIds"
+          }
+        }
+      ]
+    },
+    {
+      "id": "post-featured-media",
+      "sourcePaths": [
+        "featured_media"
+      ],
+      "disposition": "native",
+      "reason": "The featured image becomes the hero image (full size, from the media record).",
+      "evidence": [
+        "resources/rp-target-wix/domains/blog/entities/post.json",
+        "store T 11-15 run plan (post rows)"
+      ],
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/blog.builder.js#postFeaturedMedia",
+        "revision": "rp-source-wordpress/wix-map/blog.builder.js",
+        "arguments": {}
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "omit-output"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "pf-1",
+          "input": {
+            "featured_media": 29228
+          },
+          "expected": [
+            {
+              "outputId": "heroImage",
+              "writeOperation": "createDraftPost",
+              "noWrite": true,
+              "findingCodes": [
+                "imported-by-composite"
+              ]
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "heroImage",
+          "sourcePaths": [
+            "featured_media"
+          ],
+          "targetRef": "blog/post",
+          "writeOperation": "createDraftPost",
+          "targetPath": "heroImage",
+          "verification": {
+            "unverifiableReason": "Imported by the post composite from the media library record; a post whose image is not ready is deferred."
+          }
+        }
+      ]
+    },
+    {
+      "id": "post-author",
+      "sourcePaths": [
+        "author"
+      ],
+      "disposition": "excluded",
+      "reason": "Every post is attributed to the site owner member (read-only lookup); no member is created per WordPress author. The author id is archived.",
+      "evidence": [
+        "resources/rp-target-wix/domains/blog/entities/post.json",
+        "store T 11-15 run plan (post rows)"
+      ],
+      "choice": {
+        "name": "blog-post-author",
+        "value": "site owner",
+        "default": "site owner",
+        "reason": "Creating members from WordPress users is a member-import decision, not a post field. The cutover task lets the merchant change the writer in Business Manager > Blog.",
+        "decidedBy": "suggestion",
+        "alternatives": [
+          "map authors to imported members"
+        ]
+      }
+    },
+    {
+      "id": "source-archive",
+      "sourcePaths": [
+        "_embedded.author[]._links.collection[].href",
+        "_embedded.author[]._links.self[].href",
+        "_embedded.author[]._links.self[].targetHints.allow[]",
+        "_embedded.author[].avatar_urls[\"24\"]",
+        "_embedded.author[].avatar_urls[\"48\"]",
+        "_embedded.author[].avatar_urls[\"96\"]",
+        "_embedded.author[].description",
+        "_embedded.author[].id",
+        "_embedded.author[].is_super_admin",
+        "_embedded.author[].link",
+        "_embedded.author[].name",
+        "_embedded.author[].slug",
+        "_embedded.author[].url",
+        "_embedded.author[].woocommerce_meta.coupons_report_columns",
+        "_embedded.author[].woocommerce_meta.launch_your_store_tour_hidden",
+        "_embedded.author[].woocommerce_meta.orders_report_columns",
+        "_embedded.author[].woocommerce_meta.variable_product_tour_shown",
+        "_embedded.author[].yoast_head",
+        "_embedded.author[].yoast_head_json.canonical",
+        "_embedded.author[].yoast_head_json.og_image[].url",
+        "_embedded.author[].yoast_head_json.og_locale",
+        "_embedded.author[].yoast_head_json.og_site_name",
+        "_embedded.author[].yoast_head_json.og_title",
+        "_embedded.author[].yoast_head_json.og_type",
+        "_embedded.author[].yoast_head_json.og_url",
+        "_embedded.author[].yoast_head_json.robots.follow",
+        "_embedded.author[].yoast_head_json.robots.index",
+        "_embedded.author[].yoast_head_json.robots.max-image-preview",
+        "_embedded.author[].yoast_head_json.robots.max-snippet",
+        "_embedded.author[].yoast_head_json.robots.max-video-preview",
+        "_embedded.author[].yoast_head_json.title",
+        "_embedded.author[].yoast_head_json.twitter_card",
+        "_embedded.replies[][]._links.author[].embeddable",
+        "_embedded.replies[][]._links.author[].href",
+        "_embedded.replies[][]._links.children[].embeddable",
+        "_embedded.replies[][]._links.children[].href",
+        "_embedded.replies[][]._links.collection[].href",
+        "_embedded.replies[][]._links.in-reply-to[].embeddable",
+        "_embedded.replies[][]._links.in-reply-to[].href",
+        "_embedded.replies[][]._links.self[].href",
+        "_embedded.replies[][]._links.self[].targetHints.allow[]",
+        "_embedded.replies[][]._links.up[].embeddable",
+        "_embedded.replies[][]._links.up[].href",
+        "_embedded.replies[][]._links.up[].post_type",
+        "_embedded.replies[][].author",
+        "_embedded.replies[][].author_avatar_urls[\"24\"]",
+        "_embedded.replies[][].author_avatar_urls[\"48\"]",
+        "_embedded.replies[][].author_avatar_urls[\"96\"]",
+        "_embedded.replies[][].author_name",
+        "_embedded.replies[][].content.rendered",
+        "_embedded.replies[][].date",
+        "_embedded.replies[][].id",
+        "_embedded.replies[][].link",
+        "_embedded.replies[][].parent",
+        "_embedded.replies[][].type",
+        "_embedded[\"wp:featuredmedia\"][]._links.about[].href",
+        "_embedded[\"wp:featuredmedia\"][]._links.author[].embeddable",
+        "_embedded[\"wp:featuredmedia\"][]._links.author[].href",
+        "_embedded[\"wp:featuredmedia\"][]._links.collection[].href",
+        "_embedded[\"wp:featuredmedia\"][]._links.curies[].href",
+        "_embedded[\"wp:featuredmedia\"][]._links.curies[].name",
+        "_embedded[\"wp:featuredmedia\"][]._links.curies[].templated",
+        "_embedded[\"wp:featuredmedia\"][]._links.replies[].embeddable",
+        "_embedded[\"wp:featuredmedia\"][]._links.replies[].href",
+        "_embedded[\"wp:featuredmedia\"][]._links.self[].href",
+        "_embedded[\"wp:featuredmedia\"][]._links.self[].targetHints.allow[]",
+        "_embedded[\"wp:featuredmedia\"][]._links[\"wp:attached-to\"][].embeddable",
+        "_embedded[\"wp:featuredmedia\"][]._links[\"wp:attached-to\"][].href",
+        "_embedded[\"wp:featuredmedia\"][]._links[\"wp:attached-to\"][].id",
+        "_embedded[\"wp:featuredmedia\"][]._links[\"wp:attached-to\"][].post_type",
+        "_embedded[\"wp:featuredmedia\"][].author",
+        "_embedded[\"wp:featuredmedia\"][].date",
+        "_embedded[\"wp:featuredmedia\"][].featured_media",
+        "_embedded[\"wp:featuredmedia\"][].id",
+        "_embedded[\"wp:featuredmedia\"][].jetpack_likes_enabled",
+        "_embedded[\"wp:featuredmedia\"][].jetpack_sharing_enabled",
+        "_embedded[\"wp:featuredmedia\"][].jetpack_shortlink",
+        "_embedded[\"wp:featuredmedia\"][].link",
+        "_embedded[\"wp:featuredmedia\"][].media_details.file",
+        "_embedded[\"wp:featuredmedia\"][].media_details.filesize",
+        "_embedded[\"wp:featuredmedia\"][].media_details.height",
+        "_embedded[\"wp:featuredmedia\"][].media_details.image_meta.aperture",
+        "_embedded[\"wp:featuredmedia\"][].media_details.image_meta.created_timestamp",
+        "_embedded[\"wp:featuredmedia\"][].media_details.image_meta.focal_length",
+        "_embedded[\"wp:featuredmedia\"][].media_details.image_meta.iso",
+        "_embedded[\"wp:featuredmedia\"][].media_details.image_meta.orientation",
+        "_embedded[\"wp:featuredmedia\"][].media_details.image_meta.shutter_speed",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.full.file",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.full.height",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.full.mime_type",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.full.source_url",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.full.width",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.large.file",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.large.filesize",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.large.height",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.large.mime_type",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.large.source_url",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.large.virtual",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.large.width",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.medium.file",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.medium.filesize",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.medium.height",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.medium.mime_type",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.medium.source_url",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.medium.virtual",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.medium.width",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.medium_large.file",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.medium_large.filesize",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.medium_large.height",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.medium_large.mime_type",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.medium_large.source_url",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.medium_large.virtual",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.medium_large.width",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-intermediate.file",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-intermediate.height",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-intermediate.mime_type",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-intermediate.source_url",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-intermediate.virtual",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-intermediate.width",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-large.file",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-large.height",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-large.mime_type",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-large.source_url",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-large.virtual",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-large.width",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-medium.file",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-medium.height",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-medium.mime_type",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-medium.source_url",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-medium.virtual",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-medium.width",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-small.file",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-small.height",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-small.mime_type",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-small.source_url",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-small.virtual",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-small.width",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-tiny.file",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-tiny.height",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-tiny.mime_type",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-tiny.source_url",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-tiny.virtual",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-tiny.width",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-intermediate.file",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-intermediate.height",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-intermediate.mime_type",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-intermediate.source_url",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-intermediate.virtual",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-intermediate.width",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-large.file",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-large.height",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-large.mime_type",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-large.source_url",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-large.virtual",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-large.width",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-medium.file",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-medium.height",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-medium.mime_type",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-medium.source_url",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-medium.virtual",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-medium.width",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-small.file",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-small.height",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-small.mime_type",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-small.source_url",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-small.virtual",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-small.width",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-tiny.file",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-tiny.height",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-tiny.mime_type",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-tiny.source_url",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-tiny.virtual",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-tiny.width",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-intermediate.file",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-intermediate.height",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-intermediate.mime_type",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-intermediate.source_url",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-intermediate.virtual",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-intermediate.width",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-large.file",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-large.height",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-large.mime_type",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-large.source_url",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-large.virtual",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-large.width",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-medium.file",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-medium.height",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-medium.mime_type",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-medium.source_url",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-medium.virtual",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-medium.width",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-small.file",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-small.height",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-small.mime_type",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-small.source_url",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-small.virtual",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-small.width",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-tiny.file",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-tiny.height",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-tiny.mime_type",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-tiny.source_url",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-tiny.virtual",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-tiny.width",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-uncropped.file",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-uncropped.height",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-uncropped.mime_type",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-uncropped.source_url",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-uncropped.virtual",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-uncropped.width",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.post-thumbnail.file",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.post-thumbnail.filesize",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.post-thumbnail.height",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.post-thumbnail.mime_type",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.post-thumbnail.source_url",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.post-thumbnail.width",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.thegem-custom-product-categories.file",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.thegem-custom-product-categories.filesize",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.thegem-custom-product-categories.height",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.thegem-custom-product-categories.mime_type",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.thegem-custom-product-categories.source_url",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.thegem-custom-product-categories.width",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.thegem-post-thumb.file",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.thegem-post-thumb.filesize",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.thegem-post-thumb.height",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.thegem-post-thumb.mime_type",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.thegem-post-thumb.source_url",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.thegem-post-thumb.width",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.thumbnail.file",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.thumbnail.filesize",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.thumbnail.height",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.thumbnail.mime_type",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.thumbnail.source_url",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.thumbnail.virtual",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.thumbnail.width",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.woocommerce_gallery_thumbnail.file",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.woocommerce_gallery_thumbnail.filesize",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.woocommerce_gallery_thumbnail.height",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.woocommerce_gallery_thumbnail.mime_type",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.woocommerce_gallery_thumbnail.source_url",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.woocommerce_gallery_thumbnail.virtual",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.woocommerce_gallery_thumbnail.width",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.woocommerce_single.file",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.woocommerce_single.filesize",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.woocommerce_single.height",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.woocommerce_single.mime_type",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.woocommerce_single.source_url",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.woocommerce_single.virtual",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.woocommerce_single.width",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.woocommerce_thumbnail.file",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.woocommerce_thumbnail.filesize",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.woocommerce_thumbnail.height",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.woocommerce_thumbnail.mime_type",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.woocommerce_thumbnail.source_url",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.woocommerce_thumbnail.uncropped",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.woocommerce_thumbnail.virtual",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes.woocommerce_thumbnail.width",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes[\"1536x1536\"].file",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes[\"1536x1536\"].filesize",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes[\"1536x1536\"].height",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes[\"1536x1536\"].mime_type",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes[\"1536x1536\"].source_url",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes[\"1536x1536\"].virtual",
+        "_embedded[\"wp:featuredmedia\"][].media_details.sizes[\"1536x1536\"].width",
+        "_embedded[\"wp:featuredmedia\"][].media_details.width",
+        "_embedded[\"wp:featuredmedia\"][].media_type",
+        "_embedded[\"wp:featuredmedia\"][].mime_type",
+        "_embedded[\"wp:featuredmedia\"][].slug",
+        "_embedded[\"wp:featuredmedia\"][].smush",
+        "_embedded[\"wp:featuredmedia\"][].source_url",
+        "_embedded[\"wp:featuredmedia\"][].title.rendered",
+        "_embedded[\"wp:featuredmedia\"][].type",
+        "_embedded[\"wp:term\"][][]._links.about[].href",
+        "_embedded[\"wp:term\"][][]._links.collection[].href",
+        "_embedded[\"wp:term\"][][]._links.curies[].href",
+        "_embedded[\"wp:term\"][][]._links.curies[].name",
+        "_embedded[\"wp:term\"][][]._links.curies[].templated",
+        "_embedded[\"wp:term\"][][]._links.self[].href",
+        "_embedded[\"wp:term\"][][]._links.self[].targetHints.allow[]",
+        "_embedded[\"wp:term\"][][]._links.up[].embeddable",
+        "_embedded[\"wp:term\"][][]._links.up[].href",
+        "_embedded[\"wp:term\"][][]._links[\"wp:post_type\"][].href",
+        "_embedded[\"wp:term\"][][].id",
+        "_embedded[\"wp:term\"][][].link",
+        "_embedded[\"wp:term\"][][].name",
+        "_embedded[\"wp:term\"][][].slug",
+        "_embedded[\"wp:term\"][][].taxonomy",
+        "_embedded[\"wp:term\"][][].yoast_head",
+        "_embedded[\"wp:term\"][][].yoast_head_json.canonical",
+        "_embedded[\"wp:term\"][][].yoast_head_json.og_description",
+        "_embedded[\"wp:term\"][][].yoast_head_json.og_locale",
+        "_embedded[\"wp:term\"][][].yoast_head_json.og_site_name",
+        "_embedded[\"wp:term\"][][].yoast_head_json.og_title",
+        "_embedded[\"wp:term\"][][].yoast_head_json.og_type",
+        "_embedded[\"wp:term\"][][].yoast_head_json.og_url",
+        "_embedded[\"wp:term\"][][].yoast_head_json.robots.follow",
+        "_embedded[\"wp:term\"][][].yoast_head_json.robots.index",
+        "_embedded[\"wp:term\"][][].yoast_head_json.robots.max-image-preview",
+        "_embedded[\"wp:term\"][][].yoast_head_json.robots.max-snippet",
+        "_embedded[\"wp:term\"][][].yoast_head_json.robots.max-video-preview",
+        "_embedded[\"wp:term\"][][].yoast_head_json.title",
+        "_embedded[\"wp:term\"][][].yoast_head_json.twitter_card",
+        "_links.about[].href",
+        "_links.author[].embeddable",
+        "_links.author[].href",
+        "_links.collection[].href",
+        "_links.curies[].href",
+        "_links.curies[].name",
+        "_links.curies[].templated",
+        "_links.predecessor-version[].href",
+        "_links.predecessor-version[].id",
+        "_links.replies[].embeddable",
+        "_links.replies[].href",
+        "_links.self[].href",
+        "_links.self[].targetHints.allow[]",
+        "_links.version-history[].count",
+        "_links.version-history[].href",
+        "_links[\"wp:action-assign-author\"][].href",
+        "_links[\"wp:action-assign-categories\"][].href",
+        "_links[\"wp:action-assign-tags\"][].href",
+        "_links[\"wp:action-create-categories\"][].href",
+        "_links[\"wp:action-create-tags\"][].href",
+        "_links[\"wp:action-publish\"][].href",
+        "_links[\"wp:action-sticky\"][].href",
+        "_links[\"wp:action-trash\"][].href",
+        "_links[\"wp:action-unfiltered-html\"][].href",
+        "_links[\"wp:attachment\"][].href",
+        "_links[\"wp:featuredmedia\"][].embeddable",
+        "_links[\"wp:featuredmedia\"][].href",
+        "_links[\"wp:term\"][].embeddable",
+        "_links[\"wp:term\"][].href",
+        "_links[\"wp:term\"][].taxonomy",
+        "class_list[]",
+        "comment_status",
+        "content.block_version",
+        "content.protected",
+        "content.raw",
+        "date",
+        "excerpt.protected",
+        "excerpt.raw",
+        "format",
+        "generated_slug",
+        "guid.raw",
+        "guid.rendered",
+        "id",
+        "jetpack_featured_media_url",
+        "jetpack_likes_enabled",
+        "jetpack_sharing_enabled",
+        "jetpack_shortlink",
+        "link",
+        "meta._acf_changed",
+        "meta._jetpack_dont_email_post_to_subs",
+        "meta._jetpack_feature_clip_id",
+        "meta._jetpack_featured_image_duplicate_dismissed",
+        "meta._jetpack_hide_featured_image",
+        "meta._jetpack_memberships_contains_paid_content",
+        "meta._jetpack_memberships_contains_paywalled_content",
+        "meta._jetpack_newsletter_tier_id",
+        "meta._monsterinsights_skip_tracking",
+        "meta._wpcom_ai_launchpad_first_post",
+        "meta._yoast_wpseo_focuskw",
+        "meta._yoast_wpseo_metadesc",
+        "meta._yoast_wpseo_title",
+        "meta.give_campaign_id",
+        "meta.jetpack_post_was_ever_published",
+        "meta.jetpack_publicize_feature_enabled",
+        "meta.jetpack_social_options.image_generator_settings.default_image_id",
+        "meta.jetpack_social_options.image_generator_settings.enabled",
+        "meta.jetpack_social_options.image_generator_settings.template",
+        "meta.jetpack_social_options.version",
+        "meta.jetpack_social_post_already_shared",
+        "modified",
+        "modified_gmt",
+        "permalink_template",
+        "ping_status",
+        "sticky",
+        "template",
+        "type",
+        "yoast_head",
+        "yoast_head_json.article_modified_time",
+        "yoast_head_json.article_published_time",
+        "yoast_head_json.author",
+        "yoast_head_json.canonical",
+        "yoast_head_json.description",
+        "yoast_head_json.og_description",
+        "yoast_head_json.og_image[].height",
+        "yoast_head_json.og_image[].type",
+        "yoast_head_json.og_image[].url",
+        "yoast_head_json.og_image[].width",
+        "yoast_head_json.og_locale",
+        "yoast_head_json.og_site_name",
+        "yoast_head_json.og_title",
+        "yoast_head_json.og_type",
+        "yoast_head_json.og_url",
+        "yoast_head_json.robots.follow",
+        "yoast_head_json.robots.index",
+        "yoast_head_json.robots.max-image-preview",
+        "yoast_head_json.robots.max-snippet",
+        "yoast_head_json.robots.max-video-preview",
+        "yoast_head_json.title",
+        "yoast_head_json.twitter_card",
+        "yoast_head_json.twitter_misc[\"Est. reading time\"]",
+        "yoast_head_json.twitter_misc[\"Written by\"]",
+        "yoast_head_json.twitter_misc[\"זמן קריאה מוערך\"]",
+        "yoast_head_json.twitter_misc[\"נכתב על יד\"]"
+      ],
+      "disposition": "cms",
+      "reason": "Every other post field (sticky, format, comment status, yoast, links) is kept in the private source-archive collection.",
+      "evidence": [
+        "resources/rp-target-wix/lib/source-archive.js PACKED_ARCHIVE_FIELDS",
+        "store T 11-15 run plan (source-archive rows)"
+      ],
+      "transform": {
+        "kind": "helper",
+        "name": "source-archive.buildArchiveRecord",
+        "revision": "source-archive-retention-v1",
+        "arguments": {
+          "sourceEntity": "post",
+          "sourceKeyPath": "id",
+          "collectionId": "ImportArchive_post_72231043"
+        }
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "archive-as-is"
+        },
+        "invalid": {
+          "action": "archive-as-is"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "post-archive-1",
+          "input": {
+            "id": 3
+          },
+          "expected": [
+            {
+              "outputId": "records",
+              "writeOperation": "insertDataItem",
+              "values": [
+                {
+                  "3": {
+                    "fields": {}
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "records",
+          "sourcePaths": [
+            "_embedded.author[]._links.collection[].href",
+            "_embedded.author[]._links.self[].href",
+            "_embedded.author[]._links.self[].targetHints.allow[]",
+            "_embedded.author[].avatar_urls[\"24\"]",
+            "_embedded.author[].avatar_urls[\"48\"]",
+            "_embedded.author[].avatar_urls[\"96\"]",
+            "_embedded.author[].description",
+            "_embedded.author[].id",
+            "_embedded.author[].is_super_admin",
+            "_embedded.author[].link",
+            "_embedded.author[].name",
+            "_embedded.author[].slug",
+            "_embedded.author[].url",
+            "_embedded.author[].woocommerce_meta.coupons_report_columns",
+            "_embedded.author[].woocommerce_meta.launch_your_store_tour_hidden",
+            "_embedded.author[].woocommerce_meta.orders_report_columns",
+            "_embedded.author[].woocommerce_meta.variable_product_tour_shown",
+            "_embedded.author[].yoast_head",
+            "_embedded.author[].yoast_head_json.canonical",
+            "_embedded.author[].yoast_head_json.og_image[].url",
+            "_embedded.author[].yoast_head_json.og_locale",
+            "_embedded.author[].yoast_head_json.og_site_name",
+            "_embedded.author[].yoast_head_json.og_title",
+            "_embedded.author[].yoast_head_json.og_type",
+            "_embedded.author[].yoast_head_json.og_url",
+            "_embedded.author[].yoast_head_json.robots.follow",
+            "_embedded.author[].yoast_head_json.robots.index",
+            "_embedded.author[].yoast_head_json.robots.max-image-preview",
+            "_embedded.author[].yoast_head_json.robots.max-snippet",
+            "_embedded.author[].yoast_head_json.robots.max-video-preview",
+            "_embedded.author[].yoast_head_json.title",
+            "_embedded.author[].yoast_head_json.twitter_card",
+            "_embedded.replies[][]._links.author[].embeddable",
+            "_embedded.replies[][]._links.author[].href",
+            "_embedded.replies[][]._links.children[].embeddable",
+            "_embedded.replies[][]._links.children[].href",
+            "_embedded.replies[][]._links.collection[].href",
+            "_embedded.replies[][]._links.in-reply-to[].embeddable",
+            "_embedded.replies[][]._links.in-reply-to[].href",
+            "_embedded.replies[][]._links.self[].href",
+            "_embedded.replies[][]._links.self[].targetHints.allow[]",
+            "_embedded.replies[][]._links.up[].embeddable",
+            "_embedded.replies[][]._links.up[].href",
+            "_embedded.replies[][]._links.up[].post_type",
+            "_embedded.replies[][].author",
+            "_embedded.replies[][].author_avatar_urls[\"24\"]",
+            "_embedded.replies[][].author_avatar_urls[\"48\"]",
+            "_embedded.replies[][].author_avatar_urls[\"96\"]",
+            "_embedded.replies[][].author_name",
+            "_embedded.replies[][].content.rendered",
+            "_embedded.replies[][].date",
+            "_embedded.replies[][].id",
+            "_embedded.replies[][].link",
+            "_embedded.replies[][].parent",
+            "_embedded.replies[][].type",
+            "_embedded[\"wp:featuredmedia\"][]._links.about[].href",
+            "_embedded[\"wp:featuredmedia\"][]._links.author[].embeddable",
+            "_embedded[\"wp:featuredmedia\"][]._links.author[].href",
+            "_embedded[\"wp:featuredmedia\"][]._links.collection[].href",
+            "_embedded[\"wp:featuredmedia\"][]._links.curies[].href",
+            "_embedded[\"wp:featuredmedia\"][]._links.curies[].name",
+            "_embedded[\"wp:featuredmedia\"][]._links.curies[].templated",
+            "_embedded[\"wp:featuredmedia\"][]._links.replies[].embeddable",
+            "_embedded[\"wp:featuredmedia\"][]._links.replies[].href",
+            "_embedded[\"wp:featuredmedia\"][]._links.self[].href",
+            "_embedded[\"wp:featuredmedia\"][]._links.self[].targetHints.allow[]",
+            "_embedded[\"wp:featuredmedia\"][]._links[\"wp:attached-to\"][].embeddable",
+            "_embedded[\"wp:featuredmedia\"][]._links[\"wp:attached-to\"][].href",
+            "_embedded[\"wp:featuredmedia\"][]._links[\"wp:attached-to\"][].id",
+            "_embedded[\"wp:featuredmedia\"][]._links[\"wp:attached-to\"][].post_type",
+            "_embedded[\"wp:featuredmedia\"][].author",
+            "_embedded[\"wp:featuredmedia\"][].date",
+            "_embedded[\"wp:featuredmedia\"][].featured_media",
+            "_embedded[\"wp:featuredmedia\"][].id",
+            "_embedded[\"wp:featuredmedia\"][].jetpack_likes_enabled",
+            "_embedded[\"wp:featuredmedia\"][].jetpack_sharing_enabled",
+            "_embedded[\"wp:featuredmedia\"][].jetpack_shortlink",
+            "_embedded[\"wp:featuredmedia\"][].link",
+            "_embedded[\"wp:featuredmedia\"][].media_details.file",
+            "_embedded[\"wp:featuredmedia\"][].media_details.filesize",
+            "_embedded[\"wp:featuredmedia\"][].media_details.height",
+            "_embedded[\"wp:featuredmedia\"][].media_details.image_meta.aperture",
+            "_embedded[\"wp:featuredmedia\"][].media_details.image_meta.created_timestamp",
+            "_embedded[\"wp:featuredmedia\"][].media_details.image_meta.focal_length",
+            "_embedded[\"wp:featuredmedia\"][].media_details.image_meta.iso",
+            "_embedded[\"wp:featuredmedia\"][].media_details.image_meta.orientation",
+            "_embedded[\"wp:featuredmedia\"][].media_details.image_meta.shutter_speed",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.full.file",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.full.height",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.full.mime_type",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.full.source_url",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.full.width",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.large.file",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.large.filesize",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.large.height",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.large.mime_type",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.large.source_url",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.large.virtual",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.large.width",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.medium.file",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.medium.filesize",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.medium.height",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.medium.mime_type",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.medium.source_url",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.medium.virtual",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.medium.width",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.medium_large.file",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.medium_large.filesize",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.medium_large.height",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.medium_large.mime_type",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.medium_large.source_url",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.medium_large.virtual",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.medium_large.width",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-intermediate.file",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-intermediate.height",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-intermediate.mime_type",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-intermediate.source_url",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-intermediate.virtual",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-intermediate.width",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-large.file",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-large.height",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-large.mime_type",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-large.source_url",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-large.virtual",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-large.width",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-medium.file",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-medium.height",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-medium.mime_type",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-medium.source_url",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-medium.virtual",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-medium.width",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-small.file",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-small.height",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-small.mime_type",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-small.source_url",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-small.virtual",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-small.width",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-tiny.file",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-tiny.height",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-tiny.mime_type",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-tiny.source_url",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-tiny.virtual",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-landscape-tiny.width",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-intermediate.file",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-intermediate.height",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-intermediate.mime_type",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-intermediate.source_url",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-intermediate.virtual",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-intermediate.width",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-large.file",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-large.height",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-large.mime_type",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-large.source_url",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-large.virtual",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-large.width",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-medium.file",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-medium.height",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-medium.mime_type",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-medium.source_url",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-medium.virtual",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-medium.width",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-small.file",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-small.height",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-small.mime_type",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-small.source_url",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-small.virtual",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-small.width",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-tiny.file",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-tiny.height",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-tiny.mime_type",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-tiny.source_url",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-tiny.virtual",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-portrait-tiny.width",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-intermediate.file",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-intermediate.height",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-intermediate.mime_type",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-intermediate.source_url",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-intermediate.virtual",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-intermediate.width",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-large.file",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-large.height",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-large.mime_type",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-large.source_url",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-large.virtual",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-large.width",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-medium.file",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-medium.height",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-medium.mime_type",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-medium.source_url",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-medium.virtual",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-medium.width",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-small.file",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-small.height",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-small.mime_type",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-small.source_url",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-small.virtual",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-small.width",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-tiny.file",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-tiny.height",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-tiny.mime_type",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-tiny.source_url",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-tiny.virtual",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-square-tiny.width",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-uncropped.file",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-uncropped.height",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-uncropped.mime_type",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-uncropped.source_url",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-uncropped.virtual",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.newspack-article-block-uncropped.width",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.post-thumbnail.file",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.post-thumbnail.filesize",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.post-thumbnail.height",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.post-thumbnail.mime_type",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.post-thumbnail.source_url",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.post-thumbnail.width",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.thegem-custom-product-categories.file",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.thegem-custom-product-categories.filesize",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.thegem-custom-product-categories.height",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.thegem-custom-product-categories.mime_type",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.thegem-custom-product-categories.source_url",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.thegem-custom-product-categories.width",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.thegem-post-thumb.file",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.thegem-post-thumb.filesize",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.thegem-post-thumb.height",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.thegem-post-thumb.mime_type",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.thegem-post-thumb.source_url",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.thegem-post-thumb.width",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.thumbnail.file",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.thumbnail.filesize",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.thumbnail.height",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.thumbnail.mime_type",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.thumbnail.source_url",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.thumbnail.virtual",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.thumbnail.width",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.woocommerce_gallery_thumbnail.file",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.woocommerce_gallery_thumbnail.filesize",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.woocommerce_gallery_thumbnail.height",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.woocommerce_gallery_thumbnail.mime_type",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.woocommerce_gallery_thumbnail.source_url",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.woocommerce_gallery_thumbnail.virtual",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.woocommerce_gallery_thumbnail.width",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.woocommerce_single.file",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.woocommerce_single.filesize",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.woocommerce_single.height",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.woocommerce_single.mime_type",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.woocommerce_single.source_url",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.woocommerce_single.virtual",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.woocommerce_single.width",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.woocommerce_thumbnail.file",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.woocommerce_thumbnail.filesize",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.woocommerce_thumbnail.height",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.woocommerce_thumbnail.mime_type",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.woocommerce_thumbnail.source_url",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.woocommerce_thumbnail.uncropped",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.woocommerce_thumbnail.virtual",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes.woocommerce_thumbnail.width",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes[\"1536x1536\"].file",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes[\"1536x1536\"].filesize",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes[\"1536x1536\"].height",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes[\"1536x1536\"].mime_type",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes[\"1536x1536\"].source_url",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes[\"1536x1536\"].virtual",
+            "_embedded[\"wp:featuredmedia\"][].media_details.sizes[\"1536x1536\"].width",
+            "_embedded[\"wp:featuredmedia\"][].media_details.width",
+            "_embedded[\"wp:featuredmedia\"][].media_type",
+            "_embedded[\"wp:featuredmedia\"][].mime_type",
+            "_embedded[\"wp:featuredmedia\"][].slug",
+            "_embedded[\"wp:featuredmedia\"][].smush",
+            "_embedded[\"wp:featuredmedia\"][].source_url",
+            "_embedded[\"wp:featuredmedia\"][].title.rendered",
+            "_embedded[\"wp:featuredmedia\"][].type",
+            "_embedded[\"wp:term\"][][]._links.about[].href",
+            "_embedded[\"wp:term\"][][]._links.collection[].href",
+            "_embedded[\"wp:term\"][][]._links.curies[].href",
+            "_embedded[\"wp:term\"][][]._links.curies[].name",
+            "_embedded[\"wp:term\"][][]._links.curies[].templated",
+            "_embedded[\"wp:term\"][][]._links.self[].href",
+            "_embedded[\"wp:term\"][][]._links.self[].targetHints.allow[]",
+            "_embedded[\"wp:term\"][][]._links.up[].embeddable",
+            "_embedded[\"wp:term\"][][]._links.up[].href",
+            "_embedded[\"wp:term\"][][]._links[\"wp:post_type\"][].href",
+            "_embedded[\"wp:term\"][][].id",
+            "_embedded[\"wp:term\"][][].link",
+            "_embedded[\"wp:term\"][][].name",
+            "_embedded[\"wp:term\"][][].slug",
+            "_embedded[\"wp:term\"][][].taxonomy",
+            "_embedded[\"wp:term\"][][].yoast_head",
+            "_embedded[\"wp:term\"][][].yoast_head_json.canonical",
+            "_embedded[\"wp:term\"][][].yoast_head_json.og_description",
+            "_embedded[\"wp:term\"][][].yoast_head_json.og_locale",
+            "_embedded[\"wp:term\"][][].yoast_head_json.og_site_name",
+            "_embedded[\"wp:term\"][][].yoast_head_json.og_title",
+            "_embedded[\"wp:term\"][][].yoast_head_json.og_type",
+            "_embedded[\"wp:term\"][][].yoast_head_json.og_url",
+            "_embedded[\"wp:term\"][][].yoast_head_json.robots.follow",
+            "_embedded[\"wp:term\"][][].yoast_head_json.robots.index",
+            "_embedded[\"wp:term\"][][].yoast_head_json.robots.max-image-preview",
+            "_embedded[\"wp:term\"][][].yoast_head_json.robots.max-snippet",
+            "_embedded[\"wp:term\"][][].yoast_head_json.robots.max-video-preview",
+            "_embedded[\"wp:term\"][][].yoast_head_json.title",
+            "_embedded[\"wp:term\"][][].yoast_head_json.twitter_card",
+            "_links.about[].href",
+            "_links.author[].embeddable",
+            "_links.author[].href",
+            "_links.collection[].href",
+            "_links.curies[].href",
+            "_links.curies[].name",
+            "_links.curies[].templated",
+            "_links.predecessor-version[].href",
+            "_links.predecessor-version[].id",
+            "_links.replies[].embeddable",
+            "_links.replies[].href",
+            "_links.self[].href",
+            "_links.self[].targetHints.allow[]",
+            "_links.version-history[].count",
+            "_links.version-history[].href",
+            "_links[\"wp:action-assign-author\"][].href",
+            "_links[\"wp:action-assign-categories\"][].href",
+            "_links[\"wp:action-assign-tags\"][].href",
+            "_links[\"wp:action-create-categories\"][].href",
+            "_links[\"wp:action-create-tags\"][].href",
+            "_links[\"wp:action-publish\"][].href",
+            "_links[\"wp:action-sticky\"][].href",
+            "_links[\"wp:action-trash\"][].href",
+            "_links[\"wp:action-unfiltered-html\"][].href",
+            "_links[\"wp:attachment\"][].href",
+            "_links[\"wp:featuredmedia\"][].embeddable",
+            "_links[\"wp:featuredmedia\"][].href",
+            "_links[\"wp:term\"][].embeddable",
+            "_links[\"wp:term\"][].href",
+            "_links[\"wp:term\"][].taxonomy",
+            "class_list[]",
+            "comment_status",
+            "content.block_version",
+            "content.protected",
+            "content.raw",
+            "date",
+            "excerpt.protected",
+            "excerpt.raw",
+            "format",
+            "generated_slug",
+            "guid.raw",
+            "guid.rendered",
+            "id",
+            "jetpack_featured_media_url",
+            "jetpack_likes_enabled",
+            "jetpack_sharing_enabled",
+            "jetpack_shortlink",
+            "link",
+            "meta._acf_changed",
+            "meta._jetpack_dont_email_post_to_subs",
+            "meta._jetpack_feature_clip_id",
+            "meta._jetpack_featured_image_duplicate_dismissed",
+            "meta._jetpack_hide_featured_image",
+            "meta._jetpack_memberships_contains_paid_content",
+            "meta._jetpack_memberships_contains_paywalled_content",
+            "meta._jetpack_newsletter_tier_id",
+            "meta._monsterinsights_skip_tracking",
+            "meta._wpcom_ai_launchpad_first_post",
+            "meta._yoast_wpseo_focuskw",
+            "meta._yoast_wpseo_metadesc",
+            "meta._yoast_wpseo_title",
+            "meta.give_campaign_id",
+            "meta.jetpack_post_was_ever_published",
+            "meta.jetpack_publicize_feature_enabled",
+            "meta.jetpack_social_options.image_generator_settings.default_image_id",
+            "meta.jetpack_social_options.image_generator_settings.enabled",
+            "meta.jetpack_social_options.image_generator_settings.template",
+            "meta.jetpack_social_options.version",
+            "meta.jetpack_social_post_already_shared",
+            "modified",
+            "modified_gmt",
+            "permalink_template",
+            "ping_status",
+            "sticky",
+            "template",
+            "type",
+            "yoast_head",
+            "yoast_head_json.article_modified_time",
+            "yoast_head_json.article_published_time",
+            "yoast_head_json.author",
+            "yoast_head_json.canonical",
+            "yoast_head_json.description",
+            "yoast_head_json.og_description",
+            "yoast_head_json.og_image[].height",
+            "yoast_head_json.og_image[].type",
+            "yoast_head_json.og_image[].url",
+            "yoast_head_json.og_image[].width",
+            "yoast_head_json.og_locale",
+            "yoast_head_json.og_site_name",
+            "yoast_head_json.og_title",
+            "yoast_head_json.og_type",
+            "yoast_head_json.og_url",
+            "yoast_head_json.robots.follow",
+            "yoast_head_json.robots.index",
+            "yoast_head_json.robots.max-image-preview",
+            "yoast_head_json.robots.max-snippet",
+            "yoast_head_json.robots.max-video-preview",
+            "yoast_head_json.title",
+            "yoast_head_json.twitter_card",
+            "yoast_head_json.twitter_misc[\"Est. reading time\"]",
+            "yoast_head_json.twitter_misc[\"Written by\"]",
+            "yoast_head_json.twitter_misc[\"זמן קריאה מוערך\"]",
+            "yoast_head_json.twitter_misc[\"נכתב על יד\"]"
+          ],
+          "targetRef": "cms/data-item",
+          "writeOperation": "insertDataItem",
+          "targetPath": "data.records",
+          "storage": {
+            "collectionId": "ImportArchive_post_72231043"
+          },
+          "verification": {
+            "unverifiableReason": "Packed archive items are verified by the archive step read-back."
+          }
+        }
+      ],
+      "choice": {
+        "name": "leftover-fields",
+        "value": "source archive",
+        "default": "source archive",
+        "reason": "No native Wix field holds them; nothing is dropped silently.",
+        "decidedBy": "suggestion"
+      }
+    }
+  ]
+}

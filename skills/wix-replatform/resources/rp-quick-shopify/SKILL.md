@@ -39,8 +39,10 @@ capability); re-run `plan` to fix any of these. The summary carries `sourceCover
 
 `preflight` also reads the storefront's `localization` (country, its currency, and language) once,
 best effort, and `plan` writes it to `discovery/source-locale.json` (adapter `quick-shopify`).
-The storefront API has no time zone, so that is an explicit `unknown`; a failed read leaves every
-regional value `unknown` and never blocks the plan.
+The storefront API has no time zone, and its country is the storefront's market rather than the store's location,
+so the site keeps its own zone (an `unknown` row with an `unresolved` inference) and it is confirmed at cutover,
+never asked.
+A failed read leaves every regional value `unknown` and never blocks the plan.
 
 Setup does block until all four locale values are known. For any value the storefront does not
 expose, ask the merchant and edit that field in `discovery/source-locale.json` to
@@ -93,8 +95,9 @@ runtime, durable crosswalks, and checkpoints. The shared writer validates the pr
 variant payload; a record that cannot be represented safely is skipped and reported rather than
 collapsed to a different product shape.
 
-Quick mode maps each public Shopify variant's explicit `available` boolean to untracked
-`inStock`; a missing or non-boolean value is a reported gap, never implicit availability.
+Quick mode maps each public Shopify variant's `available` boolean to untracked `inStock`. A variant is in stock
+unless the source says it is sold out: a missing or non-boolean value is imported in stock and listed as a
+`stock-assumed-in-stock` recovery for the merchant to check.
 Products created with the standalone endpoint are followed by shared inventory reconciliation.
 Match returned variants by their option/choice identities, not response order or SKU. On
 resume, keep the product crosswalk and reconcile stock for existing products too.

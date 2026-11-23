@@ -586,8 +586,21 @@ function buildBlogMediaRecoveryEntry({ runId, post, sourceStableKey, targetPostI
   };
 }
 
+// The plan's `blog-post-media.heroImage` helper (mapping row post-hero): the source URL of the
+// post's featured image, from the WordPress `_embedded['wp:featuredmedia']` entry whose id is the
+// post's `featured_media` (arguments.mediaId names another field). Undefined when the post has no
+// featured image or the extract did not embed it. A pure read; the import of the file itself is
+// the post composite's fixed media step.
+function heroImage(record, { mediaId = 'featured_media' } = {}) {
+  const id = record && record[mediaId];
+  if (id === undefined || id === null || String(id) === '' || String(id) === '0') return undefined;
+  const media = ((record._embedded && record._embedded['wp:featuredmedia']) || []).find(item => item && String(item.id) === String(id));
+  return (media && resolveImageUrl(media)) || undefined;
+}
+
 module.exports = {
   SCHEMA_VERSION,
+  heroImage,
   STATE_FILE,
   OUTCOMES,
   postStableKey,
