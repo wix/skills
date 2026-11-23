@@ -5,10 +5,10 @@ Embedded scripts are HTML code fragments injected into the DOM of Wix sites — 
 
 ## Scaffold
 
-Use `wix generate --params` with all 5 required fields:
+Use `npm run generate -- --params` with all 5 required fields:
 
 ```bash
-wix generate --params '{"extensionType":"EMBEDDED_SCRIPT","name":"<name>","folder":"<folder>","scriptType":"<scriptType>","placement":"<placement>"}'
+npm run generate -- --params '{"extensionType":"EMBEDDED_SCRIPT","name":"<name>","folder":"<folder>","scriptType":"<scriptType>","placement":"<placement>"}'
 ```
 
 | Field | Constraint |
@@ -87,18 +87,6 @@ Embedded scripts must declare a type for consent management:
 - Required parameters always have values; optional parameters may be empty — provide fallbacks.
 - Only use parameters that are relevant to the use case; don't reference parameters you don't implement.
 
-### Common Parameters
-
-Every embedded script should have at minimum an **enable/disable toggle** parameter:
-
-| Parameter    | Type      | Purpose                              |
-| ------------ | --------- | ------------------------------------ |
-| `enabled`    | `BOOLEAN` | Allow site owner to activate/disable |
-| `apiKey`     | `TEXT`    | Third-party service credentials      |
-| `trackingId` | `TEXT`    | Analytics/pixel identifiers          |
-| `headline`   | `TEXT`    | Customizable display text            |
-| `color`      | `COLOR`   | UI customization                     |
-
 ## Module-script Rules
 
 The `<script type="module">` block runs at module scope, where Rollup (used by Astro) **disallows `return` statements**.
@@ -108,53 +96,13 @@ The `<script type="module">` block runs at module scope, where Rollup (used by A
 
 See the [Complete Example](#complete-example-coupon-popup) below for the full skeleton.
 
-## Examples
-
-### Analytics Tracking
-
-**Request:** "Add Google Analytics tracking to my site"
-
-**Output:**
-
-- Script type: `ANALYTICS`
-- Placement: `HEAD`
-- Template variables: `{{trackingId}}`
-- Implements: gtag.js initialization, page view tracking
-
-### Popup/Modal
-
-**Request:** "Create a coupon popup that shows when cart value exceeds $50"
-
-**Output:**
-
-- Script type: `FUNCTIONAL`
-- Placement: `BODY_END`
-- Template variables: `{{couponCode}}`, `{{minimumCartValue}}`, `{{enablePopup}}`
-- Implements: Cart value detection, popup display logic, localStorage for "don't show again"
-
-### Third-Party Chat Widget
-
-**Request:** "Integrate Intercom chat widget"
-
-**Output:**
-
-- Script type: `FUNCTIONAL`
-- Placement: `BODY_END`
-- Template variables: `{{appId}}`, `{{userEmail}}`, `{{userName}}`
-- Implements: Intercom SDK initialization, user identification
-
 ## Best Practices
 
 - **Always create a dashboard page:** Every embedded script needs a configuration UI
 - **Include enable/disable toggle:** Let site owners control activation without removing the script
-- **Performance:** Minimize impact - scripts should be lightweight and non-blocking
-- **Security:** Avoid inline event handlers, validate data, escape user input
-- **Error handling:** Fail silently when appropriate - don't break the site
 - **Module scope early exits:** Use `throw new Error()` for early exits at module scope, not `return`. Rollup (used by Astro) doesn't allow `return` statements at module scope. Wrap main logic in a named async function where `return` is valid.
 - **Type conversions:** Parameters are always strings - convert in JavaScript as needed
 - **API calls:** Only create fetch() calls to /api/\* endpoints that exist in the API spec
-- **Scoping:** Prefix CSS classes and IDs to avoid conflicts with site styles
-- **Cleanup:** Remove event listeners and intervals when appropriate
 
 ## Complete Example: Coupon Popup
 
@@ -229,6 +177,8 @@ await embeddedScripts.embedScript({
   },
 });
 ```
+
+With **more than one** embedded script, pass the target script's builder `id` as `embedScript({ parameters }, { options: { componentId: "<id>" } })`. With only one, don't pass it.
 
 ## Releasing Updates
 

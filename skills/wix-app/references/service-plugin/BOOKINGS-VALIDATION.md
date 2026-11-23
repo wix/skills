@@ -6,7 +6,7 @@
 
 The Bookings Validation SPI lets you implement custom validation logic for booking operations. When a customer creates, cancels, or reschedules a booking (single-service or multi-service), Wix calls the handler matching that operation before it executes. Return `valid: true` to allow the operation or `valid: false` to block it with a customer-facing message.
 
-`bookingsValidation.provideHandlers` requires all six handlers in the object literal — TypeScript rejects a partial object even though you may only care about one or two targets. For the ones you don't have real logic for, provide a no-op that returns an empty `results`/`singleServiceBookingResults` array (an empty array is a no-op: "Omitting an item's result treats it as valid," and an empty results array omits every item's result). Confirmed live: `wix generate` itself scaffolds all six handlers by default — that's not incidental boilerplate you can trim.
+`bookingsValidation.provideHandlers` requires all six handlers in the object literal — TypeScript rejects a partial object even though you may only care about one or two targets. For the ones you don't have real logic for, provide a no-op that returns an empty `results`/`singleServiceBookingResults` array (an empty array is a no-op: "Omitting an item's result treats it as valid," and an empty results array omits every item's result). Confirmed live: `npm run generate` itself scaffolds all six handlers by default — that's not incidental boilerplate you can trim.
 
 ## Handlers
 

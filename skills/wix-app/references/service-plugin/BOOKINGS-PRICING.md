@@ -16,7 +16,7 @@ Wix calls your handler only *after* a booking already exists (`booking._id` is s
 
 ## Request and Response Schema
 
-Before implementing, call `ReadFullDocsMethodSchema` on the docs URL to get the full request/response types. Note: the public docs page for this SPI still describes an older REST/webhook-only integration and does not yet reflect the `provideHandlers` SDK wrapper below — trust what `wix generate` actually scaffolds and the installed `@wix/auto_sdk_bookings_pricing-provider` types over the doc's prose/code samples, but its **field descriptions** (e.g. `booking.contactDetails.fullAddress.subdivision`) and the sign-up requirement above are still accurate.
+Before implementing, call `ReadFullDocsMethodSchema` on the docs URL to get the full request/response types. Note: the public docs page for this SPI still describes an older REST/webhook-only integration and does not yet reflect the `provideHandlers` SDK wrapper below — trust what `npm run generate` actually scaffolds and the installed `@wix/auto_sdk_bookings_pricing-provider` types over the doc's prose/code samples, but its **field descriptions** (e.g. `booking.contactDetails.fullAddress.subdivision`) and the sign-up requirement above are still accurate.
 
 | Handler | Docs URL |
 | --- | --- |

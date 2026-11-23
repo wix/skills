@@ -14,7 +14,7 @@ This is the **onReady / page onLoad** use case. Typical requests:
 
 ## ⚠️ This is a Wix Extension Type — register it
 
-A page onLoad context is a **registered Wix context provider extension** (`extensions.contextProvider()`), scaffolded with `wix generate`. Do NOT ship a loose `createContext` file in `src/site/` or `src/contexts/` and wrap the app with it manually — that bypasses the Wix extension system and cannot be bound to a page in the Editor.
+A page onLoad context is a **registered Wix context provider extension** (`extensions.contextProvider()`), scaffolded with `npm run generate`. Do NOT ship a loose `createContext` file in `src/site/` or `src/contexts/` and wrap the app with it manually — that bypasses the Wix extension system and cannot be bound to a page in the Editor.
 
 Because this context **exposes nothing** and only performs a side effect, do not add signals service, bindable items, or consumer-facing API machinery.
 
@@ -26,7 +26,7 @@ Because this context **exposes nothing** and only performs a side effect, do not
 1. [ ] Scaffold the context with the Wix CLI, from the project root:
 
    ```bash
-   npx wix generate --params '{"extensionType":"CONTEXT_PROVIDER","name":"Page On Load <Task Name>"}'
+   npm run generate -- --params '{"extensionType":"CONTEXT_PROVIDER","name":"Page On Load <Task Name>"}'
    ```
 
    The CLI derives the folder and file names (`page-on-load-<task-kebab-case-name>`), the `type` (with the app's own code identifier — no need to ask the user), a fresh `id`, and the `src/extensions.ts` registration (see [Naming](#naming)). It creates `src/extensions/site/contexts/page-on-load-<task-kebab-case-name>/` with a `.tsx` and a `.extension.ts` that hold a counter example.

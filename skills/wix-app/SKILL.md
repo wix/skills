@@ -8,7 +8,7 @@ compatibility: requires `@wix/cli` >= 1.1.192.
 
 Helps build extensions for Wix CLI applications. Covers all extension types: dashboard pages, modals, plugins, menu plugins, custom element widgets, Editor React components, site plugins, embedded scripts, context providers, function libraries, backend APIs, events, service plugins, and data collections.
 
-**Scaffolding is owned by the Wix CLI.** Use `wix generate --params` for every supported type. It generates files and, where applicable, builder boilerplate, UUIDs, and `src/extensions.ts` registration. HTTP endpoints are discovered from files and need no registration. This skill provides the decision logic, API guidance, configuration semantics, and business-logic patterns that fill in the generated stubs.
+**Scaffolding is owned by the Wix CLI.** Use `npm run generate -- --params '<json>'` for every supported type — the project's `generate` script; without the `--`, npm keeps `--params` and the CLI fails with `too many arguments`. No `generate` script in `package.json` → `npx wix generate --params '<json>'`. It generates files and, where applicable, builder boilerplate, UUIDs, and `src/extensions.ts` registration. HTTP endpoints are discovered from files and need no registration. This skill provides the decision logic, API guidance, configuration semantics, and business-logic patterns that fill in the generated stubs.
 
 ## ⚠️ MANDATORY WORKFLOW CHECKLIST ⚠️
 
@@ -38,7 +38,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
   - [ ] **Vertical SDK prerequisites — for every `@wix/*` vertical the page touches, including one added later:** confirmed the package is actually a dependency (installed it if not), and noted the Dev Center permission scope the read needs — a missing scope produces a page that builds, mounts and shows nothing. Both in [DATA_SOURCES.md](references/dashboard-page/DATA_SOURCES.md#two-things-to-settle-before-you-write-the-page); the scope goes under [Manual Steps Required](#-manual-steps-required). **A second vertical added during Step 4b needs this check too, and its failure must not take down the page** — see [A second vertical is a second scope](references/dashboard-page/DATA_SOURCES.md#a-second-vertical-is-a-second-scope).
   - [ ] **Modelled the call on the SDK, not the REST page:** namespace name, `_id` vs `id`, no `ReturnType` on overloaded methods, no `hasNext` on `PagingMetadataV2` — see [The SDK is not the REST API](references/dashboard-page/DATA_SOURCES.md#the-sdk-is-not-the-rest-api).
   - [ ] Site/editor extensions only: kept SDK calls in the extension by default, routing out only business-wide methods a visitor genuinely cannot call (see [Identity and Elevation Requirement](#identity-and-elevation-requirement))
-- [ ] **Step 4a:** Scaffolded each CLI-supported extension via `wix generate --params`
+- [ ] **Step 4a:** Scaffolded each CLI-supported extension via `npm run generate -- --params`
 - [ ] **Step 4b:** Filled in business logic in the generated files
   - [ ] **Extension metadata (events, service plugins, data collections, dashboard pages, modals, dashboard plugins, dashboard menu plugins):** added the `name` and `aiContext` each scaffolded builder declares — see [EXTENSION_METADATA.md](references/EXTENSION_METADATA.md).
   - [ ] **Compile as you go:** ran `npx tsc --noEmit` after the first file that imports `@wix/patterns`, not only at Step 5. Patterns' state and filter APIs are the most common source of errors, and finding twenty of them in one batch after the page is written costs far more than finding two early.
@@ -113,7 +113,7 @@ Opening a listed record, and any create or edit form for one (even a single fiel
 
 ## Extension Types Reference Table
 
-| Extension Type | Category | `extensionType` (for `wix generate --params`) | Reference File |
+| Extension Type | Category | `extensionType` (for `npm run generate -- --params`) | Reference File |
 | --- | --- | --- | --- |
 | Dashboard Page | Dashboard | `DASHBOARD_PAGE` | [DASHBOARD_PAGE.md](references/DASHBOARD_PAGE.md) |
 | Dashboard Modal | Dashboard | `DASHBOARD_MODAL` | [DASHBOARD_MODAL.md](references/DASHBOARD_MODAL.md) |
@@ -256,7 +256,7 @@ Who the extension runs as decides everything below — the Category column in [E
 **Default: call the SDK directly from the extension.** Routing a call that didn't need it is not a harmless extra hop — it is how working features break. Sort by who the call acts for, never by its scope name:
 
 - **Acts for the current visitor or member** — their cart, checkout, booking, order, reservation, or profile: `currentCartV2.*`, `cartV2.placeOrder`, `bookings.createBooking`, `members.getCurrentMember` (REST *Get My Member*), and anything else operating on "my" or "the current" entity. These resolve the actor from the caller's session, so elevating runs them as the app and detaches the result from the person who asked — an order with no buyer, a booking with no attendee.
-- **The platform filters the result by caller** — an elevated call returns what the direct call withheld, so a "fix" for a sparse result becomes a leak. Wix Data `items.*` follows the collection's `dataPermissions` (scaffolded default: `itemRead: 'ANYONE'`, writes `'PRIVILEGED'` — fix writes with permissions, not routing; see [DATA_COLLECTION.md](references/DATA_COLLECTION.md)). Catalog reads return base fields to anyone, withholding `MERCHANT_DATA` and non-visible products unless the app holds `SCOPE.STORES.PRODUCT_READ_ADMIN`. `members.getMember`/`queryMembers` withhold `PRIVATE` members from visitor and member callers.
+- **The platform filters the result by caller** — an elevated call returns what the direct call withheld, so a "fix" for a sparse result becomes a leak. Wix Data `items.*` follows the collection's `dataPermissions` (scaffolded: `CMS_EDITOR` for all four, so set `itemRead` for visitors; fix access with permissions, not routing; see [DATA_COLLECTION.md](references/DATA_COLLECTION.md)). Catalog reads return base fields to anyone, withholding `MERCHANT_DATA` and non-visible products unless the app holds `SCOPE.STORES.PRODUCT_READ_ADMIN`. `members.getMember`/`queryMembers` withhold `PRIVATE` members from visitor and member callers.
 
 **Route out only when the method acts on the business as a whole**, which a visitor or member genuinely cannot do: `archiveLocation`, `queryLocations`, catalog and inventory writes, `bookings.confirmBooking`, order management. **When the method's docs show the call elevated, route it out and elevate there** — from any host, dashboard included, because `auth.elevate` only works in backend code, so the endpoint is the only place the documented pattern can run.
 
@@ -266,7 +266,7 @@ Two signals never settle it: the scope name — the methods whose scope name poi
 
 Routing out means a Backend API endpoint that elevates and is reached with `httpClient.fetchWithAuth()`. Elevation bypasses Wix's permission check, so the endpoint must re-check the caller itself — see [Identity and Authorization](references/BACKEND_API.md#identity-and-authorization) for what each host can actually verify, and why an owner-only operation belongs in a dashboard extension instead.
 
-**Some extensions or SDK calls require a permission scope that `wix generate` doesn't add automatically.** Adding one is a Dev Center account change, not something the agent does — tell the user which scope to add: open their app at `https://manage.wix.com/apps/<appId>/home`, select **Develop > Permissions** in the left menu, then **Add Permissions**, then report it under [Manual Steps Required](#-manual-steps-required). If the app is already installed on a site, the owner must also re-approve it via the install/update flow — revisit that same app page's "Test App" flow (or the release output's install links) and accept "Agree & Update" — before the scope takes effect there.
+**Some extensions or SDK calls require a permission scope that `npm run generate` doesn't add automatically.** Adding one is a Dev Center account change, not something the agent does — tell the user which scope to add: open their app at `https://manage.wix.com/apps/<appId>/home`, select **Develop > Permissions** in the left menu, then **Add Permissions**, then report it under [Manual Steps Required](#-manual-steps-required). If the app is already installed on a site, the owner must also re-approve it via the install/update flow — revisit that same app page's "Test App" flow (or the release output's install links) and accept "Agree & Update" — before the scope takes effect there.
 
 ---
 
@@ -354,7 +354,7 @@ It prints each search and query method's closed filter list (free-text fields, o
 
 ### Step 4a: Scaffold via the CLI
 
-For each supported type, including HTTP endpoints, run `npx wix generate --params '<json>'`. The command returns `{"success":true,"extensionType":"...","newFiles":[...]}` on success.
+For each supported type, including HTTP endpoints, run `npm run generate -- --params '<json>'`. The command returns `{"success":true,"extensionType":"...","newFiles":[...]}` on success.
 
 If the command fails because of unknown or invalid params, run `npx wix schema generate --type <extensionType>` to print the JSON Schema for that extension type, fix the `--params` payload, and retry. Do not fall back to manual scaffolding. The one exception is `HTTP_ENDPOINT` on a CLI older than 1.1.243, which predates the generator but still supports the extension: create the endpoint file by hand as described in [BACKEND_API.md](references/BACKEND_API.md#generate-for-the-project-type).
 
@@ -364,7 +364,7 @@ If the command fails because of unknown or invalid params, run `npx wix schema g
 - For HTTP endpoints, creates the route file without changing `src/extensions.ts`
 - Enforces naming rules (kebab-case, hyphen-required custom elements, etc.)
 
-**HTTP endpoints:** Run `npx wix generate --params '{"extensionType":"HTTP_ENDPOINT","name":"hello"}'`, then implement the handler in the returned file. Follow [BACKEND_API.md](references/BACKEND_API.md); if the route does not respond, its troubleshooting hint shows how to confirm discovery from the build output.
+**HTTP endpoints:** Run `npm run generate -- --params '{"extensionType":"HTTP_ENDPOINT","name":"hello"}'`, then implement the handler in the returned file. Follow [BACKEND_API.md](references/BACKEND_API.md); if the route does not respond, its troubleshooting hint shows how to confirm discovery from the build output.
 
 ### Step 4b: Fill in business logic
 
@@ -436,7 +436,7 @@ The following actions need to be done manually by you:
 
 ## Extension Registration
 
-`wix generate --params` updates `src/extensions.ts` automatically for registered extensions. HTTP endpoints require no import or `.use()` call; the runtime discovers their files. For background, troubleshooting, and the manual recovery pattern when `src/extensions.ts` drifts, see [EXTENSION_REGISTRATION.md](references/EXTENSION_REGISTRATION.md).
+`npm run generate -- --params` updates `src/extensions.ts` automatically for registered extensions. HTTP endpoints require no import or `.use()` call; the runtime discovers their files. For background, troubleshooting, and the manual recovery pattern when `src/extensions.ts` drifts, see [EXTENSION_REGISTRATION.md](references/EXTENSION_REGISTRATION.md).
 
 ---
 
