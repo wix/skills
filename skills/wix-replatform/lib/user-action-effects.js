@@ -8,6 +8,9 @@ const { loadArtifacts, updateDecisionObject, writeJsonAtomic } = require('./orch
 const { applySiteTypePair, pairForChoice } = require('./destination-choice.js');
 
 async function applyUserActionEffect(projectDir, request, answer) {
+  if (request?.subject?.type === 'mapping_field_inventory_review' || request?.effect?.kind === 'mapping-field-inventory-review') {
+    return require('./mapping-field-inventory-review.js').applyFieldInventoryReviewAnswer(projectDir, request, answer);
+  }
   if (!request.effect) return;
   if (request.effect.kind === 'read-back-omission-ack') return require('./read-back-approval.js').acknowledge(projectDir, request, answer);
   if (request.effect.kind === 'approval') return require('./read-back-approval.js').applyApproval(projectDir, request, answer);

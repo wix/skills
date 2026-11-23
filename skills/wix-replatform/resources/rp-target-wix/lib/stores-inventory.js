@@ -150,7 +150,7 @@ function correlateBulk(response, input) {
   if (result.defects.length || result.unaccounted || result.undetailedFailures) {
     throw new Error('Inventory bulk response has invalid correlation or does not account for every input');
   }
-  return result.results.map(r => ({ row: r.input, success: r.success, error: r.raw.itemMetadata.error || null }));
+  return result.results.map(r => ({ row: r.input, success: r.success, errorCode: r.errorCode, errorMessage: r.errorMessage, error: r.error || null }));
 }
 
 function buildInventoryReport(rows, gaps = []) {

@@ -16,6 +16,7 @@ const DECISION_ALIASES = {
   targetSiteType: ['targetSiteType'],
   targetSiteBusinessType: ['targetSiteBusinessType'],
   editorWebsiteDecision: ['editorWebsiteDecision'],
+  wixAccount: ['wixAccount'],
 };
 
 function readDecisionValue(decisions, keys) {
@@ -167,6 +168,15 @@ function getEffectiveDeliveryMode(decisions) {
     : deliveryMode;
 }
 
+// The scope the run's completion receipt binds. An Editor site has no automatic website step:
+// its backend import completes the run, and the website stays open as cutover tasks
+// (destination-handoff editor_website_unfinished / editor_publication_outstanding, which still
+// read getEffectiveDeliveryMode). Backend-only completion needs no built website.
+function getCompletionDeliveryMode(decisions) {
+  const mode = getEffectiveDeliveryMode(decisions);
+  return mode === 'management_and_website' && isEditorSiteType(getDecisionValue(decisions, 'targetSiteType')) ? 'management' : mode;
+}
+
 function isWebsiteDeliveryMode(value) {
   return ['website', 'management_and_website'].includes(normalizeDeliveryMode(value));
 }
@@ -178,8 +188,8 @@ function requiresWebsiteContinuation(decisions) {
 // The destination site type is an explicit operator choice for a new site.
 // "editor" is deliberately not a value: it is an incomplete answer until Studio or Harmony
 // is known, and the classic Wix Editor is not a supported choice.
-const SITE_TYPES = Object.freeze(['headless', 'studio', 'harmony']);
-const EDITOR_SITE_TYPES = Object.freeze(['studio', 'harmony']);
+const SITE_TYPES = Object.freeze(['headless', 'studio', 'harmony', 'studio2']);
+const EDITOR_SITE_TYPES = Object.freeze(['studio', 'harmony', 'studio2']);
 const SITE_BUSINESS_TYPES = Object.freeze(['store', 'bookings', 'other', 'unknown']);
 const SITE_BUSINESS_TYPE_SOURCES = Object.freeze(['user', 'context', 'not_asked']);
 
@@ -191,6 +201,7 @@ const SITE_TYPE_CHOICES = Object.freeze({
   harmony_bookings: { siteType: 'harmony', businessType: 'bookings' },
   harmony_other: { siteType: 'harmony', businessType: 'other' },
   harmony: { siteType: 'harmony', businessType: 'unknown' },
+  studio2: { siteType: 'studio2', businessType: null },
 });
 
 function isNewSiteStrategy(value) {
@@ -235,6 +246,27 @@ function readSiteTypeDecision(decisions) {
   };
 }
 
+// The Wix account the user named for the run, kept only as a hash of the trimmed, lower-cased
+// login (the same hash the destination compares against the Wix CLI `whoami` identity).
+// `wix whoami` prints a line such as "Logged in as <email>" (H38), so the login is normalized
+// first: color codes dropped, and the email taken when the text holds exactly one.
+function normalizeWixLogin(identity) {
+  // eslint-disable-next-line no-control-regex
+  const text = String(identity ?? '').replace(/\u001b\[[0-9;]*m/g, '').trim().toLowerCase();
+  const emails = text.match(/[^\s<>()"',;:]+@[^\s<>()"',;:]+\.[a-z0-9-]+/g) || [];
+  const unique = [...new Set(emails.map((email) => email.replace(/\.+$/, '')))];
+  if (unique.length === 1) return unique[0];
+  return text.replace(/^logged in as\s+/, '').replace(/\.+$/, '').trim();
+}
+
+function wixAccountRef(identity) {
+  const raw = String(identity ?? '').trim().toLowerCase();
+  if (/^sha256:[0-9a-f]{16}$/.test(raw)) return raw;
+  const text = normalizeWixLogin(identity);
+  if (!text) return null;
+  return `sha256:${require('node:crypto').createHash('sha256').update(text).digest('hex').slice(0, 16)}`;
+}
+
 function isExplicitUserOneClick(decisions) {
   const entry = getDecisionEntry(decisions, 'automationMode');
   return Boolean(entry && entry.source === 'user' && normalizeAutomationMode(entry.value) === 'one_click');
@@ -256,6 +288,7 @@ module.exports = {
   SITE_TYPE_CHOICES,
   SITE_TYPES,
   isEditorSiteType,
+  getCompletionDeliveryMode,
   isNewSiteStrategy,
   readSiteTypeDecision,
   CANONICAL_SOURCE_MODES,
@@ -267,6 +300,7 @@ module.exports = {
   getDecisionValue,
   getEffectiveDeliveryMode,
   isExplicitUserOneClick,
+  wixAccountRef,
   isWebsiteDeliveryMode,
   requiresWebsiteContinuation,
   normalizeAutomationMode,

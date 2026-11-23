@@ -27,6 +27,7 @@
     "surface": "Stores Catalog V3 Promotions",
     "endpoint": "POST /stores/v3/promotions",
     "writerId": "createStoresPromotion",
+    "requestInput": "promotion",
     "verification": "verified-live",
     "importSafe": true,
     "bulk": true

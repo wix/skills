@@ -26,7 +26,7 @@
 // discovery failure and never a guess: the currency is never taken from an order.
 
 const { readStoreCurrency, resolveOrderCurrency } = require('./store-currency.js');
-const { buildSourceRegional, knownTimeZone, knownCountry } = require('../../../lib/source-regional.js');
+const { buildSourceRegional, knownCountry, countryFromCurrency, inferTimeZone, countryZones } = require('../../../lib/source-regional.js');
 
 const GENERAL_ROUTE = '/wc/v3/settings/general';
 const SITE_ROUTE = '/wp/v2/settings';
@@ -82,88 +82,10 @@ function countryInput(general) {
   return country ? { value: country, evidence } : { reason: 'not-exposed', evidence };
 }
 
-// The UTC offsets (hours) a zone uses in the given year: standard and summer time.
-function zoneOffsets(zone, year) {
-  const offsets = new Set();
-  for (const month of [0, 6]) {
-    try {
-      const name = new Intl.DateTimeFormat('en', { timeZone: zone, timeZoneName: 'longOffset' })
-        .formatToParts(new Date(Date.UTC(year, month, 15))).find((part) => part.type === 'timeZoneName').value;
-      const match = /^GMT(?:([+-])(\d{2}):(\d{2}))?$/.exec(name);
-      if (match) offsets.add(match[1] ? (match[1] === '-' ? -1 : 1) * (Number(match[2]) + Number(match[3]) / 60) : 0);
-    } catch { /* runtime does not know the zone */ }
-  }
-  return [...offsets];
-}
-
-// The named zones the runtime lists for a country (`IL` -> [`Asia/Jerusalem`]); [] when it cannot say.
-function countryZones(country) {
-  try {
-    const locale = new Intl.Locale(`und-${country}`);
-    const zones = typeof locale.getTimeZones === 'function' ? locale.getTimeZones() : locale.timeZones;
-    return Array.isArray(zones) ? zones.filter((zone) => knownTimeZone(zone)) : [];
-  } catch {
-    return [];
-  }
-}
-
 function parseGmtOffset(value) {
   if (value === undefined || value === null || value === '') return null;
   const hours = Number(value);
   return Number.isFinite(hours) && Math.abs(hours) <= 14 ? hours : null;
-}
-
-const formatOffset = (hours) => {
-  if (hours === 0) return 'UTC+0';
-  const minutes = Math.round(Math.abs(hours) * 60);
-  return `UTC${hours < 0 ? '-' : '+'}${Math.floor(minutes / 60)}${minutes % 60 ? `:${String(minutes % 60).padStart(2, '0')}` : ''}`;
-};
-
-// A named zone for a store with no named zone: from the store country, then the fixed offset.
-// Returns the source-regional input: `supplied` + `inference` when one zone fits, else `unknown`
-// (`ambiguous` / `not-exposed`) + `inference` with `basis: unresolved`, which setup turns into
-// "keep the site's zone and confirm it at cutover" instead of a question.
-function inferTimeZone({ country, gmtOffset, evidence, now = new Date() }) {
-  const zones = country ? countryZones(country) : [];
-  const offsetText = gmtOffset === null ? 'no fixed offset readable' : `fixed offset ${formatOffset(gmtOffset)}`;
-  let value = null;
-  let basis = null;
-  let matching = [];
-  if (zones.length === 1) {
-    value = zones[0];
-    basis = 'single-zone-country';
-  } else if (zones.length > 1 && gmtOffset !== null) {
-    matching = zones.filter((zone) => zoneOffsets(zone, now.getUTCFullYear()).includes(gmtOffset));
-    if (matching.length === 1) { value = matching[0]; basis = 'country-zone-matching-offset'; }
-  }
-  if (!value) {
-    const why = !country ? 'store country unknown'
-      : zones.length === 0 ? `no time zone listed for store country ${country}`
-        : gmtOffset === null ? `store country ${country} has ${zones.length} time zones and no offset to choose by`
-          : matching.length === 0 ? `no ${country} time zone uses ${formatOffset(gmtOffset)}`
-            : `${matching.length} ${country} time zones use ${formatOffset(gmtOffset)}`;
-    return {
-      reason: country && zones.length > 1 ? 'ambiguous' : 'not-exposed',
-      evidence: `${evidence}; ${offsetText}, no named zone; ${why}`,
-      inference: { basis: 'unresolved', country: country || null, gmtOffset, reason: why, confirm: 'cutover' },
-    };
-  }
-  const why = basis === 'single-zone-country'
-    ? `store country ${country} has one time zone`
-    : `the only ${country} time zone that uses ${formatOffset(gmtOffset)}`;
-  return {
-    state: 'supplied',
-    value,
-    suppliedBy: 'discovery-inference',
-    evidence: `${evidence}; ${offsetText}, no named zone; ${value}: ${why}`,
-    inference: {
-      basis,
-      country,
-      gmtOffset,
-      offsetMatches: gmtOffset === null ? null : zoneOffsets(value, now.getUTCFullYear()).includes(gmtOffset),
-      confirm: 'cutover',
-    },
-  };
 }
 
 // `index` is the public REST index body (`timezone_string`, `gmt_offset`), or null.
@@ -191,11 +113,15 @@ function parseLanguageTag(tag) {
   return { value, ...(match[2] ? { locale: `${value}-${match[2].toUpperCase()}` } : {}) };
 }
 
+// An empty `language` is WordPress's default, English (no WPLANG set). Discovery records `en`
+// as an inference, with the locale from the store country, and setup confirms it at cutover.
 function languageInput(site) {
   const evidence = `${SITE_ROUTE} language`;
   if (!site || !site.ok) return { reason: site ? site.reason : 'not-exposed', evidence };
   const raw = text(site.body && site.body.language);
-  if (!raw) return { reason: 'not-exposed', evidence };
+  if (!raw) {
+    return { state: 'supplied', value: 'en', suppliedBy: 'discovery-inference', evidence: `${evidence} empty (WordPress default English)`, inference: { basis: 'wordpress-default-language', confirm: 'cutover' } };
+  }
   const parsed = parseLanguageTag(raw);
   return parsed ? { ...parsed, evidence } : { value: raw, evidence };
 }
@@ -221,9 +147,17 @@ function inferenceCountry(country, language) {
   return knownCountry(region) ? region : null;
 }
 
+// The store country, else the one the store currency names (ILS -> IL), recorded as an inference.
+function countryOrCurrency(country, currency) {
+  if (country && knownCountry(country.value)) return country;
+  const fromCurrency = countryFromCurrency(currency && currency.value);
+  if (!fromCurrency) return country;
+  return { state: 'supplied', value: fromCurrency, suppliedBy: 'discovery-inference', evidence: `${country && country.evidence ? `${country.evidence} ${country.reason || 'not-exposed'}; ` : ''}country of store currency ${currency.value}`, inference: { basis: 'currency-country', confirm: 'cutover' } };
+}
+
 function buildWordPressRegional({ general, site, index = null, ordersEntity = null, generatedAt } = {}) {
   const currency = currencyInput(general);
-  const country = countryInput(general);
+  const country = countryOrCurrency(countryInput(general), currency);
   const language = languageInput(site);
   return buildSourceRegional({
     adapter: 'wordpress',
@@ -246,7 +180,8 @@ function htmlLanguage(html) {
 }
 
 // `products` is the first Store API page (array) or null when it could not be read; `page` is
-// `{ html }` or null. Time zone and country are not public, so they stay unknown.
+// `{ html }` or null. Time zone and country are not public, so the time zone is the shared
+// "keep the site's own zone, confirm at cutover" inference, never a question.
 function buildQuickWooCommerceRegional({ products = null, page = null, generatedAt } = {}) {
   const currencyEvidence = `${STORE_API_PRODUCTS_ROUTE} prices.currency_code`;
   const first = Array.isArray(products) ? products.find((product) => product && product.prices && product.prices.currency_code) : null;
@@ -259,6 +194,7 @@ function buildQuickWooCommerceRegional({ products = null, page = null, generated
     adapter: 'quick-woocommerce',
     generatedAt,
     currency,
+    timeZone: inferTimeZone({ country: null, gmtOffset: null, evidence: 'quick WooCommerce public reads (no time zone or country)' }),
     primaryLanguage: language
       ? { ...language, evidence: languageEvidence }
       : { reason: page ? 'not-exposed' : 'unreadable', evidence: languageEvidence },

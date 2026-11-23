@@ -53,63 +53,59 @@ const STATUS_QUERY = 'query RpBulkStatus($id: ID!) { node(id: $id) { ... on Bulk
 // The query catalog: the queries, in this order, and how each one's child rows fold
 // ---------------------------------------------------------------------------------------------
 
-const MEDIA_TYPES = ['MediaImage', 'Video', 'ExternalVideo', 'Model3d', 'GenericFile'];
-const DISCOUNT_APPLICATION_TYPES = ['DiscountCodeApplication', 'AutomaticDiscountApplication', 'ManualDiscountApplication', 'ScriptDiscountApplication'];
-
-function typesTo(types, field, extra = {}) {
-  return Object.fromEntries(types.map((type) => [type, { field, ...extra }]));
-}
-
-// `children` maps a child row's `__typename` to the field it folds into on its parent (`into` names
-// an inline object of the parent that holds the field). `rootFields` and `childFields` are the
-// fields initialised to [] so an empty connection reads as empty, not absent. A bulk query cannot
-// hold a connection inside a list field, so no catalog entry has such a child: those connections
-// are read by lib/shopify-nested-reads.js before the dataset is done.
-// Item scopes of a discount (the products, variants and collections a customerGets or customerBuys
-// scope names) are connections under every discount type, and one bulk query allows five
-// connections. Each `discounts-gets-*` / `discounts-buys-*` query therefore reads one role and one
-// kind of item, and `joinDiscountFiles` folds its arrays into the discount row at `parent`.
+// The catalog is data: ../reader-catalog.json (the same shape as the WooCommerce reader catalog:
+// id, query, target, dependsOn = the import order, as in quick-mode.json; bulk reads are independent).
+// Each entry is one bulk query (queries/<id>.graphql). `children`
+// maps a child row's `__typename` to the field it folds into on its parent (`into` names an inline
+// object of the parent that holds the field). `rootFields` are initialised to [] so an empty
+// connection reads as empty, not absent. A bulk query cannot hold a connection inside a list field,
+// so no entry has such a child: those connections are read by lib/shopify-nested-reads.js before
+// the dataset is done. A discount's item scopes are connections under every discount type and one
+// bulk query allows five connections, so each `discounts-gets-*` / `discounts-buys-*` entry reads
+// one role and kind of item, and `joinDiscountFiles` folds its arrays into the discount row at
+// `supplement.parent`.
+const READER_CATALOG_FILE = path.join(__dirname, '..', 'reader-catalog.json');
+// The item kinds a discount scope can name: the field, its child __typename and the scope object
+// (DiscountProducts or DiscountCollections) that owns it. joinDiscountFiles folds by these.
 const DISCOUNT_ITEM_CHILDREN = Object.freeze({
   products: { type: 'Product', owner: 'DiscountProducts' },
   productVariants: { type: 'ProductVariant', owner: 'DiscountProducts' },
   collections: { type: 'Collection', owner: 'DiscountCollections' },
 });
 
-function discountItemQuery(name, side, fields) {
-  return {
-    name,
-    entity: 'discounts',
-    rootFields: fields,
-    children: Object.fromEntries(fields.map((field) => [DISCOUNT_ITEM_CHILDREN[field].type, { field }])),
-    supplement: { parent: ['discount', side, 'items'], fields },
-  };
+function deepFreeze(value) {
+  if (value && typeof value === 'object') { for (const v of Object.values(value)) deepFreeze(v); Object.freeze(value); }
+  return value;
 }
 
-const QUERY_CATALOG = Object.freeze([
-  { name: 'products', entity: 'products', rootFields: ['variants', 'media', 'metafields'], children: { ProductVariant: { field: 'variants' }, ...typesTo(MEDIA_TYPES, 'media'), Metafield: { field: 'metafields' } } },
-  { name: 'collections', entity: 'collections', rootFields: ['products', 'metafields'], children: { Product: { field: 'products' }, Metafield: { field: 'metafields' } } },
-  { name: 'customers', entity: 'customers', rootFields: ['metafields'], children: { Metafield: { field: 'metafields' } } },
-  { name: 'orders-core', entity: 'orders', rootFields: ['lineItems', 'shippingLines', 'discountApplications', 'metafields'], children: { LineItem: { field: 'lineItems' }, ShippingLine: { field: 'shippingLines' }, ...typesTo(DISCOUNT_APPLICATION_TYPES, 'discountApplications'), Metafield: { field: 'metafields' } } },
-  { name: 'orders-refunds', entity: 'orders', children: {} },
-  { name: 'orders-fulfillments', entity: 'orders', children: {} },
-  { name: 'gift-cards', entity: 'gift-cards', children: {} },
-  { name: 'discounts', entity: 'discounts', children: { DiscountRedeemCode: { field: 'codes', into: 'discount' } } },
-  discountItemQuery('discounts-gets-products', 'customerGets', ['products']),
-  discountItemQuery('discounts-gets-variants', 'customerGets', ['productVariants']),
-  discountItemQuery('discounts-gets-collections', 'customerGets', ['collections']),
-  discountItemQuery('discounts-buys-items', 'customerBuys', ['products', 'collections']),
-  discountItemQuery('discounts-buys-variants', 'customerBuys', ['productVariants']),
-  { name: 'delivery-profiles', entity: 'delivery-profiles', children: {} },
-  { name: 'inventory', entity: 'inventory-items', rootFields: ['inventoryLevels'], children: { InventoryLevel: { field: 'inventoryLevels' } } },
-  { name: 'pages', entity: 'pages', children: {} },
-  { name: 'blogs', entity: 'blogs', children: {} },
-  { name: 'articles', entity: 'articles', children: {} },
-  { name: 'menus', entity: 'menus', children: {} },
-  { name: 'url-redirects', entity: 'url-redirects', children: {} },
-  { name: 'locations', entity: 'locations', children: {} },
-  { name: 'metaobjects', entity: 'metaobjects', rootFields: ['metaobjects'], children: { Metaobject: { field: 'metaobjects' } } },
-  { name: 'files', entity: 'files', children: {} },
-]);
+// Load and check the catalog; returns the runner's query list (name, entity, rootFields?, children,
+// supplement?). A bad catalog is a load error, never a silently skipped dataset.
+function loadQueryCatalog(file = READER_CATALOG_FILE) {
+  const catalog = JSON.parse(fs.readFileSync(file, 'utf8'));
+  const errors = [];
+  if (catalog.schemaVersion !== 1 || !Array.isArray(catalog.entities) || !catalog.entities.length) errors.push('catalog needs schemaVersion 1 and entities[]');
+  const ids = new Set();
+  for (const e of catalog.entities || []) {
+    if (typeof e.id !== 'string' || !/^[a-z0-9-]+$/.test(e.id) || ids.has(e.id)) errors.push(`bad or duplicate id ${JSON.stringify(e.id)}`);
+    ids.add(e.id);
+    if (e.query !== `queries/${e.id}.graphql` || !fs.existsSync(path.join(path.dirname(file), e.query))) errors.push(`${e.id}: query must be an existing queries/${e.id}.graphql`);
+    if (typeof e.entity !== 'string' || !e.entity) errors.push(`${e.id}: entity required`);
+    if (!e.children || typeof e.children !== 'object' || Object.values(e.children).some((c) => typeof c?.field !== 'string')) errors.push(`${e.id}: children must map __typename to { field }`);
+    if (e.rootFields !== undefined && !Array.isArray(e.rootFields)) errors.push(`${e.id}: rootFields must be an array`);
+    if (e.supplement && (!Array.isArray(e.supplement.parent) || !Array.isArray(e.supplement.fields) || e.supplement.fields.some((f) => !DISCOUNT_ITEM_CHILDREN[f]))) errors.push(`${e.id}: supplement needs parent[] and fields[] from ${Object.keys(DISCOUNT_ITEM_CHILDREN).join(', ')}`);
+  }
+  for (const e of catalog.entities || []) for (const dep of e.dependsOn || []) if (!ids.has(dep)) errors.push(`${e.id}: dependsOn unknown ${dep}`);
+  if (errors.length) throw new Error(`invalid Shopify reader catalog: ${errors.join('; ')}`);
+  return deepFreeze(catalog.entities.map((e) => ({
+    name: e.id,
+    entity: e.entity,
+    ...(e.rootFields ? { rootFields: [...e.rootFields] } : {}),
+    children: JSON.parse(JSON.stringify(e.children)),
+    ...(e.supplement ? { supplement: JSON.parse(JSON.stringify(e.supplement)) } : {}),
+  })));
+}
+
+const QUERY_CATALOG = loadQueryCatalog();
 
 const QUERY_NAMES = Object.freeze(QUERY_CATALOG.map((entry) => entry.name));
 const CUSTOMER_QUERIES = Object.freeze(['customers']);
@@ -1556,6 +1552,8 @@ function createBulkRunner(options = {}) {
 module.exports = {
   QUERIES_DIR,
   QUERY_CATALOG,
+  READER_CATALOG_FILE,
+  loadQueryCatalog,
   QUERY_NAMES,
   CUSTOMER_QUERIES,
   ORDER_QUERIES,

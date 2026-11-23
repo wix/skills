@@ -27,6 +27,14 @@
       "author.contactId"
     ]
   },
+  "sourceReferenceLeaves": {
+    "stores/product": [
+      "product_id"
+    ]
+  },
+  "sourceReferenceLeafNotes": {
+    "crm/contact": "A WooCommerce product review carries no customer id (only reviewer and reviewer_email); the contact is matched by email at import, so no source leaf carries the reference."
+  },
   "sourceAliases": [
     {
       "sourceSystem": "woocommerce",
@@ -49,7 +57,7 @@
     {
       "surface": "Wix Reviews",
       "endpoint": "POST /reviews/v1/reviews",
-      "when": "Not used by the import: no reviewed writer sends it, so naming it as a write operation is refused (MISSING_WRITER). Retry reviews whose bulk result was failed by calling createStoresReviews again with only those records (a chunk of one is valid); the tail of a batch is just a smaller chunk. A retry of a review that did land answers already-exists (one review per author per product)."
+      "when": "Not used by the import: no reviewed writer sends it, so naming it as a write operation is refused (MISSING_WRITER). Retry reviews whose bulk result was failed by calling createStoresReviews again with only those records (a chunk of one is valid); the tail of a batch is just a smaller chunk. A retry of a review that did land answers adopted when the exact product/contact read-back finds one review, or unknown when that collision cannot be resolved (one review per author per product)."
     },
     {
       "surface": "Wix Reviews",
@@ -79,7 +87,7 @@
     {
       "code": "contact-required-per-review",
       "severity": "blocker",
-      "summary": "Every review needs a contact: Bulk Create requires reviews.author.contactId, and the Create Review introduction states the single-create method requires a contact ID too. Importing reviews therefore CREATES OR RESOLVES A CONTACT PER DISTINCT REVIEWER — a CRM side effect well beyond the catalog, and reviewers are frequently not customers. Resolve each reviewer by email through Query Contacts first, create only on miss, and disclose the contact count at the execution gate."
+      "summary": "Every review needs a contact: Bulk Create requires reviews.author.contactId, and the Create Review introduction states the single-create method requires a contact ID too. Importing reviews therefore resolves or creates one Contacts V5 contact per distinct reviewer email, including guest reviewers whose source has no customer row. Guest contacts use the review name/email and a deterministic source marker while the site is muted; this is an intentional import side effect with no cutover task."
     },
     {
       "code": "moderation-status-read-only-on-create",
@@ -99,7 +107,7 @@
     {
       "code": "one-review-per-author-per-entity",
       "severity": "warning",
-      "summary": "\"A review author is limited to 1 review per entity. Duplicate reviews receive an error response.\" WooCommerce permits many reviews by the same author (same email) on the same product, so a collision policy is required BEFORE the write: keep newest / keep highest-rated / merge bodies / spill the losers to the CMS shadow. Detect collisions during mapping by grouping source reviews on (reviewer_email, product_id) — an anonymized verification environment had 0 collisions across 120 reviews, which makes this easy to miss on a first run. VERIFIED LIVE 2026-10-27: a second review by the same contact on the same product fails that bulk item with ALREADY_EXISTS (uniqueConstraintViolation on namespace, contextId, author.contactId) while the rest of the batch succeeds. The mapping keeps the newest native and sends the rest to the CMS shadow."
+      "summary": "\"A review author is limited to 1 review per entity. Duplicate reviews receive an error response.\" Source feeds can expose the same logical row more than once, so normalize before writing by (source product, normalized reviewer email, source review date, and stable content), keep one canonical row, and retain every source id as a crosswalk alias. Distinct reviews that still collide on Wix's author/product rule require the existing mapping collision policy and fidelity ledger. VERIFIED LIVE 2026-10-27: a second review by the same contact on the same product fails that bulk item with ALREADY_EXISTS; the writer reads back the exact product/contact pair and adopts the one owned review found."
     },
     {
       "code": "body-plain-text-3000",
@@ -143,13 +151,13 @@
     }
   ],
   "mappingGuidance": [
-    "Import order: products first (entityId is a Wix product ID), then reviewer contacts through the crm/contact task (resolve by email, create on miss), then reviews through createStoresReviews(wix, { records: [{ sourceStableKey, review }], readinessGrant }) in chunks of 100. Each record payload is the review item itself, so entityId and author.contactId are checked per record.",
-    "Reviewer contacts are created for reviewers with no contact: show the distinct-reviewer contact count in the plan before consent.",
+    "Import order: products first (entityId is a Wix product ID), then normalize review feeds with dedupeReviewRecords by (source product, normalized reviewer email, source review date, stable content), then materialize guest reviewer contacts through guestReviewContactRows and the crm/contact task (deduped by email), then reviews through createStoresReviews(wix, { records: [{ sourceStableKey, review }], readinessGrant }) in chunks of 100. Keep every source id in the ImportCrosswalk alias rows while one canonical review is written. Each record payload is the review item itself, so entityId and author.contactId are checked per record.",
+    "Guest contacts are an intentional import side effect: name and email come from the review, externalId carries the deterministic replatform:guest-review marker, updateMember is false, and requireMutedSiteForReviewContacts refuses to proceed unless the site is muted. Missing email remains a source gap; guest-contact creation creates no cutover task.",
     "Moderation, per batch: right after each batch's createStoresReviews and before the task's next evaluateTask, pass that batch's reviews whose created status differs from the source to moderateStoresReviews([{ wix, reviewId, status }]) in one call, each wix the record client bound to that batch's grant: APPROVED for WooCommerce approved; REJECTED for hold, spam and trash. It sends all moderations, then reads them back in shared rounds. A grant from an earlier evaluation is stale: its moderation is refused unsent (moderation-failed, error.requestSent false). A review created earlier (another batch or run) is moderated by gating its key again in the current batch and using that grant. Record the source state in the ledger.",
     "Merchant replies: after create (and moderation), for every review whose source has a merchant reply call setStoresReviewReply(recordClient, { reviewId, message }) with that review record's own client (bindRecordClient with the review task's grant and the review's sourceStableKey). Keep the reply out of the create payload (reply is read-only on create). The client admits the reply only on the record's own review (its crosswalk target, or a review it read whose product and author are its granted references). Outcomes: verified | already-present (a retry finds the same reply and sends nothing) | not-sent (refused before send, e.g. review_reply_too_long; journal failed with requestSent false) | failed (rejected; failed_retryable) | unverified (sent, read-back differs; Set Reply overwrites, so the retry re-sends safely) | review-not-found. A reply over 1000 characters or its source date goes to the CMS shadow (fallbacks) and the faithfulness ledger.",
     "Carry the original review date with review.reviewDate (writable at create, format date-time) — the docs designate it as the import path: \"This should match createdDate, except for reviews imported from another system.\" createdDate is read-only and will be the import timestamp, so reviewDate is the only faithful date.",
     "Map author.authorName from the WooCommerce reviewer display name (maxLength 100) and author.contactId from the resolved contact. If authorName is omitted, Wix falls back to the member name for members and to null otherwise — always send it explicitly so anonymous reviewers do not lose their display name.",
-    "Record in the faithfulness ledger, per run: reviews whose `verified` badge was lost, reviews with source rating 0, reviews whose stripped body exceeded 3000 characters, and reviews dropped by the one-per-author-per-entity collision policy, and merchant replies not written natively (over 1000 characters, or not-sent/failed after retry) with their source reply date."
+    "Record in the faithfulness ledger, per run: reviews whose `verified` badge was lost, reviews with source rating 0, reviews whose stripped body exceeded 3000 characters, duplicate-feed aliases attached to a canonical review, reviews dropped by the one-per-author-per-entity collision policy, and merchant replies not written natively (over 1000 characters, or not-sent/failed after retry) with their source reply date."
   ],
   "setupRequirements": [
     "Wix Reviews app (appDefId a95a5fce-e370-4402-9ce4-96956acc747d) - setup step install-wix-reviews",

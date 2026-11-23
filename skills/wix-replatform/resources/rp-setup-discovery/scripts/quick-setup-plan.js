@@ -20,6 +20,7 @@ function requirementsFor(plan, strategy, muteInEffect) {
   return result;
 }
 async function main() {
+  if (['--help', '-h'].includes(process.argv[2])) { console.log('Usage: quick-setup-plan.js <projectDir>'); return; }
   const projectDir = process.argv[2] && path.resolve(process.argv[2]);
   if (!projectDir) throw new Error('Usage: quick-setup-plan.js <projectDir>');
   const plan = await readJson(path.join(projectDir, 'quick-mode', 'plan.json'));

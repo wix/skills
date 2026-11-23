@@ -20,6 +20,7 @@
     }
   ],
   "dependsOn": ["stores/product"],
+  "dependencyModes": { "stores/product": "task-complete" },
   "preferredWrite": {
     "surface": "Manual -- no API; merchant connects via Wix dashboard + Meta Commerce Manager",
     "endpoint": null,

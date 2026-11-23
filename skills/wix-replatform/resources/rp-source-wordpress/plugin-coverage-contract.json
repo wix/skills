@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "statuses": [
+    {
+      "id": "requires-development",
+      "label": "Requires development",
+      "order": 1,
+      "blurb": "Wix has no surface for this; someone has to build it first. A human-signed verdict — automation never concludes this on its own."
+    },
+    {
+      "id": "pending",
+      "label": "Pending",
+      "order": 2,
+      "blurb": "We do not know how to migrate this yet. Our open item, decided at the mapping review — never a limitation of the source or of Wix."
+    },
+    {
+      "id": "manual-mapping",
+      "label": "Manual mapping available",
+      "order": 3,
+      "blurb": "Wix can do this. The mapping is decided — these are the exact steps you take yourself, no further review needed."
+    },
+    {
+      "id": "migration-planned",
+      "label": "Migration planned",
+      "order": 4,
+      "blurb": "This comes across — via API into a native Wix entity, or via CMS as data keeping its original IDs."
+    },
+    {
+      "id": "no-need-to-migrate",
+      "label": "No need to migrate",
+      "order": 5,
+      "blurb": "Nothing to move: Wix already does it, it was never data, or it is a setting you reconfigure once in Wix."
+    }
+  ],
+  "precedence": [
+    "requires-development",
+    "pending",
+    "manual-mapping",
+    "migration-planned",
+    "no-need-to-migrate"
+  ],
+  "perPluginFields": [
+    "plugin",
+    "displayName",
+    "version",
+    "active",
+    "does",
+    "status",
+    "via",
+    "mappingConfidence",
+    "consequence",
+    "manualSteps",
+    "cutoverTask",
+    "recognized",
+    "inventoryBasis",
+    "statusBasis",
+    "confidence",
+    "signals",
+    "capabilities",
+    "channels",
+    "channelStatuses",
+    "targetRefs",
+    "profileVersion",
+    "blocked",
+    "blockers",
+    "prerequisite"
+  ]
+}

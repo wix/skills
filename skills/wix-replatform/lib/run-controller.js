@@ -10,13 +10,24 @@ const { determineNextStep } = require('./orchestration-router.js');
 const { validateMigrationCompletion, loadMigrationCompletionInputs } = require('./migration-completion.js');
 const { pendingUserActionGate } = require('./user-actions.js');
 const { applySiteTypePair, resolveSiteTypePair } = require('./destination-choice.js');
-const { normalizeTargetSiteStrategy } = require('./orchestration-decisions.js');
+const { normalizeTargetSiteStrategy, wixAccountRef } = require('./orchestration-decisions.js');
 const { readEnvFile, upsertEnvFile } = require('./config-env.js');
 const { chooseAdapter, launch, reconcileWorkers, requestCancel } = require('./agent-adapters/index.js');
+const { projectProgressLog } = require('./progress-log.js');
+const { stopSupervisors } = require('./detached-supervisor.js');
+const { activityMark, liveToolkitJobs } = require('./background-work.js');
+
+// How often a quiet turn asks whether any toolkit job is still alive.
+const LIVE_JOB_POLL_MS = 5000;
+const { DEFAULT_POLICY, detectUsageLimitEvent, mergeUsageLimit, planUsageLimitWait } = require('./agent-usage-limit.js');
+const { isProcessAlive } = require('./local-state.js');
+const toolkitIntegrity = require('./toolkit-integrity.js');
 const { readTaskState, writeTaskState, createTaskState, selectRoute, startRoute, waitForInput, startDirectAgent, finishDirectAgent, finishWorkers, recordWorker, finishCurrent, reconcileTaskState } = require('./task-state.js');
 
 const SCHEMA_VERSION = 1;
 const RUNNER_DIR = ['state', 'runner'];
+const SOURCE_EXTRACT_WAIT_MS = 30 * 60000;
+const CHILD_CLOSED = new WeakMap();
 
 const iso = () => new Date().toISOString();
 const runId = () => `rpr_${crypto.randomUUID()}`;
@@ -29,20 +40,6 @@ const cancelPath = (projectDir) => path.join(runnerDir(projectDir), 'cancel-requ
 
 async function readJson(filePath) {
   try { return JSON.parse(await fs.readFile(filePath, 'utf8')); } catch (error) { if (error.code === 'ENOENT') return null; throw error; }
-}
-
-// The host a sandboxed agent may reach besides the Wix endpoints: the source site the operator named with
-// --source-url, and its subdomains (media and asset hosts). It comes only from the operator, never from the
-// project: every file in the project is one the agent can write, so a host read from one could be set by an
-// agent that was fed hostile content. A resumed run takes no --source-url, so its source host comes from
-// RP_AGENT_ALLOWED_DOMAINS (the same applies when the source was only given later in chat).
-function agentAllowedDomains(sourceUrl) {
-  try {
-    const host = new URL(String(sourceUrl)).hostname.toLowerCase().replace(/^www\./, '');
-    return host && host.includes('.') ? [host, `www.${host}`, `*.${host}`] : [];
-  } catch {
-    return [];
-  }
 }
 
 async function ensureInitialArtifacts(projectDir) {
@@ -84,6 +81,36 @@ async function findRun(rootDir, id) {
 
 async function readActive(projectDir) { return readJson(activePath(projectDir)); }
 
+// A `running` active.json from another run blocks a new run only while its supervisor or agent
+// child is still alive. A killed runner leaves the record behind; mark it interrupted in its
+// history record and remove it so the next run or resume can start.
+async function claimActive(projectDir, runId) {
+  const active = await readActive(projectDir);
+  if (!active || active.runId === runId || active.status !== 'running') return null;
+  const alive = [active.pid, active.childPid].some((pid) => Number.isInteger(pid) && pid > 0 && isProcessAlive(pid));
+  if (alive) throw new Error(`project already has an active run: ${active.runId}`);
+  const stale = { ...active, status: 'interrupted', endedAt: iso(), interruptedReason: 'stale_active_record_dead_pid', recoveredBy: runId };
+  if (active.runId) {
+    await fs.mkdir(path.dirname(historyPath(projectDir, active.runId)), { recursive: true });
+    await writeJsonAtomic(historyPath(projectDir, active.runId), stale);
+  }
+  try { await fs.unlink(activePath(projectDir)); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+  process.stderr.write(`replatform: active run ${active.runId} (pid ${active.pid}${active.childPid ? `, child ${active.childPid}` : ''}) is not alive; marked interrupted and continuing.\n`);
+  return stale;
+}
+
+// A cancel request applies only to the run it names. One left behind for another run is
+// archived under runner/canceled-stale/ and ignored, so it cannot cancel the next run.
+async function currentCancellation(projectDir, runId) {
+  const request = await readJson(cancelPath(projectDir));
+  if (!request) return null;
+  if (request.runId === runId) return request;
+  const archive = path.join(runnerDir(projectDir), 'canceled-stale', `${request.runId || 'unknown'}-${Date.now()}.json`);
+  await fs.mkdir(path.dirname(archive), { recursive: true });
+  try { await fs.rename(cancelPath(projectDir), archive); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+  return null;
+}
+
 async function applyInvocationInputs(projectDir, inputs) {
   const artifacts = await ensureInitialArtifacts(projectDir);
   const decisions = artifacts.decisions;
@@ -98,6 +125,7 @@ async function applyInvocationInputs(projectDir, inputs) {
     targetSiteStrategy: destinationStrategy === undefined ? undefined : normalizeTargetSiteStrategy(destinationStrategy),
     managementImportMode: inputs.managementImportMode,
     notificationMute: inputs.notificationMute,
+    wixAccount: inputs.wixAccount ? wixAccountRef(inputs.wixAccount) : undefined,
     ...(inputs.oneClick ? { automationMode: 'one_click' } : {}),
     ...(inputs.dryRun ? { dryRun: true } : {}),
   };
@@ -147,9 +175,20 @@ async function resumeStaleTelemetry(projectDir) {
   }
 }
 
-function bootstrap(projectDir) {
+function bootstrap(projectDir, { hostAgent = null, nextResource = null } = {}) {
   // Only this already-validated absolute path is variable. Intake values stay in artifacts.
-  return `Use the installed wix-replatform skill for the migration project at ${projectDir}. Read durable orchestration artifacts and the latest accepted CLI invocation, route, then perform only the selected stage. Do not claim completion from prose. When human input or review is required, create a durable user action and end this turn; never use an interactive question UI or wait for terminal input.`;
+  const codexExecution = hostAgent === 'codex'
+    ? ' This is the top-level Codex worker for this supervised run: execute the selected resource directly in this worker, do not call collab_tool spawn_agent, wait, or close_agent for stage work, and perform its Developer and QA passes sequentially while preserving the same durable handoffs.'
+    : '';
+  const stageResource = typeof nextResource === 'string' && nextResource.trim()
+    ? nextResource.trim().replace(/^\/+/, '').replace(/\/$/, '')
+    : null;
+  const stageContract = stageResource
+    ? ` The supervisor selected ${stageResource}/. Read the complete active-stage contract at ${stageResource}/SKILL.md from the pinned wix-replatform toolkit before acting; do not infer the stage from the root router alone. ${stageResource === 'resources/rp-mapper'
+      ? 'For mapping, also load resources/rp-target-wix/SKILL.md and use resources/rp-target-wix/scripts/domain-knowledge.js to verify target candidates; load the source adapter named by the source platform before deciding mappings.'
+      : ''}`
+    : '';
+  return `Use the installed wix-replatform skill for the migration project at ${projectDir}. Read durable orchestration artifacts and the latest accepted CLI invocation, route, then perform only the selected stage.${stageContract}${codexExecution} Do not claim completion from prose. When human input or review is required, create a durable user action and end this turn; never use an interactive question UI or wait for terminal input.`;
 }
 
 // A pending action is intentionally included in the normalized stream. A consumer must be
@@ -198,7 +237,7 @@ function exitCode(result) {
 class RunController {
   constructor(projectDir, options = {}) {
     this.projectDir = path.resolve(projectDir);
-    this.options = { agent: 'auto', maxAgentTurns: 12, maxNoProgressContinuations: 1, gracePeriodMs: 60000, workerStartupTimeoutMs: 120000, ...options };
+    this.options = { agent: 'auto', maxAgentTurns: 60, maxNoProgressContinuations: 1, gracePeriodMs: 60000, workerStartupTimeoutMs: 120000, ...options };
     this.id = options.runId || runId();
     this.eventFiles = new Set([options.eventsFile || defaultEventsPath(this.projectDir)]);
     this.vendorEventsPath = options.vendorEvents || defaultVendorEventsPath(this.projectDir);
@@ -207,6 +246,7 @@ class RunController {
     this.adapter = null;
     this.taskState = null;
     this.closed = false;
+    this.usageLimitWaits = [];
   }
 
   async emit(type, state, message, extra = {}) {
@@ -221,7 +261,7 @@ class RunController {
     // write, because the record is rebuilt from scratch each time. `startedAt` in active.json is
     // what an explicit telemetry `start` inside this run reads to join the session this run
     // opened (one supervisor process is one telemetry session).
-    const record = { schemaVersion: SCHEMA_VERSION, runId: this.id, projectDir: this.projectDir, pid: process.pid, childPid: this.child?.pid || null, adapter: this.adapter ? { id: this.adapter.id, version: this.adapter.version || null, selection: this.adapter.selection || null } : null, eventPath: [...this.eventFiles][0], status: 'running', updatedAt: iso(), ...(this.startedAt ? { startedAt: this.startedAt } : {}), ...(this.telemetryResume ? { telemetryResume: this.telemetryResume } : {}), ...patch };
+    const record = { schemaVersion: SCHEMA_VERSION, runId: this.id, projectDir: this.projectDir, pid: process.pid, childPid: this.child?.pid || null, adapter: this.adapter ? { id: this.adapter.id, version: this.adapter.version || null, selection: this.adapter.selection || null } : null, eventPath: [...this.eventFiles][0], status: 'running', updatedAt: iso(), ...(this.startedAt ? { startedAt: this.startedAt } : {}), ...(this.telemetryResume ? { telemetryResume: this.telemetryResume } : {}), ...(this.usageLimitWaits.length ? { usageLimitWaits: this.usageLimitWaits } : {}), ...patch };
     await fs.mkdir(path.dirname(historyPath(this.projectDir, this.id)), { recursive: true });
     await writeJsonAtomic(historyPath(this.projectDir, this.id), record);
     if (!this.closed) await writeJsonAtomic(activePath(this.projectDir), record);
@@ -243,7 +283,7 @@ class RunController {
     await appendLine(filePath, { schemaVersion: SCHEMA_VERSION, runId: this.id, acceptedAt: iso(), options: safe });
   }
 
-  async cancellationRequested() { return readJson(cancelPath(this.projectDir)); }
+  async cancellationRequested() { return currentCancellation(this.projectDir, this.id); }
 
   async setOrchestrationCancellation(status) {
     const artifacts = await loadArtifacts(this.projectDir);
@@ -255,6 +295,13 @@ class RunController {
   async finish(result) {
     if (this.closed) return result;
     this.closed = true;
+    if (result.outcome === 'timed_out') {
+      // A timed-out run must not leave a detached import writing with no owner. Stop it the way
+      // cancel does: it stops before its next write and records its result; the write journal
+      // keeps every finished write, so `replatform resume` continues from there.
+      const stopped = stopSupervisors(this.projectDir);
+      if (stopped.length) result = { ...result, stoppedImportSupervisors: stopped, nextAction: `${result.nextAction ? `${result.nextAction} ` : ''}The running import was stopped (no new writes); replatform resume <project> continues it from its write journal.` };
+    }
     if (!result.agent && this.adapter) {
       result = { ...result, agent: { id: this.adapter.id || null, version: this.adapter.version || null, sessionId: null, selection: this.adapter.selection || null } };
     }
@@ -265,16 +312,82 @@ class RunController {
     return result;
   }
 
-  async waitForChild() {
-    return new Promise((resolve) => this.child.once('close', (code, signal) => resolve({ code, signal })));
+  // H15/H50: the installed toolkit and vendored src copies must not change during a run. A
+  // baseline at supervisor start; a check after every agent turn restores changes and records an
+  // incident for the completion report. Fail-soft: a guard error never stops the run.
+  async toolkitIntegrityStep(step, stage = null) {
+    if (this.options.toolkitIntegrity === false || toolkitIntegrity.disabled(this.options.env || process.env)) return null;
+    const skillRoot = this.options.toolkitSkillRoot || toolkitIntegrity.SKILL_ROOT;
+    try {
+      if (step === 'baseline') toolkitIntegrity.takeBaseline(this.projectDir, { runId: this.id, skillRoot });
+      const incident = toolkitIntegrity.checkAndRestore(this.projectDir, { runId: this.id, stage, skillRoot });
+      if (incident) {
+        const count = incident.toolkitChanges.length + incident.vendoredChanges.length;
+        await this.emit('toolkit_restored', 'running', `Restored ${count} changed toolkit file(s) or vendored copies (${stage || 'run start'}); changed copies kept in quarantine.`, { evidence: { kind: 'toolkit_integrity', ref: toolkitIntegrity.INCIDENTS_PATH }, paths: [...incident.toolkitChanges, ...incident.vendoredChanges].map((change) => change.path).slice(0, 50) });
+      }
+      return incident;
+    } catch (error) {
+      toolkitIntegrity.recordGuardError(this.projectDir, { runId: this.id, step, stage, error });
+      await this.emit('toolkit_integrity_error', 'running', `Toolkit integrity check failed: ${error.message}`, { evidence: { kind: 'toolkit_integrity', ref: toolkitIntegrity.INCIDENTS_PATH } });
+      return null;
+    }
+  }
+
+  // One close promise per child, armed at launch: an agent that exits while the turn is still
+  // recording its start (awaited writes) must not be missed, or the turn waits forever.
+  waitForChild() {
+    const child = this.child;
+    if (!CHILD_CLOSED.has(child)) CHILD_CLOSED.set(child, new Promise((resolve) => child.once('close', (code, signal) => resolve({ code, signal }))));
+    return CHILD_CLOSED.get(child);
+  }
+
+  // Waits out a usage limit. Returns a cancellation request if one arrives meanwhile.
+  async sleepUnlessCanceled(ms) {
+    if (typeof this.options.sleep === 'function') { await this.options.sleep(ms); return this.cancellationRequested(); }
+    const until = Date.now() + ms;
+    while (Date.now() < until) {
+      const cancellation = await this.cancellationRequested();
+      if (cancellation) return cancellation;
+      await new Promise((resolve) => setTimeout(resolve, Math.min(1000, until - Date.now())));
+    }
+    return this.cancellationRequested();
+  }
+
+  // H39: the agent stopped on a usage/token/rate limit. Wait for the reset (or back off) and
+  // let the loop run the same route again; bounded, then a clear blocker. Returns
+  // { retry: true } or a finished result.
+  async handleUsageLimit(limit, route) {
+    const now = Date.now();
+    const policy = { ...(this.options.usageLimitPolicy || {}) };
+    // Never wait past the run's own wall-clock limit; that case is a blocker with the reset time.
+    if (this.options.wallTimeoutMs) {
+      const remaining = Math.max(0, this.startedAtMs + this.options.wallTimeoutMs - now);
+      policy.maxWaitMs = Math.min(policy.maxWaitMs ?? DEFAULT_POLICY.maxWaitMs, remaining);
+    }
+    const plan = planUsageLimitWait(limit, { attempt: this.usageLimitWaits.length, now, policy });
+    const entry = { detectedAt: new Date(now).toISOString(), source: limit.source, message: limit.message, resetsAt: Number.isFinite(limit.resetsAt) ? new Date(limit.resetsAt).toISOString() : null, route: route ? `${route.nextState}:${route.reason}` : null, decision: plan.wait ? 'wait' : plan.reason, waitMs: plan.waitMs ?? null, basis: plan.basis || null, attempt: plan.attempt, maxWaits: plan.maxWaits };
+    this.usageLimitWaits.push(entry);
+    if (!plan.wait) {
+      await this.writeRecord();
+      await this.emit('agent_usage_limit', 'running', `Agent stopped on a usage limit; not waiting again (${plan.reason}).`, { usageLimit: entry, evidence: { kind: 'vendor_event', ref: this.adapter.id } });
+      const nextAction = plan.reason === 'reset_too_far'
+        ? `The agent's usage limit resets at ${plan.resetsAt}, later than the automatic wait allows. Run replatform resume ${this.projectDir} after that time.`
+        : `The agent hit its usage limit ${plan.maxWaits + 1} times in this run; automatic waits are used up. Check the agent account's limits, then run replatform resume ${this.projectDir}.`;
+      return this.finish({ ...makeResult({ id: this.id, projectDir: this.projectDir, outcome: 'blocked', route, nextAction }), usageLimit: { reason: plan.reason, waits: this.usageLimitWaits } });
+    }
+    const resumeAt = new Date(now + plan.waitMs).toISOString();
+    await this.writeRecord({ waitingUntil: resumeAt });
+    await this.emit('agent_usage_limit', 'running', `Agent stopped on a usage limit; waiting until ${resumeAt} (${plan.basis === 'reset_time' ? 'stated reset time' : 'backoff'}, attempt ${plan.attempt} of ${plan.maxWaits}), then resuming.`, { usageLimit: entry, resumeAt, evidence: { kind: 'vendor_event', ref: this.adapter.id } });
+    const cancellation = await this.sleepUnlessCanceled(plan.waitMs);
+    if (cancellation) return this.cancel(cancellation);
+    await this.writeRecord();
+    await this.emit('agent_resuming', 'running', 'Usage-limit wait finished; resuming the run.', { attempt: plan.attempt, evidence: { kind: 'usage_limit', ref: this.adapter.id } });
+    return { retry: true };
   }
 
   async run() {
     await fs.mkdir(this.projectDir, { recursive: true });
-    const alreadyActive = await readActive(this.projectDir);
-    if (alreadyActive && alreadyActive.runId !== this.id && alreadyActive.status === 'running') {
-      throw new Error(`project already has an active run: ${alreadyActive.runId}`);
-    }
+    await claimActive(this.projectDir, this.id);
     await applyInvocationInputs(this.projectDir, this.options);
     const existing = await loadArtifacts(this.projectDir);
     const resumeHold = this.options.resume && this.options.resumeBlocked !== false;
@@ -297,6 +410,7 @@ class RunController {
     this.taskState = persistedTaskState?.runId === this.id ? await reconcileTaskState(this.projectDir, persistedTaskState) : createTaskState(this.id);
     await writeTaskState(this.projectDir, this.taskState);
     await this.emit('started', 'running', 'Supervisor started.', { evidence: { kind: 'process', ref: String(process.pid) } });
+    await this.toolkitIntegrityStep('baseline', 'run_start');
     const started = Date.now();
     this.startedAtMs = started;
     let turns = 0;
@@ -340,7 +454,7 @@ class RunController {
       }
       if (route.nextState === 'completed') {
         const completionInputs = await loadMigrationCompletionInputs(this.projectDir);
-        const completion = validateMigrationCompletion(completionInputs.completion, completionInputs);
+        const completion = validateMigrationCompletion(completionInputs.completion, { ...completionInputs, deliveryMode: require('./orchestration-decisions.js').getCompletionDeliveryMode(artifacts.decisions || {}) });
         if (completion.ok) return this.finish(makeResult({ id: this.id, projectDir: this.projectDir, outcome: 'completed', route, completion }));
       }
       if (['blocked', 'canceled', 'interrupted', 'cancel_requested'].includes(route.nextState)) {
@@ -351,6 +465,17 @@ class RunController {
       sameRoute = routeKey === priorRoute ? sameRoute + 1 : 0;
       priorRoute = routeKey;
       if (sameRoute > this.options.maxNoProgressContinuations) {
+        // A route with a settler does not end the run: its leftover becomes a toolkit gap or cutover
+        // task, the gates honor it, and the run routes again. Each settlement must cover something
+        // new, so this ends (lib/route-settlement.js).
+        let settlement = { settled: false };
+        try { settlement = require('./route-settlement.js').settleRoute(this.projectDir, route); } catch { /* stop as before */ }
+        if (settlement.settled) {
+          await this.emit('route_settled', 'running', `Pass limit reached for ${route.reason}; the leftover is recorded and the run continues.`, { route, settled: settlement.rows.map((row) => row.unit || row.errors?.[0]), evidence: { kind: 'route_settlement', ref: 'execution/route-settlements.json' } });
+          sameRoute = 0;
+          priorRoute = null;
+          continue;
+        }
         return this.finish(makeResult({ id: this.id, projectDir: this.projectDir, outcome: 'blocked', route, nextAction: 'The selected stage made no durable progress; inspect its artifacts before resuming.' }));
       }
       if (turns >= this.options.maxAgentTurns) return this.finish(makeResult({ id: this.id, projectDir: this.projectDir, outcome: 'timed_out', route, nextAction: 'Maximum agent turns reached; resume after inspecting artifacts.' }));
@@ -358,6 +483,24 @@ class RunController {
         this.adapter = chooseAdapter(this.options.agent, { agentPath: this.options.agentPath });
         if (!this.adapter.ok) return this.finish(makeResult({ id: this.id, projectDir: this.projectDir, outcome: 'failed', route, nextAction: 'Run replatform doctor and authenticate an installed supported agent.' }));
       }
+      // The toolkit's own work for the stage (plan pre-fill, extractor install, codegen scaffold)
+      // runs before the agent starts, so the agent never has to remember it.
+      // Mapping pre-fills from the read-only source extract that discovery started in the
+      // background: wait for it here (the event loop stays free), up to SOURCE_EXTRACT_WAIT_MS.
+      if (route.nextState === 'mapping_running') {
+        try {
+          const bg = require('./source-extract-background.js');
+          bg.startSourceExtract(this.projectDir, { platform: require('./stage-entry.js').platformOf(this.projectDir, null), retry: true });
+          if (['starting', 'running'].includes(bg.waitForSourceExtract(this.projectDir)?.status)) {
+            await this.emit('progress', 'running', 'Waiting for the toolkit source extract before mapping.', { evidence: { kind: 'stage_entry', ref: bg.STATUS } });
+            await bg.waitForSourceExtractAsync(this.projectDir, { timeoutMs: SOURCE_EXTRACT_WAIT_MS });
+          }
+        } catch { /* the stage entry below waits briefly and reports a running extract */ }
+      }
+      try {
+        const stagePrepared = require('./stage-entry.js').prepareStage(this.projectDir, route);
+        if (stagePrepared) await this.emit('progress', 'running', 'Toolkit prepared the stage.', { stagePrepared, evidence: { kind: 'stage_entry', ref: stagePrepared.stage } });
+      } catch { /* the route script runs it again, and the stage's own checks still run */ }
       turns += 1;
       let directAgentId = null;
       const pendingWorkers = new Map();
@@ -373,7 +516,19 @@ class RunController {
       // Mark the route running before launch: a fast adapter can report a child during
       // launch itself, and that report must not race the durable task creation below.
       await this.updateTasks((state) => startRoute(state, route));
-      this.child = launch(this.adapter.id, { cwd: this.projectDir, executablePath: this.options.agentPath, prompt: bootstrap(this.projectDir), allowedDomains: agentAllowedDomains(this.options.sourceUrl), onWorker: (worker) => {
+      // Long tools the agent starts (in the background too) write here; growth counts as activity.
+      const progressLog = projectProgressLog(this.projectDir);
+      // Activity is any toolkit journal growing (progress log, import write journal, ...) or any
+      // toolkit job alive (lib/background-work.js). The turn is idle only when neither holds.
+      let lastProgressMark = activityMark(this.projectDir);
+      const turnStartProgressMark = lastProgressMark;
+      let liveCheckedAt = 0;
+      let turnUsageLimit = null;
+      let progressCheckedAt = Date.now();
+      // The idle clock starts with this turn: setup, a usage-limit wait or the quiet end of the
+      // previous turn is not this agent being idle.
+      this.lastObservationAt = Date.now();
+      this.child = launch(this.adapter.id, { cwd: this.projectDir, executablePath: this.options.agentPath, env: { PROGRESS_LOG: progressLog, REPLATFORM_SUPERVISED_RUN: this.id }, prompt: bootstrap(this.projectDir, { hostAgent: this.adapter.id, nextResource: route.nextResource }), onWorker: (worker) => {
         const reports = Array.isArray(worker) ? worker : [worker];
         for (const report of reports) {
           if (report.state === 'starting') pendingWorkers.set(report.workerId, { ...report, firstSeenAt: pendingWorkers.get(report.workerId)?.firstSeenAt || Date.now() });
@@ -389,9 +544,11 @@ class RunController {
         }
       }, onEvent: async (event) => {
         this.lastObservationAt = Date.now();
+        turnUsageLimit = mergeUsageLimit(turnUsageLimit, detectUsageLimitEvent(event));
         if (this.vendorEventsPath && event.type === 'vendor_event') await appendLine(this.vendorEventsPath, event.raw);
         await this.emit(event.type === 'vendor_event' ? 'progress' : 'progress', 'running', 'Observed agent output.', { evidence: { kind: event.type, ref: this.adapter.id } });
       } });
+      this.waitForChild();
       await this.updateTasks((state) => {
         const task = startRoute(state, route);
         directAgentId = startDirectAgent(state, task, this.adapter.id, this.child.pid).agentId;
@@ -416,6 +573,15 @@ class RunController {
         if (!finished && await this.cancellationRequested()) {
           if (heartbeat) clearInterval(heartbeat);
           return this.cancel(await this.cancellationRequested());
+        }
+        if (!finished && Date.now() - progressCheckedAt >= 1000) {
+          progressCheckedAt = Date.now();
+          const mark = activityMark(this.projectDir);
+          if (mark !== lastProgressMark) { lastProgressMark = mark; this.lastObservationAt = Date.now(); }
+          else if (Date.now() - liveCheckedAt >= (this.options.liveJobPollMs ?? LIVE_JOB_POLL_MS)) {
+            liveCheckedAt = Date.now();
+            if (liveToolkitJobs(this.projectDir).length) this.lastObservationAt = Date.now();
+          }
         }
         const wallExpired = this.options.wallTimeoutMs && Date.now() - this.startedAtMs > this.options.wallTimeoutMs;
         const idleExpired = this.options.idleTimeoutMs && Date.now() - this.lastObservationAt > this.options.idleTimeoutMs;
@@ -460,17 +626,26 @@ class RunController {
           if (!stopped) {
             try { process.kill(-this.child.pid, 'SIGKILL'); } catch { this.child.kill('SIGKILL'); }
           }
-          return this.finish(makeResult({ id: this.id, projectDir: this.projectDir, outcome: 'timed_out', route, nextAction: wallExpired ? 'The configured wall-clock timeout elapsed; inspect diagnostics and resume.' : 'Agent made no observable progress before the idle timeout; inspect diagnostics and resume.' }));
+          return this.finish(makeResult({ id: this.id, projectDir: this.projectDir, outcome: 'timed_out', route, nextAction: wallExpired ? 'The configured wall-clock timeout elapsed; inspect diagnostics and resume.' : 'Agent made no observable progress (no output, no toolkit journal growth, no live toolkit job) before the idle timeout; inspect diagnostics and resume.' }));
         }
       }
       if (heartbeat) clearInterval(heartbeat);
       this.child = null;
       await workerReports;
+      await this.toolkitIntegrityStep('check', `${route.nextState}:${route.reason}`);
       const childOutcome = workerStartupTimeout ? 'failed' : finished.code === 0 ? 'completed' : 'failed';
       await this.updateTasks((state) => {
         finishDirectAgent(state, directAgentId, childOutcome);
         if (childOutcome !== 'completed') finishWorkers(state, state.tasks.find((item) => item.state === 'running')?.taskId, 'failed');
       });
+      if (turnUsageLimit?.terminal && !workerStartupTimeout) {
+        const handled = await this.handleUsageLimit(turnUsageLimit, route);
+        if (!handled.retry) return handled;
+        // A limit stop is not a used turn and not a no-progress repeat of the route.
+        turns -= 1;
+        sameRoute = -1;
+        continue;
+      }
       if (workerStartupTimeout) {
         const retries = workerStartupRetries.get(routeKey) || 0;
         if (retries < 1) {
@@ -484,6 +659,10 @@ class RunController {
         return this.finish(makeResult({ id: this.id, projectDir: this.projectDir, outcome: 'failed', route, nextAction: `A sub-worker remained in startup state after one retry (${workerStartupTimeout.workerId}); inspect vendor diagnostics and relaunch the run.` }));
       }
       if (finished.code !== 0) return this.finish(makeResult({ id: this.id, projectDir: this.projectDir, outcome: 'failed', route, nextAction: `Agent exited with ${finished.code ?? finished.signal}; inspect vendor diagnostics and resume.` }));
+      // A long step (an import) can outlive the agent turn that started it. A turn during which the
+      // project's progress log grew made durable progress, so the same route next is a
+      // continuation, not a no-progress repeat.
+      if (activityMark(this.projectDir) !== turnStartProgressMark) sameRoute = -1;
     }
     return this.finish(makeResult({ id: this.id, projectDir: this.projectDir, outcome: 'timed_out' }));
   }
@@ -491,6 +670,9 @@ class RunController {
   async cancel(request) {
     await this.setOrchestrationCancellation('cancel_requested');
     await this.emit('cancel_requested', 'cancel_requested', request.reason || 'Cancellation requested.');
+    // An import runs detached from the agent (it outlives the host's tool-call limit), so killing
+    // the agent does not reach it. Stop it explicitly: no new writes; the next resume continues it.
+    stopSupervisors(this.projectDir);
     if (!this.child) {
       await this.setOrchestrationCancellation('canceled');
       await this.emit('canceled', 'canceled', 'Cancellation confirmed; no active child remained.');
@@ -519,4 +701,4 @@ async function requestCancellation(projectDir, { reason = 'canceled by operator'
   return { active, request };
 }
 
-module.exports = { SCHEMA_VERSION, RunController, runnerDir, activePath, historyPath, defaultEventsPath, defaultVendorEventsPath, readActive, findRun, requestCancellation, applyInvocationInputs, makeResult, exitCode, safeRelative, readJson, userActionSummary, agentAllowedDomains };
+module.exports = { SCHEMA_VERSION, RunController, runnerDir, activePath, historyPath, defaultEventsPath, defaultVendorEventsPath, readActive, claimActive, currentCancellation, findRun, requestCancellation, applyInvocationInputs, makeResult, exitCode, safeRelative, readJson, userActionSummary, bootstrap };

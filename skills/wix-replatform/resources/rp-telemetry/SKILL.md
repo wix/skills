@@ -282,7 +282,7 @@ running the migration, and never blocks the run.
    ```
 
    - `volumes` come from the execution artifacts (manifest, audit log, crosswalk):
-     `planned` and `target`/`target_surface` from the **approved** plan;
+     `planned` and `target`/`target_surface` from the **approved** plan (`target` is `native|cms|none`);
      `already_imported` is crosswalk-skipped scope from a prior attempt — never fold it
      into `skipped`.
    - Include a volume row for **every** entity type discovery found in use — including

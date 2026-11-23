@@ -121,8 +121,8 @@ If this skill encounters conflicting Wix guidance about how to create a `new sit
    refreshing a credentials request, and request only when the parser-loaded credentials
    are missing/blank or still fail authentication. The adapter owns the capture mechanics,
    auth model, and platform quirks; this skill consumes its output.
-   For long runs, pass `--progress-log <path>` and poll it per
-   `CONVENTIONS.md#progress-log-polling`.
+   For long runs, pass `--progress-log execution/progress.ndjson` (the runner's file) and wait for it with
+   `node <toolkit>/scripts/wait-background.js --project <dir>` (`CONVENTIONS.md#waiting-for-background-work`), never a loop of your own.
    - Distinguish **supported** entities (advertised by the source) from **used** entities
      (those with `recordCount > 0`). Entities advertised but empty should be flagged, not
      mapped as if they hold data.
@@ -180,7 +180,24 @@ If this skill encounters conflicting Wix guidance about how to create a `new sit
    ngrok http 8090
    export WP_BASE_URL=https://<id>.ngrok-free.app
    ```
-9. Synthesize the raw capture into the normalized artifacts below.
+9. Synthesize the raw capture into the normalized artifacts below. **For WordPress /
+   WooCommerce, do not write a script for this.** Run the toolkit builder from the
+   `rp-source-wordpress` skill directory, after the capture (and after the catalog extract,
+   when it has run):
+
+   ```bash
+   node scripts/wp-source-schema.js <migrations-root>/<project>
+   ```
+
+   It writes `source-schema.json`, `discovery/plugin-coverage.json` (verbatim copy) and
+   `discovery/entities/`, with stable entity keys (reader-catalog id, `plugin.<slug>.<entity>`,
+   plugin-coverage generic name, `store-api-<catalog id>`). Then add only what the capture cannot
+   know: `assumptions`, `unknowns`, notes, or extra keys on an entity. Edit the JSON directly; a
+   re-run keeps every key the builder does not produce. The schema holds capture facts only:
+   record not-to-import decisions in mapping (census disposition), never by editing or deleting
+   `source-schema.json` entries; the builder restores built keys on rerun. Write AI code here only for a source
+   with no builder. If the builder exits non-zero, record the message in
+   `discovery/warnings.json` and synthesize by hand from the template below.
 10. Promote the adapter's source-coverage record (see *Source coverage* below) as the last
     discovery write. Discovery is not promoted until this succeeds.
 
@@ -197,7 +214,7 @@ If this skill encounters conflicting Wix guidance about how to create a `new sit
 
 - `migrations/<project>/data/<source>-discovery/`: raw machine-captured output from the source adapter. Treated as evidence, not a hand-off artifact — downstream skills reference it for traceability but do not read it wholesale.
 - `migrations/<project>/source-profile.md`: source platform, access method, limits, auth, and operational notes. Synthesized from the raw capture. Capture the operational facts the adapter documents (auth model, pagination, rate limits) so `rp-import-codegen` has them without re-deriving.
-- `migrations/<project>/source-schema.json`: machine-readable schema for entities and fields. **Synthesized from the raw capture** — this and `source-profile.md` are the canonical hand-off to `rp-mapper`. Include traceability pointers so the mapper can drill into a specific entity's raw file when needed:
+- `migrations/<project>/source-schema.json`: machine-readable schema for entities and fields. **Synthesized from the raw capture** (WordPress / WooCommerce: built by `rp-source-wordpress/scripts/wp-source-schema.js`, step 9) — this and `source-profile.md` are the canonical hand-off to `rp-mapper`. Include traceability pointers so the mapper can drill into a specific entity's raw file when needed:
   - top-level `rawDiscovery`: relative path to the raw capture dir, e.g. `data/wp-discovery/`.
   - per-entity `rawFile`: file name within that dir, e.g. `wp-v2--posts.md`.
   - per-entity `recordCount` and `inUse` so consumers can distinguish supported vs. actually-used entities.
@@ -219,10 +236,14 @@ into the canonical artifacts rather than leaving it in the raw capture:
 - Copy the adapter's coverage rows into
   `migrations/<project>/discovery/plugin-coverage.json` (one artifact: capability rows plus
   the per-plugin projection), and render a short user-facing
-  `discovery/review/plugin-coverage.md` grouped by the four statuses — *Migration planned* ·
-  *No need to migrate* · *Pending* · *Requires development*. The statuses are already
-  customer-readable; phrase the rest in user terms ("your events will come across as a CMS
+  `discovery/review/plugin-coverage.md` grouped by the five statuses — *Migration planned* ·
+  *No need to migrate* · *Pending* · *Requires development* · *Manual mapping available*.
+  The shared status and per-plugin metadata definition is
+  `../rp-source-wordpress/plugin-coverage-contract.json`; use it rather than introducing a
+  discovery-specific vocabulary. The statuses are already customer-readable; phrase the rest in user terms ("your events will come across as a CMS
   collection"), never internal jargon.
+  The shared status IDs are `migration-planned`, `no-need-to-migrate`, `pending`,
+  `requires-development`, and `manual-mapping`.
 - For selected WordPress plugin storage without a complete supported REST reader, follow
   `rp-source-wordpress/PLUGIN-READ-PLANS.md`. A missing permanent profile does not end
   discovery. Reuse actual schema/storage evidence to prepare and validate a project-local
@@ -242,6 +263,12 @@ into the canonical artifacts rather than leaving it in the raw capture:
 - Record in `source-profile.md`: whether the plugin list was available, how many plugins were
   detected/unrecognized, and the counts by status. Downstream stages must not have to
   parse the raw capture to learn whether plugin coverage was complete.
+
+The `plugin-coverage.json` `perPlugin[]` projection carries the shared contract's required
+metadata fields: `plugin`, `displayName`, `version`, `active`, `does`, `status`, `via`,
+`mappingConfidence`, `consequence`, `manualSteps`, `cutoverTask`, `recognized`,
+`inventoryBasis`, `statusBasis`, `confidence`, `signals`, `capabilities`, `channels`,
+`channelStatuses`, `targetRefs`, `profileVersion`, `blocked`, `blockers`, and `prerequisite`.
 
 **Classifying an unrecognized plugin is a judgement, not a lookup.**
 For every installed plugin with no profile, you — not the `[js]` layer — answer the only
@@ -290,7 +317,8 @@ and carrying its `decidedBy` / `decidedOn`. Report it; do not re-open it as Pend
   **once**, as a single batched request with each item individually skippable. Record each
   answer in `orchestration/decisions.json` under `pluginBlocker:<capability>:<kind>` with
   value `provided` or `declined` — the discovery script reads these back so a declined ask
-  renders as declined, not as unanswered. Never block the run on a skipped capability.
+  renders as declined, not as unanswered. Never block the run on a skipped capability. In a
+  one-click run do not ask: discovery declines unanswered items and lists them in one cutover task.
 - Beside it, `pluginCmsFallback:<capability>` holds the merchant's answer to a CMS-fallback ask
   (recognized capabilities that a human signed as CMS-eligible). Discovery reads it but never
   writes it: it is asked at the mapping review and recorded only by

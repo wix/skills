@@ -146,6 +146,9 @@ const FINDING_CODES = Object.freeze([
   // A source order with no line items was imported with one custom "Items not recorded in source"
   // line at the order total (human-approved policy); each is also a Cutover Operator item.
   'order-line-items-not-recorded',
+  // A guest order with no billing, shipping or email contact: the one buyer case still held
+  // (order-buyer.js orderBuyerContact). Each is also a fidelity-ledger row.
+  'order-buyer-contact-missing',
 ]);
 
 // Mutually exclusive per-order buyer outcomes. When a report carries any of them, they

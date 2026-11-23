@@ -478,8 +478,9 @@ function writeJsonAtomicSync(filePath, value) {
 }
 
 // rp-mapper and rp-setup-discovery bind the plans they write to the coverage they were built
-// from: mapping-plan.json copies discovery/plugin-coverage.json's digest, setup-plan.json copies
-// the mapping plan's.
+// from: mapping-plan.json copies discovery/plugin-coverage.json's digest, and setup-plan.json
+// copies both the mapping plan's digest (lib/mapping-plan-digest.js) and (when applicable) its
+// CMS-fallback digest. A legacy raw `mappingPlanSha256` pin is replaced, never kept beside it.
 function stampPlanDigest(projectDir, plan) {
   const paths = projectPaths(projectDir);
   const [sourcePath, targetPath] = plan === 'mapping'
@@ -495,19 +496,28 @@ function stampPlanDigest(projectDir, plan) {
   }
   const source = readJsonStrict(sourcePath);
   const digest = source && source.inputs && source.inputs.cmsFallbackDigest;
+  const mappingPlanDigest = plan === 'setup' ? require('./mapping-plan-digest.js').current(projectDir) : null;
   if (typeof digest !== 'string' && plan === 'setup' && !fs.existsSync(paths.coverage)) {
-    // No plugin coverage: the mapping plan has no digest to copy, and the router's freshness
-    // chain (checkCmsFallbackFreshness) checks nothing either. A plugin-covered project with a
-    // missing digest still falls through to the error below.
-    return { stamped: false, reason: 'no plugin coverage; nothing to bind the setup plan to' };
+    // No plugin coverage: there is no CMS-fallback digest to copy, but every active setup plan
+    // still binds to the mapping authority so a later mapping edit cannot reach setup/import.
+    const target = readJsonStrict(targetPath);
+    const { mappingPlanSha256: legacy, ...inputs } = target.inputs || {};
+    target.inputs = { ...inputs, mappingPlanDigest };
+    writeJsonAtomicSync(targetPath, target);
+    return { stamped: true, plan, mappingPlanDigest, reason: 'no plugin coverage; mapping digest recorded' };
   }
   if (typeof digest !== 'string') {
     throw new Error(`${path.relative(projectDir, sourcePath)} carries no inputs.cmsFallbackDigest; regenerate it before stamping`);
   }
   const target = readJsonStrict(targetPath);
-  target.inputs = { ...(target.inputs || {}), cmsFallbackDigest: digest };
+  const { mappingPlanSha256: legacy, ...inputs } = target.inputs || {};
+  target.inputs = {
+    ...(mappingPlanDigest ? inputs : target.inputs || {}),
+    ...(mappingPlanDigest ? { mappingPlanDigest } : {}),
+    cmsFallbackDigest: digest,
+  };
   writeJsonAtomicSync(targetPath, target);
-  return { stamped: true, plan, cmsFallbackDigest: digest };
+  return { stamped: true, plan, ...(mappingPlanDigest ? { mappingPlanDigest } : {}), cmsFallbackDigest: digest };
 }
 
 // ---- coverage rows -----------------------------------------------------------------------
@@ -578,7 +588,10 @@ function cmsFallbackWriteGuard(projectDir, { decisions = null, pluginsRoot, targ
     mappingPlan: digestOf(readJsonOrNull(paths.mappingPlan)),
     setupPlan: digestOf(readJsonOrNull(paths.setupPlan)),
   };
-  const fresh = Boolean(current) && chain.coverage === current && chain.mappingPlan === current && chain.setupPlan === current;
+  const setupPlanValue = readJsonOrNull(paths.setupPlan);
+  const setupMappingPin = setupPlanValue?.inputs?.mappingPlanDigest || setupPlanValue?.inputs?.mappingPlanSha256 || null;
+  const rawMappingBindingFresh = require('./mapping-plan-digest.js').matches(projectDir, setupMappingPin);
+  const fresh = Boolean(current) && chain.coverage === current && chain.mappingPlan === current && chain.setupPlan === current && rawMappingBindingFresh;
 
   const result = {};
   const refusals = [];
@@ -593,6 +606,7 @@ function cmsFallbackWriteGuard(projectDir, { decisions = null, pluginsRoot, targ
     else if (!entry) reason = 'eligibility-missing';
     else if (evaluation.state !== 'approved') reason = `decision-${evaluation.state}`;
     else if (row.cmsFallback.proposalDigest !== entryDigest) reason = 'coverage-proposal-stale';
+    else if (!rawMappingBindingFresh) reason = 'mapping-plan-binding-stale';
     else if (!fresh) reason = 'resolution-inputs-changed';
     const allowed = reason === null;
     result[capability] = { allowed, reason, targetRefs: allowed ? [...(row.targetRefs || [])] : [] };

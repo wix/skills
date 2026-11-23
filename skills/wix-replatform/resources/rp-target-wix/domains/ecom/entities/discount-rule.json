@@ -16,7 +16,8 @@
     "stores/category"
   ],
   "dependencyModes": {
-    "stores/product": "per-record"
+    "stores/product": "per-record",
+    "stores/category": "task-complete"
   },
   "dependencyReferenceFields": {
     "stores/product": [

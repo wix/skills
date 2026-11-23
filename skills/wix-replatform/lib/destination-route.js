@@ -75,6 +75,11 @@ async function destinationGate(projectDir, decisions, { targetSiteStrategy, site
 // rp-destination, whose coordinator runs one fresh readback (never a create) and either
 // re-verifies or blocks with the publication recovery request.
 const PUBLICATION_FRESH_MS = 10 * 60_000;
+// H48: a site read as unpublished this many times in a row is trusted for a longer window, so a
+// long setup/import is not interrupted by a recheck turn every 10 minutes. Any published or
+// unknown readback resets the streak (destination.js checkPublication) and the short window applies.
+const PUBLICATION_STREAK_TRUSTED = 3;
+const PUBLICATION_TRUSTED_MS = 6 * 60 * 60_000;
 const DOWNSTREAM_STATES = new Set(['executing_setup', 'executing_import']);
 
 async function publicationRecheckGate(projectDir, route, { now = Date.now() } = {}) {
@@ -85,7 +90,8 @@ async function publicationRecheckGate(projectDir, route, { now = Date.now() } = 
   const publication = receipt.publication || {};
   const checkedAt = Date.parse(publication.checkedAt);
   const age = now - checkedAt;
-  if (publication.state === 'unpublished' && Number.isFinite(checkedAt) && age >= 0 && age <= PUBLICATION_FRESH_MS) return route;
+  const window = Number.isInteger(publication.unpublishedStreak) && publication.unpublishedStreak >= PUBLICATION_STREAK_TRUSTED ? PUBLICATION_TRUSTED_MS : PUBLICATION_FRESH_MS;
+  if (publication.state === 'unpublished' && Number.isFinite(checkedAt) && age >= 0 && age <= window) return route;
   return {
     ok: true,
     nextState: 'destination_running',
@@ -95,4 +101,4 @@ async function publicationRecheckGate(projectDir, route, { now = Date.now() } = 
   };
 }
 
-module.exports = { PUBLICATION_FRESH_MS, destinationGate, publicationRecheckGate };
+module.exports = { PUBLICATION_FRESH_MS, PUBLICATION_STREAK_TRUSTED, PUBLICATION_TRUSTED_MS, destinationGate, publicationRecheckGate };

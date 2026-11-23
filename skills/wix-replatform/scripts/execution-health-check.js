@@ -13,7 +13,7 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { createProgressLogger, parseProgressArgs } = require('../lib/progress-log.js');
+const { createProgressLogger, parseProgressArgs, projectProgressLog } = require('../lib/progress-log.js');
 // Note: `process.kill(pid, 0)` throwing does not
 // by itself mean the process is dead -- Node surfaces the same exception for ESRCH (no such
 // process) and EPERM (a real, live process this user cannot signal, e.g. owned by a different
@@ -181,6 +181,19 @@ function hasLiveLocalProcess(projectDir, scriptFilter) {
     return false;
   }
   const host = Buffer.from(os.hostname()).toString('base64url');
+  // The current exclusive lock is an atomic singleton symlink. Its target carries the same
+  // PID/host/script identity even when the holder died before writing any sidecar metadata.
+  try {
+    const target = fs.readlinkSync(path.join(lockDir, 'holder'));
+    const match = /^owner\.([^.]+)\.(\d+)\.[a-f0-9-]+\.([A-Za-z0-9_-]+)$/.exec(target);
+    if (match && match[1] === host) {
+      const script = match[3] === '-' ? '' : Buffer.from(match[3], 'base64url').toString();
+      if (script.includes(scriptFilter) && isProcessAlive(Number(match[2]))) return true;
+    }
+  } catch (error) {
+    // A missing or concurrently replaced holder is not evidence of liveness; legacy claims below
+    // remain supported while projects roll forward to the singleton format.
+  }
   for (const entry of entries) {
     const match = /^([^.]+)\.(\d+)\.[a-f0-9-]+\.owner$/.exec(entry);
     if (!match || match[1] !== host) {
@@ -232,7 +245,7 @@ function hasLiveSignal(projectDir, latestRecord, scriptFilter) {
 
 function checkHealth({ projectDir, scriptFilter, staleAfterMs }) {
   const completionReportPath = path.join(projectDir, 'execution', 'completion-report.json');
-  const progressLogPath = path.join(projectDir, 'execution', 'progress.ndjson');
+  const progressLogPath = projectProgressLog(projectDir);
   const { records, anyLineSeen } = readProgressRecords(progressLogPath);
   const latest = latestMatchingRecord(records, scriptFilter);
   const lastEventAt = latest ? latest.ts : null;
@@ -375,9 +388,14 @@ function checkHealth({ projectDir, scriptFilter, staleAfterMs }) {
 
 function main() {
   const parsed = parseProgressArgs(process.argv.slice(2));
+  // A health check is a reader: it never writes to the inherited PROGRESS_LOG (the file it reads),
+  // so polling a dead import can not look like progress. An explicit --progress-log still works.
+  const explicitLog = process.argv.includes('--progress-log');
   progress = createProgressLogger({
     script: 'skills/wix-replatform/scripts/execution-health-check.js',
     ...parsed.progress,
+    progressLog: explicitLog ? parsed.progress.progressLog : null,
+    mirrorLog: null,
   });
   progress.start('Execution health check started', { phase: 'execution', step: 'health-check' });
 

@@ -39,6 +39,10 @@ function promptTimeZone({ project, run, siteId, requestId, value }) {
   return `Requires Import Operator. Resume migration ${project}/${run} for destination ${siteId}. The Cutover Operator confirmed the site time zone (${value}, or the zone they set instead). Acknowledge user action ${requestId}, regenerate the completion report, and verify site-locale-time-zone-unconfirmed is absent. If confirmation is missing, record nothing and leave the action open.`;
 }
 
+function promptLocale({ project, run, siteId, requestId }) {
+  return `Requires Import Operator. Resume migration ${project}/${run} for destination ${siteId}. The Cutover Operator confirmed the site language and regional format (or set others). Acknowledge user action ${requestId}, regenerate the completion report, and verify site-locale-language-unconfirmed is absent. If confirmation is missing, record nothing and leave the action open.`;
+}
+
 function userActionFiles(projectDir) {
   const dir = path.join(projectDir, 'orchestration', 'user-actions');
   if (!fs.existsSync(dir)) return [];
@@ -64,17 +68,17 @@ function refsStillAwaitingCatchUp(projectDir, siteId, verification, refs, tasks)
   const manifest = core.readJsonSync(path.join(projectDir, 'execution', 'execution-manifest.json'));
   if (!manifest) return refs;
   const finishedAfter = Date.parse(verification?.generatedAt || '') || Infinity;
-  let manifestDigest; let setupPlanDigest; let mappingPlanDigest;
+  let manifestDigest; let setupPlanDigest;
   try {
     manifestDigest = core.fileSha256(projectDir, 'execution/execution-manifest.json');
     setupPlanDigest = core.fileSha256(projectDir, 'setup/setup-plan.json');
-    mappingPlanDigest = core.fileSha256(projectDir, 'mapping/mapping-plan.json');
   } catch { return refs; }
+  const mappingPinned = (pin) => require('./mapping-plan-digest.js').matches(projectDir, pin);
   const passes = ndjson(projectDir, 'state/readiness/task-passes.ndjson');
   const taskPassed = (task) => passes.some((pass) => pass?.taskId === task.id
     && pass.siteId === siteId && pass.dryRun === false && pass.selection?.mode === 'full'
     && pass.planVersion === manifest.planVersion && pass.manifestDigest === manifestDigest
-    && pass.setupPlanDigest === setupPlanDigest && pass.mappingPlanDigest === mappingPlanDigest
+    && pass.setupPlanDigest === setupPlanDigest && mappingPinned(pass.mappingPlanDigest)
     && Date.parse(pass.finishedAt) >= finishedAfter);
   return refs.filter((ref) => {
     const owners = tasks.filter((task) => (task.entityRefs || []).includes(ref));
@@ -176,7 +180,16 @@ function regionalReportRows(projectDir) {
     });
   }
 
+  for (const request of actions) {
+    if (request.status !== 'pending' || request.subject?.type !== core.LOCALE_CONFIRMATION) continue;
+    operatorActions.push({
+      code: 'site-locale-language-unconfirmed', severity: 'medium', entity: 'site/locale:language', affectedCount: null,
+      deadlineReason: 'before launch',
+      action: `Cutover Operator: confirm the site language ${request.subject.language || 'site default'} and regional format ${request.subject.locale || 'site default'} in Business Manager > Settings > Language & region (${request.subject.basis === 'kept-site-default' ? 'the source language could not be read, so the site kept its own' : 'the source store did not name its language'}). Change them there if they are wrong. ${promptLocale({ project, run, siteId, requestId: request.requestId })}`,
+    });
+  }
+
   return { operatorActions, headline };
 }
 
-module.exports = { regionalReportRows, promptAnswer, promptCatchUp, promptSupply, promptPayment, promptTimeZone };
+module.exports = { regionalReportRows, promptAnswer, promptCatchUp, promptSupply, promptPayment, promptTimeZone, promptLocale };

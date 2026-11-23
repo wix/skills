@@ -1,0 +1,431 @@
+{
+  "schemaVersion": 1,
+  "kind": "wix-map-suggestion",
+  "sourcePlatform": "woocommerce",
+  "primaryKey": "id",
+  "sourceEntity": "media",
+  "targetRef": "media/media-file",
+  "targetEntity": "media-file",
+  "preferredWrite": "importMedia",
+  "requiredSourceEntityRefs": [],
+  "provenance": [
+    "store T 11-16 live run 09895795 reviewed plan (mapping rounds 7-8)"
+  ],
+  "holdCodes": {},
+  "fieldMappings": [
+    {
+      "id": "media-url",
+      "sourcePaths": [
+        "source_url"
+      ],
+      "disposition": "native",
+      "reason": "The full-size file URL is what Media Manager fetches. Every media library file is imported (import everything); posts and products resolve their images to these files by source URL.",
+      "evidence": [
+        "resources/rp-target-wix/domains/media/entities/media-file.json (preferredWrite importMedia; mappingGuidance: import referenced media by default)",
+        "resources/rp-target-wix/lib/blog-post-media.js (post media import: cover and inline images)",
+        "resources/rp-mapper/SKILL.md \"Default media scope\""
+      ],
+      "transform": {
+        "kind": "expression",
+        "expression": "Copy source_url unchanged when it is a nonempty http(s) URL; the importer percent-encodes it. Missing, null or empty: return to mapping (the file cannot be imported)."
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "omit-output"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "mu-1",
+          "input": {
+            "source_url": "https://example.com/wp-content/uploads/a.jpg"
+          },
+          "expected": [
+            {
+              "outputId": "m-url",
+              "writeOperation": "importMedia",
+              "values": [
+                "https://example.com/wp-content/uploads/a.jpg"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "mu-2",
+          "input": {},
+          "expected": [
+            {
+              "outputId": "m-url",
+              "writeOperation": "importMedia",
+              "omitted": true
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "m-url",
+          "sourcePaths": [
+            "source_url"
+          ],
+          "targetRef": "media/media-file",
+          "writeOperation": "importMedia",
+          "targetPath": "url",
+          "verification": {
+            "readPath": "sourceUrl"
+          }
+        }
+      ]
+    },
+    {
+      "id": "media-display-name",
+      "sourcePaths": [
+        "title.rendered",
+        "filename"
+      ],
+      "disposition": "native",
+      "reason": "Display name is the attachment title, else the file name. Every media library file is imported (import everything); posts and products resolve their images to these files by source URL.",
+      "evidence": [
+        "resources/rp-target-wix/domains/media/entities/media-file.json (preferredWrite importMedia; mappingGuidance: import referenced media by default)",
+        "resources/rp-target-wix/lib/blog-post-media.js (post media import: cover and inline images)",
+        "resources/rp-mapper/SKILL.md \"Default media scope\""
+      ],
+      "transform": {
+        "kind": "expression",
+        "expression": "Use title.rendered when it is a nonempty string after trimming; otherwise filename; otherwise omit (the importer derives a name from the URL)."
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "omit-output"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "mn-1",
+          "input": {
+            "title": {
+              "rendered": "Beans"
+            },
+            "filename": "a.jpg"
+          },
+          "expected": [
+            {
+              "outputId": "m-name",
+              "writeOperation": "importMedia",
+              "values": [
+                "Beans"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "mn-2",
+          "input": {
+            "title": {
+              "rendered": ""
+            },
+            "filename": "a.jpg"
+          },
+          "expected": [
+            {
+              "outputId": "m-name",
+              "writeOperation": "importMedia",
+              "values": [
+                "a.jpg"
+              ]
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "m-name",
+          "sourcePaths": [
+            "title.rendered",
+            "filename"
+          ],
+          "targetRef": "media/media-file",
+          "writeOperation": "importMedia",
+          "targetPath": "displayName",
+          "verification": {
+            "readPath": "displayName"
+          }
+        }
+      ]
+    },
+    {
+      "id": "media-mime-type",
+      "sourcePaths": [
+        "mime_type"
+      ],
+      "disposition": "native",
+      "reason": "MIME type of the file. Every media library file is imported (import everything); posts and products resolve their images to these files by source URL.",
+      "evidence": [
+        "resources/rp-target-wix/domains/media/entities/media-file.json (preferredWrite importMedia; mappingGuidance: import referenced media by default)",
+        "resources/rp-target-wix/lib/blog-post-media.js (post media import: cover and inline images)",
+        "resources/rp-mapper/SKILL.md \"Default media scope\""
+      ],
+      "transform": {
+        "kind": "expression",
+        "expression": "Copy mime_type unchanged when nonempty; missing omits the output."
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "omit-output"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "mm-1",
+          "input": {
+            "mime_type": "image/jpeg"
+          },
+          "expected": [
+            {
+              "outputId": "m-mime",
+              "writeOperation": "importMedia",
+              "values": [
+                "image/jpeg"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "mm-2",
+          "input": {},
+          "expected": [
+            {
+              "outputId": "m-mime",
+              "writeOperation": "importMedia",
+              "omitted": true
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "m-mime",
+          "sourcePaths": [
+            "mime_type"
+          ],
+          "targetRef": "media/media-file",
+          "writeOperation": "importMedia",
+          "targetPath": "mimeType",
+          "verification": {
+            "readPath": "mimeType"
+          }
+        }
+      ]
+    },
+    {
+      "id": "media-type",
+      "sourcePaths": [
+        "media_type"
+      ],
+      "disposition": "native",
+      "reason": "Media kind (image, video, file). Every media library file is imported (import everything); posts and products resolve their images to these files by source URL.",
+      "evidence": [
+        "resources/rp-target-wix/domains/media/entities/media-file.json (preferredWrite importMedia; mappingGuidance: import referenced media by default)",
+        "resources/rp-target-wix/lib/blog-post-media.js (post media import: cover and inline images)",
+        "resources/rp-mapper/SKILL.md \"Default media scope\""
+      ],
+      "transform": {
+        "kind": "expression",
+        "expression": "Upper-case media_type for IMAGE, VIDEO or AUDIO; file becomes DOCUMENT; any other value omits the output."
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "omit-output"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "mt-1",
+          "input": {
+            "media_type": "image"
+          },
+          "expected": [
+            {
+              "outputId": "m-type",
+              "writeOperation": "importMedia",
+              "values": [
+                "IMAGE"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "mt-2",
+          "input": {
+            "media_type": "file"
+          },
+          "expected": [
+            {
+              "outputId": "m-type",
+              "writeOperation": "importMedia",
+              "values": [
+                "DOCUMENT"
+              ]
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "m-type",
+          "sourcePaths": [
+            "media_type"
+          ],
+          "targetRef": "media/media-file",
+          "writeOperation": "importMedia",
+          "targetPath": "mediaType",
+          "verification": {
+            "readPath": "mediaType"
+          }
+        }
+      ]
+    },
+    {
+      "id": "media-external-id",
+      "sourcePaths": [
+        "id"
+      ],
+      "disposition": "native",
+      "reason": "The WordPress attachment id is recorded as the file external id (origin wordpress) so a reply lost mid-import can be reconciled and the crosswalk keyed. Every media library file is imported (import everything); posts and products resolve their images to these files by source URL.",
+      "evidence": [
+        "resources/rp-target-wix/domains/media/entities/media-file.json (preferredWrite importMedia; mappingGuidance: import referenced media by default)",
+        "resources/rp-target-wix/lib/blog-post-media.js (post media import: cover and inline images)",
+        "resources/rp-mapper/SKILL.md \"Default media scope\""
+      ],
+      "transform": {
+        "kind": "expression",
+        "expression": "externalInfo = { origin: \"wordpress\", externalId: String(id) } for a positive integer id."
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "omit-output"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "me-1",
+          "input": {
+            "id": 29951
+          },
+          "expected": [
+            {
+              "outputId": "m-ext",
+              "writeOperation": "importMedia",
+              "values": [
+                {
+                  "origin": "wordpress",
+                  "externalId": "29951"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "me-2",
+          "input": {},
+          "expected": [
+            {
+              "outputId": "m-ext",
+              "writeOperation": "importMedia",
+              "omitted": true
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "m-ext",
+          "sourcePaths": [
+            "id"
+          ],
+          "targetRef": "media/media-file",
+          "writeOperation": "importMedia",
+          "targetPath": "externalInfo",
+          "verification": {
+            "unverifiableReason": "Media Manager cannot filter or read back externalInfo (webhook-only); the file is found by sourceUrl and the crosswalk row."
+          }
+        }
+      ]
+    }
+  ]
+}

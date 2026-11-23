@@ -61,6 +61,16 @@ const DECISION_PREFIX = 'sourceCoverage:';
 // Rows whose open state owes the Cutover Operator an urgent action: the source still holds the
 // only copy and nobody decided to leave it behind.
 const URGENT_REASONS = new Set(['auth-gated', 'capture-failed', 'declared-not-observed']);
+// A route the adapter does not read (unsupported plugin API, or skipped by rule such as payment
+// gateway settings) that the source cannot hand to an operator either. Left open it is a cutover
+// task, not a data loss that blocks finalize. A row the Import Operator can still recover
+// (an unknown CSV file, a skipped data route) stays `unresolved` and keeps blocking.
+const ROUTE_GAP_REASONS = new Set(['route-unsupported', 'route-skipped-by-rule']);
+function openTreatment(row) {
+  if (row.reason === 'adapter-excluded') return 'ungated-exclusion';
+  if (ROUTE_GAP_REASONS.has(row.reason) && row.recoverability !== 'import-operator') return 'route-gap';
+  return 'unresolved';
+}
 
 // Status floors reuse the completion report's existing vocabulary and rank (completion-report.js
 // COMPLETION_STATUS). Duplicated as strings, not imported, so this module stays a leaf.
@@ -68,6 +78,7 @@ const STATUS_FLOOR = Object.freeze({
   recovered: null,
   'gated-exclusion': null,
   'ungated-exclusion': 'complete_with_warnings',
+  'route-gap': 'complete_with_warnings',
   'accepted-loss': 'incomplete_with_failures',
   unresolved: 'incomplete_with_mismatches',
   'pre-contract': 'complete_with_warnings',
@@ -677,7 +688,7 @@ function reconcileSourceCoverage({ coverage, gaps, decisions, sourceSchema = nul
         resolved.push({
           row,
           disposition: 'declined',
-          treatment: row.reason === 'adapter-excluded' ? 'ungated-exclusion' : 'unresolved',
+          treatment: openTreatment(row),
           gate: null,
           gateEvidence: null,
           handling: null,
@@ -690,7 +701,7 @@ function reconcileSourceCoverage({ coverage, gaps, decisions, sourceSchema = nul
     const gate = gap.gate === undefined || gap.gate === null ? null : gap.gate;
     const handling = nonEmptyString(gap.recommendedHandling) ? gap.recommendedHandling : (nonEmptyString(gap.handling) ? gap.handling : null);
     if (gate === null) {
-      resolved.push({ row, disposition: 'gap', treatment: row.reason === 'adapter-excluded' ? 'ungated-exclusion' : 'unresolved', gate: null, gateEvidence: null, handling });
+      resolved.push({ row, disposition: 'gap', treatment: openTreatment(row), gate: null, gateEvidence: null, handling });
       continue;
     }
     if (!GATES.includes(gate)) {
@@ -776,6 +787,53 @@ function headlineFor(treatment, label, reasons) {
   }
 }
 
+// Plugin names for an unsupported namespace: the fingerprint alias map (first namespace segment),
+// then the plugin profile index. WordPress and WooCommerce core namespaces are not plugins.
+const CORE_NAMESPACE_TOKENS = new Set(['wp', 'wc', 'wc-admin', 'wc-admin-email', 'wc-analytics', 'wc-telemetry', 'oembed', 'wp-site-health', 'wp-block-editor']);
+let cachedPluginNames = null;
+function pluginNameFor(namespace) {
+  if (!cachedPluginNames) {
+    const dir = path.join(__dirname, '..', 'resources', 'rp-source-wordpress', 'plugins');
+    const load = (file, pick) => { try { return pick(require(path.join(dir, file))) || {}; } catch { return {}; } }; // eslint-disable-line global-require, import/no-dynamic-require
+    cachedPluginNames = { aliases: load('fingerprint-aliases.json', (doc) => doc.aliases), profiles: load('index.json', (doc) => doc.plugins) };
+  }
+  const token = String(namespace).split('/')[0];
+  return cachedPluginNames.aliases[token]?.displayName || cachedPluginNames.profiles[token]?.displayName || null;
+}
+
+// One grouped cutover task for every unsupported plugin or route namespace (Elad 11-19, #845
+// review): the exact list, what to decide, and when it is done. Core WooCommerce/WordPress routes
+// are listed apart: their store data is read through the supported readers.
+function unsupportedRoutesAction(rows) {
+  const core = [];
+  const plugins = [];
+  for (const row of rows) {
+    if (CORE_NAMESPACE_TOKENS.has(String(row.sourceEntity).split('/')[0])) { core.push(row.sourceEntity); continue; }
+    const name = pluginNameFor(row.sourceEntity);
+    plugins.push(name ? `${name} (${row.sourceEntity})` : `${row.sourceEntity} (plugin name not known; the first part is usually the plugin's name)`);
+  }
+  plugins.sort((a, b) => a.localeCompare(b));
+  core.sort();
+  const parts = [];
+  if (plugins.length) {
+    parts.push(`These WordPress plugins were not migrated, because the migration cannot read them: ${plugins.join('; ')}. For each one, decide whether the new site needs a Wix app or setting for it (for example a cookie banner app for a cookie-consent plugin, or a Wix form for a form plugin), and set it up in Business Manager if needed.`);
+  }
+  if (core.length) {
+    parts.push(`${plugins.length ? 'Also not read' : 'Not read'}: extra WooCommerce and WordPress core routes (${core.join(', ')}). The store data itself (products, orders, customers, posts) was migrated through the supported readers, so mark these not needed unless the site used one of them directly (for example WooCommerce point of sale).`);
+  }
+  parts.push('Done when each one is marked needed (and set up) or not needed.');
+  return {
+    code: 'source-plugins-not-migrated',
+    severity: 'low',
+    action: parts.join(' '),
+    deadlineReason: 'before go-live, so the site does not miss a feature the source plugin provided',
+    entity: 'source-coverage',
+    affectedIds: rows.map((row) => row.coverageId),
+    affectedCount: rows.length,
+    resolutionEvidence: 'each listed plugin or route is marked needed (and set up in Wix) or not needed',
+  };
+}
+
 function preContractSummary() {
   return {
     sourceCoverageRecorded: false,
@@ -789,9 +847,13 @@ function preContractSummary() {
 
 // The pure join. Throws on any reconcile failure, so a writer refuses instead of choosing a status.
 // `coverage: null` means a pre-contract project (no stamp); the caller decides that, never this.
-function summarizeSourceCoverage({ coverage, gaps, decisions, sourceSchema = null, registers = null, approvals = null, quickContract = null } = {}) {
+function summarizeSourceCoverage({ coverage, gaps, decisions, sourceSchema = null, registers = null, approvals = null, quickContract = null, settledFailureKeys = null } = {}) {
   if (coverage === null) return preContractSummary();
   const result = reconcileSourceCoverage({ coverage, gaps, decisions, sourceSchema, registers, approvals, quickContract });
+  // Failures the run settled after the mapping pass limit (lib/route-settlement.js) do not throw:
+  // each is a cutover task below; the source data stays in the local extract.
+  const settled = settledFailureKeys ? result.failures.filter((item) => settledFailureKeys.has(`${item.code || 'error'}:${item.coverageId ?? ''}`)) : [];
+  if (!result.ok && settled.length === result.failures.length) result.ok = true;
   if (!result.ok) {
     throw new SourceCoverageError(
       `source coverage does not reconcile: ${result.failures.map((item) => `${item.code} ${item.coverageId || ''}`.trim()).join('; ')}`,
@@ -801,6 +863,8 @@ function summarizeSourceCoverage({ coverage, gaps, decisions, sourceSchema = nul
 
   let status = null;
   const sourceCoverage = [];
+  const operatorActions = [];
+  const unsupportedRoutes = [];
   const grouped = new Map();
   const gatedCapabilities = new Set();
   for (const item of result.resolved) {
@@ -825,6 +889,21 @@ function summarizeSourceCoverage({ coverage, gaps, decisions, sourceSchema = nul
       gatedCapabilities.add(label);
       continue;
     }
+    if (item.treatment === 'route-gap' && item.row.reason === 'route-unsupported') {
+      // Unsupported plugin namespaces become ONE grouped cutover task (below), naming each plugin.
+      unsupportedRoutes.push(item.row);
+    } else if (item.treatment === 'route-gap') {
+      // A route skipped by rule (payment-gateway settings) keeps its own task with the gap's handling.
+      operatorActions.push({
+        code: 'source-route-not-migrated',
+        severity: 'low',
+        action: `${label} (${item.row.reason}${item.row.routes.length ? `: ${item.row.routes.slice(0, 3).join(', ')}${item.row.routes.length > 3 ? ` and ${item.row.routes.length - 3} more` : ''}` : ''}) was not read from the source. ${item.handling || 'Check in Business Manager whether the business needs this set up in Wix.'}${sourceRecoveryNote(item.row.recoverability)}`,
+        deadlineReason: 'before go-live, so the site does not miss a setup the source handled',
+        entity: label,
+        affectedIds: [item.row.coverageId],
+        affectedCount: 0,
+      });
+    }
     const key = `${item.treatment}\0${label}`;
     if (!grouped.has(key)) grouped.set(key, { treatment: item.treatment, label, reasons: new Set(), urgent: false, sourceRecoverable: false });
     const group = grouped.get(key);
@@ -834,7 +913,6 @@ function summarizeSourceCoverage({ coverage, gaps, decisions, sourceSchema = nul
   }
 
   const headline = [];
-  const operatorActions = [];
   for (const group of grouped.values()) {
     headline.push({ entity: group.label, subtype: 'source-coverage', message: headlineFor(group.treatment, group.label, group.reasons) });
     if (group.urgent) {
@@ -847,6 +925,21 @@ function summarizeSourceCoverage({ coverage, gaps, decisions, sourceSchema = nul
         affectedCount: 0,
       });
     }
+  }
+  if (unsupportedRoutes.length) operatorActions.push(unsupportedRoutesAction(unsupportedRoutes));
+  // A coverage row the run settled unreconciled: its data was not migrated; the source still has it.
+  for (const item of settled) {
+    const label = item.coverageId || item.code;
+    operatorActions.push({
+      code: 'source-coverage-unreconciled',
+      severity: 'high',
+      action: `Requires Import Operator. ${label} was not migrated: its source-coverage row stayed unreconciled (${item.code}${item.message ? `: ${item.message}` : ''}). The source data is kept in the local extract (data/source-extract/). Recreate or confirm it in Wix, or give the row a disposition and rerun the affected import.`,
+      importOperatorPrompt: `In the migration project, give source-coverage row ${label} exactly one valid disposition (source-schema.json, mapping/review/mapping-gaps.json), then rerun the affected import task.`,
+      deadlineReason: 'the source is still the only copy of this data',
+      entity: label,
+      affectedCount: 0,
+    });
+    status = worse(status, STATUS_FLOOR.unresolved);
   }
   if (gatedCapabilities.size) {
     headline.push({
@@ -956,7 +1049,9 @@ async function summarizeProjectCoverage(projectDir, { mode = 'full', readJson = 
   if (!contract.stamped) return summarizeSourceCoverage({ coverage: null });
   const inputs = await loadCoverageInputs(projectDir, { readJson });
   const side = await resolveSideInputs(projectDir, inputs, { readJson, registers });
-  return summarizeSourceCoverage({ ...inputs, ...side });
+  let settledFailureKeys = null;
+  try { settledFailureKeys = require('./route-settlement').settledErrorKeys(projectDir, 'source-coverage'); } catch { settledFailureKeys = null; }
+  return summarizeSourceCoverage({ ...inputs, ...side, settledFailureKeys });
 }
 
 async function writeJsonAtomic(filePath, value) {

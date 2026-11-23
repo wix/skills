@@ -198,6 +198,18 @@ function eavCheckpointProblem(checkpoint, plan, planFile) {
   return null;
 }
 
+// The one rule every gate uses to compare an extract's rowsWritten with its snapshotTotal (the
+// source's count before the read). A record can be deleted, filtered or added between the count
+// and the read, so a finished extract (`complete: true`, written only after its page loop ended)
+// whose count differs is still finished: gap = rowsWritten - snapshotTotal is recorded, never a
+// block. Anything else must match. Lives here because this file is copied into generated projects;
+// lib/extract-count.js re-exports it for the toolkit.
+function extractCount(manifest) {
+  if (!manifest || !isCount(manifest.rowsWritten) || !isCount(manifest.snapshotTotal)) return { finished: false, gap: null };
+  const gap = manifest.rowsWritten - manifest.snapshotTotal;
+  return { finished: gap === 0 || manifest.complete === true, gap };
+}
+
 function deferred(variant, code, reasons, extra = {}) {
   return { status: 'deferred', variant, code, reasons: Array.isArray(reasons) ? reasons : [reasons], ...extra };
 }
@@ -250,7 +262,7 @@ async function singleRequestReuse(paths, requestHash) {
   const stats = await fileStats(paths.finalPath);
   if (manifest.ndjsonDigest !== stats.digest) reasons.push('the extracted file does not match the digest its manifest recorded');
   if (manifest.rowsWritten !== stats.lines) reasons.push(`the extracted file holds ${stats.lines} row(s) but its manifest recorded ${manifest.rowsWritten}`);
-  if (manifest.rowsWritten !== manifest.snapshotTotal) reasons.push('the manifest records an unreconciled extraction');
+  if (!extractCount(manifest).finished) reasons.push('the manifest records an unreconciled extraction');
   return { reusable: reasons.length === 0, reasons, manifest };
 }
 
@@ -337,9 +349,9 @@ async function extractSingleRequest({ entity, table, paths, transport, now, reda
     await writeJsonAtomic(paths.checkpointPath, state);
   }
 
-  if (state.rowsWritten !== state.snapshotTotal) {
-    return deferred(variant, 'count-mismatch', `table ${table}: read ${state.rowsWritten} row(s) but the first page's frozen snapshot total was ${state.snapshotTotal} -- not promoting`, { entity, rowsWritten: state.rowsWritten, queries, resumeNotes });
-  }
+  // The page loop ended (hasNext false), so the read is finished. A count that differs from the
+  // first page's total means records vanished or appeared during the read: a recorded gap
+  // (lib/extract-count.js), never a deferral.
 
   // Final re-hash: a sidecar replaced while this read ran straight through is caught only here.
   const current = await readJsonIfExists(paths.requestPath);
@@ -358,6 +370,7 @@ async function extractSingleRequest({ entity, table, paths, transport, now, reda
     structureRequestHash: state.structureRequestHash,
     rowsWritten: state.rowsWritten,
     snapshotTotal: state.snapshotTotal,
+    complete: true,
     ndjsonDigest: stats.digest,
     extractedAt: new Date(now()).toISOString(),
   };
@@ -746,6 +759,7 @@ async function extractStructureBridgeEntity({ dataDir, entity, table, transport,
 module.exports = {
   PAGE_LIMIT,
   fileStats,
+  extractCount,
   DEFERRED_ACTION_CODE,
   collectDeferredExtractions,
   deferredExtractionReportInput,

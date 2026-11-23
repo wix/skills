@@ -577,7 +577,8 @@ function eavReadPlanBatches(plan) {
  * page loop that stopped early:
  *
  *   - every batch the plan expects was run, identified by index, not merely counted;
- *   - each batch read as many rows as its own first page said it would (`snapshotTotal`);
+ *   - each batch records its own first page's count (`snapshotTotal`); a different rowsRead is a
+ *     recorded gap (records changed during the read), not a problem;
  *   - the rows actually written equal the sum of those totals.
  *
  * @param observed { batches: [{batchIndex, rowsRead, snapshotTotal}], rowsWritten }
@@ -644,9 +645,9 @@ function reconcileEavReadPlan(plan, observed) {
       problems.push(`batch ${batch.batchIndex} reported a non-integer rowsRead/snapshotTotal`);
       continue;
     }
-    if (ran.rowsRead !== ran.snapshotTotal) {
-      problems.push(`batch ${batch.batchIndex} read ${ran.rowsRead} of ${ran.snapshotTotal} rows -- its page loop stopped early`);
-    }
+    // A finished batch (recorded only once its page loop ended) may read fewer or more rows than
+    // its first page counted: records vanished or appeared during the read. That is a recorded
+    // gap (lib/extract-count.js eavBatchGap), not a problem.
   }
 
   const expectedRows = [...seen.values()].reduce((sum, b) => sum + (Number.isInteger(b.rowsRead) ? b.rowsRead : 0), 0);

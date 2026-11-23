@@ -15,7 +15,9 @@
     {
       "sourceSystem": "woocommerce",
       "sourceEntity": "settings.woocommerce_prices_include_tax",
-      "routes": ["/wc/v3/settings/tax"],
+      "routes": [
+        "/wc/v3/settings/tax"
+      ],
       "confidence": "high",
       "note": "A direct boolean 1:1: WooCommerce 'yes'/'no' -> Wix taxIncludedInItemPrices true/false. This is a single site-level flag, not a per-record entity -- there is exactly one TaxSettings resource per site (upsert, not create)."
     }
@@ -30,7 +32,10 @@
     "bulk": false
   },
   "fallbacks": [],
-  "reliability": { "status": "reliable", "flags": [] },
+  "reliability": {
+    "status": "reliable",
+    "flags": []
+  },
   "pitfalls": [
     {
       "code": "single-site-level-resource-not-a-crosswalked-record",
@@ -50,13 +55,23 @@
   ],
   "mappingGuidance": [
     "Dependencies: no other modeled record must exist first; Tax Settings is a single site-level configuration resource.",
-    "Read the source's woocommerce_prices_include_tax setting and the destination's Get Tax Settings response; call Upsert Tax Settings only when they differ. Live verification confirmed that a source value of 'no' can already match Wix's false default, requiring no write."
+    "Read the source's woocommerce_prices_include_tax setting and the destination's Get Tax Settings response; call Upsert Tax Settings only when they differ. Live verification confirmed that a source value of 'no' can already match Wix's false default, requiring no write.",
+    "WooCommerce: the source extract reads wc/v3/settings/tax (store-settings-tax), and the tax-rate import task (lib/import-composites-tax.js) copies woocommerce_prices_include_tax to each tax region it creates and, once per pass when it differs, to this setting. No setup step and no mapping row are needed for it."
   ],
   "setupRequirements": [],
   "evidence": [
-    { "type": "wix-docs", "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/tax-settings/tax-settings-object" },
-    { "type": "wix-docs", "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/tax-settings/get-tax-settings" },
-    { "type": "wix-docs", "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/tax-settings/upsert-tax-settings" },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/tax-settings/tax-settings-object"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/tax-settings/get-tax-settings"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/tax-settings/upsert-tax-settings"
+    },
     {
       "type": "live-verification",
       "path": "anonymized-live-verification"

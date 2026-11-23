@@ -19,7 +19,6 @@ const {
   buildHeaders,
   normalizeBaseUrl,
   fetchJson,
-  fetchSource,
 } = require('../lib/wp-http.js');
 const { pluginsRoot, loadProfiles, loadFingerprintAliases } = require('../lib/plugin-knowledge.js');
 const { detectPlugins } = require('../lib/wp-plugin-detect.js');
@@ -121,10 +120,10 @@ async function fetchHomepageHtml(baseUrl, timeoutMs) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), Math.min(timeoutMs, 15000));
   try {
-    const response = await fetchSource(normalizeBaseUrl(baseUrl), {
+    const response = await fetch(normalizeBaseUrl(baseUrl), {
       signal: controller.signal,
       headers: { accept: 'text/html' },
-    }, { baseUrl });
+    });
     if (!response.ok) return '';
     const text = await response.text();
     return text.slice(0, 500000);

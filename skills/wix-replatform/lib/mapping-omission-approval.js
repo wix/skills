@@ -72,7 +72,7 @@ function assertAuthorized(dir,plan,rows=candidates(plan)) {
   if (mode(read(dir,'orchestration/decisions.json'))!=='interactive' || approval?.omissionApprovalContext?.automationMode!=='interactive' ||
       request?.omissionApprovalContext?.automationMode!=='interactive' || approval?.status!=='approved' || approval.decidedBy!=='user' ||
       !GUID.test(approval.approvedBy?.userId || '') || !approval.approvedBy?.displayName?.trim() || request?.status!=='answered' || request.requestId!==approval.requestId || request.kind!=='approval' || request.response?.mode!=='choice' ||
-      request.effect?.kind!=='approval' || request.effect.approvalType!=='mapping' || !['approved','approve'].includes(request.answer?.choice)) throw new Error('identified interactive omission approval required');
+      request.effect?.kind!=='approval' || request.effect.approvalType!=='mapping' || require('./approval-choices.js').approvalStatus(request.answer?.choice)!=='approved') throw new Error('identified interactive omission approval required');
   if (fields.digest(plan)!==fields.digest(read(dir,'mapping/mapping-plan.json'))) throw new Error('omission authority changed');
   if (fields.canonical(approval.omissionApprovalContext)!==fields.canonical(context(dir)) || fields.canonical(request.omissionApprovalContext)!==fields.canonical(context(dir))) throw new Error('omission project or destination changed');
   const expected=dispositionDigests(plan);

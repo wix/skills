@@ -12,7 +12,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const readline = require('node:readline');
 const { summarizeWriteLog } = require('./write-log-summary.js');
-const { listUserActions } = require('./user-actions.js');
+const { listUserActions, readUserAction, isCutoverUserAction } = require('./user-actions.js');
 
 const SCHEMA_VERSION = 1;
 const HANDOFF_DIR = ['state', 'handoffs'];
@@ -99,6 +99,7 @@ function fitToCap(handoff, capBytes) {
   const steps = [
     () => { if (handoff.writeLog && handoff.writeLog.topErrors) { delete handoff.writeLog.topErrors; cuts.push('writeLog.topErrors'); return true; } return false; },
     () => { if (handoff.changedFiles.length > 20) { handoff.changedFilesOmitted = handoff.changedFiles.length - 20; handoff.changedFiles = handoff.changedFiles.slice(0, 20); cuts.push('changedFiles'); return true; } return false; },
+    () => { if (handoff.cutoverTasks && handoff.cutoverTasks.length > 3) { handoff.cutoverTasksOmitted = handoff.cutoverTasks.length - 3; handoff.cutoverTasks = handoff.cutoverTasks.slice(0, 3); cuts.push('cutoverTasks'); return true; } return false; },
     () => { if (handoff.pendingUserActions.length > 5) { handoff.pendingUserActionsOmitted = handoff.pendingUserActions.length - 5; handoff.pendingUserActions = handoff.pendingUserActions.slice(0, 5); cuts.push('pendingUserActions'); return true; } return false; },
     () => { if (handoff.writeLog && handoff.writeLog.byEntity) { handoff.writeLog = { totals: handoff.writeLog.totals, runs: handoff.writeLog.runs, attempts: handoff.writeLog.attempts }; cuts.push('writeLog.byEntity'); return true; } return false; },
     () => { if (handoff.notes && handoff.notes.length > 400) { handoff.notes = `${handoff.notes.slice(0, 400)}…`; cuts.push('notes'); return true; } return false; },
@@ -143,9 +144,17 @@ async function writeHandoff(projectDir, options = {}) {
   const ledger = await summarizeWriteLog(projectDir, { log: 'attempts' });
   const writeLog = ledger.missing ? null : { attempts: ledger.attempts, runs: ledger.runs, totals: ledger.totals, byEntity: ledger.byEntity, topErrors: ledger.topErrors };
 
+  // Cutover tasks stay open for the Cutover Operator and never block a stage, so they are listed
+  // apart from the actions that do (same predicate as the router and supervisor).
   let pendingUserActions = [];
+  const cutoverTasks = [];
   try {
-    pendingUserActions = (await listUserActions(projectDir, { status: 'pending' })).map((row) => ({ requestId: row.requestId, kind: row.kind || row.type || null, title: row.title || null }));
+    for (const row of await listUserActions(projectDir, { status: 'pending' })) {
+      const item = { requestId: row.requestId, kind: row.kind || row.type || null, title: row.title || null };
+      let request = null;
+      try { request = await readUserAction(projectDir, row.requestId); } catch { request = null; }
+      (isCutoverUserAction(request) ? cutoverTasks : pendingUserActions).push(item);
+    }
   } catch { pendingUserActions = [{ requestId: null, title: 'user-action index unreadable; run rp-user-action-recovery' }]; }
 
   const handoff = {
@@ -162,6 +171,7 @@ async function writeHandoff(projectDir, options = {}) {
     qaFindings: readFindings(options.findingsFile),
     changedFiles: (options.changedFiles || []).map(String),
     pendingUserActions,
+    ...(cutoverTasks.length ? { cutoverTasks, cutoverTasksNote: 'not blocking; left for the Cutover Operator' } : {}),
     writeLog,
     notes: options.notes ? String(options.notes) : null,
   };

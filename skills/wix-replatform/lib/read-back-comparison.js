@@ -11,7 +11,7 @@ const {
 // they keep the former display normalization (array positions as []), never the source grammar.
 const canonical = p => String(p).replace(/\[\d+\]/g, '[]');
 const old = require('./write-verification');
-const { storesProductMediaItemLanded, normalizeV5AddressItem, V5_ADDRESS_ITEM_KEYS } = require('../resources/rp-target-wix/lib/wix-writers');
+const { storesProductMediaItemLanded, normalizeV5AddressItem } = require('../resources/rp-target-wix/lib/wix-writers');
 const empty = v => !populated(v);
 function decimal(v) {
   if (typeof v !== 'string' && typeof v !== 'number') return null;
@@ -42,18 +42,12 @@ function v5Company(company) {
   if (!company || typeof company !== 'object' || Array.isArray(company)) return { company };
   return { company: company.name, ...(company.jobTitle !== undefined ? { jobTitle: company.jobTitle } : {}) };
 }
-// Contacts V5 stores an address item as { tag, address: {...} }; builders may emit it flat. Both
-// sides are compared in one flat view: expected first takes the writer's own nesting, so a field
-// is compared where the writer actually sent it.
-function flatAddress(item) {
-  if (!item || typeof item !== 'object' || Array.isArray(item)) return item;
-  const { address, ...rest } = item;
-  return address && typeof address === 'object' && !Array.isArray(address) ? { ...rest, ...address } : rest;
-}
+// Contacts V5 stores an address item as { tag, address: {...} }. The comparator preserves that
+// shape so every check, loss and mapping binding names the accepted target path.
 function contactProjection(value, { sent = false } = {}) {
   const c = value?.contact || value;
   if (!c || !Array.isArray(c.addresses)) return c;
-  return { ...c, addresses: c.addresses.map(item => flatAddress(sent ? normalizeV5AddressItem(item) : item)) };
+  return { ...c, addresses: sent ? c.addresses.map(item => normalizeV5AddressItem(item)) : c.addresses };
 }
 // Variant choices read back as ids, and the stock flag read back as inventoryStatus.inStock, are
 // compared through the same view the create verifier uses (write-verification.js
@@ -69,6 +63,12 @@ function productProjection(product) {
     }
   };
 }
+const leafPaths = (v, p) => v && typeof v === 'object' && !Array.isArray(v) ? Object.entries(v).flatMap(([k, x]) => leafPaths(x, `${p}.${k}`)) : [p];
+function plainCouponDiscount(value) {
+  const coupon = value?.coupon;
+  if (!coupon || coupon.id || !coupon.code) return null;
+  return require('./order-loop-steps').plainDiscount(value.discountType, coupon.code, coupon.amount);
+}
 // Kept equal to order-history.js PLACEHOLDER_LINE_NAME (asserted by order-placeholder-line-test.js).
 const ORDER_PLACEHOLDER_LINE_NAME = 'Items not recorded in source';
 function compareEntity(entity, expected, rawActual) {
@@ -77,10 +77,7 @@ function compareEntity(entity, expected, rawActual) {
     checks = [];
   const readPath = p => {
     p = canonical(p);
-    if (entity === 'contact') {
-      const field = /^addresses\[\]\.([^.[]+)(.*)$/.exec(p);
-      return field && !V5_ADDRESS_ITEM_KEYS.has(field[1]) ? `addresses[].address.${field[1]}${field[2]}` : p;
-    }
+    if (entity === 'contact') return p;
     if (entity !== 'member') return p;
     if (p === 'contact.firstName') return 'contact.name.first';
     if (p === 'contact.lastName') return 'contact.name.last';
@@ -138,7 +135,9 @@ function compareEntity(entity, expected, rawActual) {
       const result = old.compareProjection(wanted, actual, {
         path: p
       });
-      const landed = Array.isArray(actual) && actual.every(storesProductMediaItemLanded);
+      // Every sent item listed and ingested (an empty gallery is pending for the create check, not
+      // landed: the gate's media settlement waits for it).
+      const landed = Array.isArray(actual) && actual.length === wanted.length && actual.every(storesProductMediaItemLanded);
       add(p, wanted, actual, result.verified && landed);
       return;
     }
@@ -179,15 +178,41 @@ function compareEntity(entity, expected, rawActual) {
         if (wanted.length !== actual.length) add(`${p}[]`, wanted, actual, false);
         for (const value of wanted) {
           const at = remaining.findIndex(candidate => subset(value, candidate));
+          if (at < 0 && entity === 'order') {
+            // A coupon code the source coupon list lacks is sent as a plain discount line with the
+            // same type and amount (order-loop-steps applyCouponStep, gap order-coupon-not-in-source).
+            const plain = plainCouponDiscount(value);
+            const kept = plain ? remaining.findIndex(candidate => subset(plain, candidate)) : -1;
+            if (kept >= 0) {
+              remaining.splice(kept, 1);
+              for (const leaf of leafPaths(value, `${p}[]`)) checks.push({ writePath: canonical(`${entity}.${leaf}`), readPath: canonical(leaf), matches: true, kind: 'verified',
+                reason: 'coupon kept as a plain discount line with the same amount (order-coupon-not-in-source)' });
+              continue;
+            }
+          }
           walk(value, at < 0 ? undefined : remaining.splice(at, 1)[0], `${p}[]`);
         }
         return;
       }
       if (entity === 'order' && p === 'lineItems') {
-        for (const item of wanted) {
+        // A sent line id pairs by id. The order builders send none: Wix numbers the lines itself
+        // (00000000-…-0001, …), so an id-less line pairs one-to-one, order-free, with the read line
+        // this walk verifies (same pairing as contact addresses); a missing line still fails.
+        if (wanted.length !== actual.length) add(`${p}[]`, wanted, actual, false);
+        const verifies = (value, candidate) => {
+          const mark = checks.length;
+          walk(value, candidate, `${p}[]`);
+          const ok = checks.slice(mark).every(check => check.matches);
+          checks.length = mark;
+          return ok;
+        };
+        const unnumbered = wanted.filter(item => !item?.id);
+        for (const item of wanted.filter(item => item?.id)) {
           const matches = actual.filter(x => x.id === item.id);
-          if (!item.id || matches.length !== 1) add(`${p}[]`, item, null, false);else walk(item, matches[0], `${p}[]`);
+          if (matches.length !== 1) add(`${p}[]`, item, null, false);else walk(item, matches[0], `${p}[]`);
         }
+        const free = actual.filter(x => !wanted.some(item => item?.id && item.id === x.id));
+        for (const [value, match] of old.pairUnordered(unnumbered, free, verifies)) walk(value, match, `${p}[]`);
         return;
       }
       add(p, wanted, actual, wanted.length === actual.length);

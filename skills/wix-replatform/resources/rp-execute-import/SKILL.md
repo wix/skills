@@ -260,6 +260,21 @@ This skill should execute the machine import artifacts and generated entrypoints
 should not re-decide write strategy live when `execution/execution-manifest.json`
 already defines the ordered task graph and write contract.
 
+## Toolkit bugs: patch the project copy, list it, continue
+
+A bug in toolkit code is not a halt. If a vendored toolkit file in the project (`src/lib`,
+`src/resources`, `src/vendor`, `src/toolkit`) has a bug that blocks the import, fix that copy,
+add an entry to `execution/toolkit-patches.md` (`## <project path>`, then `- reason:`,
+`- unblocks:` naming the records, and a ```diff block), and continue. Never edit the installed
+toolkit (`.agents/skills`, `.claude/skills`); the runner restores it. Every check (read-back,
+canary, verification) still runs after the patch. Each listed patch becomes a
+`toolkit-patched-in-run` action in the completion report; an unlisted change to a vendored copy
+is restored. A listed copy also survives the next codegen round. If the toolkit file
+itself changed since the copy was made, the codegen stage entry copies in the new toolkit file,
+saves the patched copy under `execution/codegen-scaffold-replaced/`, and lists a notice in
+`stagePrepared.notices` on every codegen entry until you re-apply the patch (if still needed)
+or remove its entry.
+
 ## Config files
 
 Before running the generated entrypoint, verify the project-local config files exist and
@@ -433,7 +448,8 @@ import renews it from there while it runs (see `wix_auth_expired` below).
    project and must complete before the write phase unless the extraction artifacts are
    already present and accepted for resume.
 5. **Execute the import by running the generated import entrypoint** (for example
-   `node src/import/run-import.js`) with credentials injected via config/env. The import
+   `node src/import/run-import.js`) with credentials injected via config/env, under
+   `import-supervise.js` from the top-level agent ("Run the import under the supervisor"). The import
    must read from the extracted files on disk — not by re-reading the source into memory,
    and not by issuing writes through the agent/MCP.
    For targeted recovery, run the generated main import entrypoint with its selective
@@ -815,75 +831,56 @@ the affected source keys when any payment, refund, or invoice stage failed.
 `appendExecutionLog` is not a heartbeat. Liveness and progress output for watching a running
 script is `lib/progress-log.js`, writes to a caller-supplied path, and is a separate contract.
 
-### Run the import under the supervisor — one tool call, not one per poll
+### Run the import under the supervisor — the agent is woken only on events
 
-Launch the generated entrypoint through the supervisor instead of polling it yourself:
+The **top-level agent** runs the long import (or extract) itself, never a subagent: a subagent
+cannot end its turn while it waits, so it polls, and every poll re-sends its whole context. A
+Developer prepares and tests the code, then returns; it does not launch the full import.
 
 ```bash
 node skills/wix-replatform/scripts/import-supervise.js --project <projectDir> \
-  [--entry src/import/run-import.js] [--poll 3m] [--max-resumes 3] [-- <entrypoint flags>]
+  [--entry src/import/run-import.js] [--max-resumes 3] [-- <entrypoint flags>]
 ```
 
-Run it in the host's **background mode** (an import outlives any single tool call). If a call
-times out or is stopped, just run the same command again: it attaches to the import it launched
-if that is still alive, and never starts a second one. Stopping the supervisor stops the import
-with it; the next call resumes.
+Run it in the host's **background mode** and end your turn. The host wakes you once, when it
+exits. Do not poll: no `sleep` loops, `pgrep`, `kill -0`, `tail` of logs or health checks while
+it runs. The import runs detached from your command, so the host's tool-call time limit does not
+stop it. If the call is stopped (for example at the host's background time limit) or prints
+`still_running` (exit 12, after `--wait-max`, default 100m), the import is still running: run the
+same command again and end your turn. On a host without background mode (for example Codex),
+run it in the foreground and stay in the same turn: on `still_running` or a stopped call, run the
+same command again right away; do not end your turn while the import runs. It never starts a
+second import. To stop the import, run it with `--stop`; the next normal call resumes.
 
-It launches the entrypoint (output to `logs/import-supervise.log`, never your context), polls
+It sends the entrypoint's output to `logs/import-supervise.log`, watches
 `execution-health-check.js` itself, and after a crash or a `stalled` verdict re-runs the same
-entrypoint with the same flags — a resume from the attempt journal and crosswalk, never a fresh
-import. It kills on `stalled` only when the generated code (anywhere under `src/`) has heartbeats
-(`withHeartbeat` / `startHeartbeat`). Without them it reports `heartbeatMissing: true` and lets the
-run go on, until it has looked stalled for six stale windows in a row; then it stops it and returns
-`resume_limit` with `reason: stalled_without_heartbeat`.
-Waits and holds sleep inside it. It prints one JSON line and exits:
+entrypoint with the same flags (a resume from the attempt journal and crosswalk). It kills on
+`stalled` only when the generated code under `src/` has heartbeats (`withHeartbeat` /
+`startHeartbeat`). Without them it reports `heartbeatMissing: true`, and stops the run with
+`resume_limit` / `stalled_without_heartbeat` after six stale windows in a row; a Developer then
+adds the heartbeats as `rp-import-codegen` describes. It prints one JSON line and exits:
 
 | Exit | `outcome` | What you do |
 | --- | --- | --- |
 | 0 | `complete` | Continue to the completion report and entity-by-entity QA. |
 | 10 | `needs_decision` | `reason` is `auth_stop`, `pending_user_action` or `awaiting_user_action`; handle the listed `userActionIds` as this resource already says, then run the supervisor again. |
-| 11 | `resume_limit` | `--max-resumes` failures in a row with no new settled progress (more records `imported`, more crosswalk rows), or `--max-launches` launches in this call (`reason: launch_cap`). See `reason` and `lastError`. This needs a fix: return it so the orchestrator dispatches a **fresh** Developer with a handoff (`subagent-handoff.js`). |
-| 1 | `error` | The supervisor itself failed (bad arguments, missing entrypoint). |
+| 11 | `resume_limit` | `--max-resumes` failures in a row with no new settled progress (more records `imported`, more crosswalk rows), or `--max-launches` launches in this call (`reason: launch_cap`). See `reason` and `lastError`. Dispatch a **fresh** Developer with a handoff (`subagent-handoff.js`) to fix it, then run the supervisor again. |
+| 12 | `still_running` | Your wait ended; the import goes on. Run the same command again and end your turn. |
+| 1 | `error` | The supervisor itself failed (bad arguments, missing entrypoint, or it ended without a result). Fix the arguments and run it again; if it fails the same way, report the printed `error` as a toolkit gap. |
 
-Read results with `write-log-summary.js`, never the raw ledger. The manual polling below is
-the fallback only when the supervisor itself cannot run.
-
-### Poll the health-check script, and redispatch on a stalled verdict
-
-Fallback when `import-supervise.js` cannot run. Do not drive a long-running generated `run-import.js`/`run-extract.js` by raw `tail -n 1`
-alone once it has been launched. After dispatching the script, poll
-`skills/wix-replatform/scripts/execution-health-check.js <projectDir> [--script <name>]
-[--stale-after <duration>]` on an interval — default every 3 minutes; a shorter interval is
-fine for a small run — instead of, or in addition to, the raw last-line tail. The
-script reads `execution/progress.ndjson` and `execution/completion-report.json` and
-answers exactly one question: `healthy`, `stalled`, or `complete`.
-
-On a `stalled` verdict, treat it **exactly like a crashed process already found in
-`execution/progress.ndjson`** — the same recovery as any other abnormal exit: redispatch a
-fresh run from the last durable checkpoint. Never wait indefinitely on a subagent's own
-promised resume ("it will pick back up on its own") once the health check reports
-`stalled`; a subagent's own claim about its future behavior is not evidence, and what
-this check exists to catch is a healthy run mistaken for one that would
-never call back. A `healthy` verdict is not itself proof of eventual completion — keep
-polling on the same interval until the verdict is `complete` or `stalled`.
-
-Before redispatching on a `stalled` verdict, confirm the project's `run-import.js` (or
-`run-extract.js`) was actually generated with the heartbeat wrapping — a project
-codegen'd before this instruction existed may have entity-pass functions that never call
-`withHeartbeat`/`startHeartbeat` at all, in which case `stalled` reflects an instrumentation
-gap in that generated file, not the process. Grep the generated script for `withHeartbeat` /
-`startHeartbeat`; if a write loop is missing it, retrofit that loop the same way
-`rp-import-codegen/SKILL.md` describes for newly generated code before trusting the verdict
-enough to kill and redispatch.
+Read results with `write-log-summary.js`, never the raw ledger.
 
 ### Entity-by-entity QA is mandatory before treating an import phase as done
 
-`wix-replatform`'s router requires a phase-level QA subagent at the end of the import phase
-(its "Route before acting" step 5). For import, that review must be entity-by-entity against
+`wix-replatform`'s router requires a phase-level QA pass at the end of the import phase (its
+"Route before acting" step 5). On non-Codex hosts, this is a dedicated QA subagent; on a
+Codex-hosted run, the top-level worker performs the same read-only pass directly and must not
+call `collab_tool` to create a nested worker. For import, that review must be entity-by-entity
+against
 the accepted mapping plan (`mapping/entity-decisions/*.json`), not a read of the top-level
 `status` field in `execution/completion-report.json` or a paragraph of prose asserting the run
-went well. A dedicated QA subagent — never the Developer subagent that produced the report,
-and never the routing agent's own read of the summary — must, for every mapped entity/subtype:
+went well. The QA actor — never the Developer pass that produced the report, and never the
+routing agent's own read of the summary — must, for every mapped entity/subtype:
 
 - confirm its `completion-report.json` row reconciles (`imported + alreadyPresentByCrosswalk +
   deferred + failed == inScope`) and is backed by real rows in `state/attempts/write-attempts.ndjson`
@@ -1221,10 +1218,12 @@ Non-media entities may continue if the execution plan clearly excludes or defers
 - `migrations/<project>/execution/completion-report.json`
 - `migrations/<project>/execution/review/completion-summary.md`
 - `migrations/<project>/execution/review/migration-handoff.md` and its
-  `migration-handoff.json` sidecar — the run's account of the migration, generated **after the
-  last write** from the final outcome record. `generatePostExecutionHandoff` refuses and returns
-  a typed reason when there is no `execution/completion-report.json`; it never writes a clean
-  document from the plan
+  `migration-handoff.json` sidecar — the run's account of the migration, generated from the final
+  outcome record. It is normally generated after the last write; an interrupted run with no write
+  may still generate the handoff, using the latest valid attempt-journal timestamp when available
+  and preserving `lastWriteAt: null` when none exists. `generatePostExecutionHandoff` refuses and
+  returns a typed reason when there is no `execution/completion-report.json`; it never writes a
+  clean document from the plan
 - `migrations/<project>/execution/recovery-log.json` for every resumed, partial,
   missing-only, failed-only, deferred-only, or unresolved-only run
 - `migrations/<project>/execution/unresolved-writes.ndjson` — the re-read queue: one row per
@@ -1326,6 +1325,12 @@ artifact and should preserve it as the primary post-run result.
 - final completeness counts by entity and subtype: extracted, in-scope, attempted,
   imported, already present by crosswalk, deferred, failed, skipped out of scope, and
   unexpected skipped
+- `kindCoverage[]`: per source kind the plan imports (WooCommerce products per `type`), source
+  records vs records in Wix from the attempt journal. A kind with records and none in Wix sets at least
+  `complete_with_deferred_records` (never blocks the run), a top `WHOLE_KIND_NOT_IMPORTED` headline
+  ("Not everything was imported: <kind> 0 of N") and a
+  `whole-kind-not-imported` task (unless a `mapping-scope-deferred` task already names it).
+  Partial plus held records is normal. Kinds set aside with a typed reason are not counted.
 - grouped skipped/deferred outcomes
 - grouped failure outcomes
 - mismatch rows where source, import, and crosswalk counts do not reconcile
@@ -1431,7 +1436,9 @@ for final imported/skipped/failed counts.
 - Prefer `execution/recovery-log.json` over migration-local recovery scripts when
   explaining targeted recovery outcomes.
 - Prefer dry-runs or sample batches before full import.
-- Stop on systemic mapping or write failures rather than amplifying bad writes.
+- Stop on systemic mapping or write failures rather than amplifying bad writes; an ordinary
+  record/task failure still leaves independent tasks and unrelated records running through the
+  shared readiness gate.
 - Preserve enough logging to support replay and debugging.
 
 ### On a destination the run did not create, the import is ADDITIVE — always
@@ -1486,13 +1493,12 @@ cover a nonempty set. Quick Shopify separately records its product read-back res
 keeps stock permission failures partial and resumable; setup still does not write stock.
 
 
-The mere presence of `state/.lock/` does not mean an importer is running. Each importer
-owns a uniquely named PID/host claim there, and a resume automatically removes claims
-whose local process is dead (including after SIGKILL). A live process continues to block
-concurrent imports. For a claim from another host, an unrecognized legacy file, or a reused
-PID, first confirm that its importer is stopped on the owning host, then remove only that
-claim file and rerun the same command. Do not remove a live owner's claim or the whole state
-folder. An empty legacy `.lock` directory needs no manual cleanup.
+Every live import writer owns the project's exclusive `state/.lock/holder` claim. The claim
+names the PID, host and entrypoint, so a second `run-import.js`, direct task command or worker
+refuses before its first Wix write with the holder named in the error. A dead same-host PID is
+taken over atomically and safely (including after SIGKILL); a foreign-host holder is never
+guessed dead. Do not remove a live holder or the whole state folder. The lock directory itself
+is not ownership, so an empty legacy `.lock` directory needs no manual cleanup.
 
 A failed target read keeps the previous verified crosswalk mapping and receipt reference.
 The current verification report remains partial, so that retained mapping does not turn a

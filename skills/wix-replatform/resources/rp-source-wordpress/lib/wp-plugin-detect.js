@@ -26,6 +26,7 @@ const {
   unionTargetRefs,
 } = require('../../../lib/plugin-cms-fallback.js');
 const { capabilityPresence, externalDataTasks } = require('./plugin-data-presence.js');
+const { COVERAGE_STATUSES } = require('./plugin-coverage-contract.js');
 
 const CONFIDENCE_ORDER = { high: 3, medium: 2, low: 1 };
 
@@ -64,14 +65,6 @@ const SIGNAL_CONFIDENCE = {
 //
 // Blocked — recoverable is deliberately NOT here: a failed or unavailable read attaches to the
 // row as `blocked[]` and never becomes a mapping decision (see CHANNEL_BLOCKERS).
-const COVERAGE_STATUSES = new Set([
-  'migration-planned',
-  'manual-mapping',
-  'no-need-to-migrate',
-  'pending',
-  'requires-development',
-]);
-
 // A channel that cannot be read today attaches a blocker to the row: fix and re-run. This is
 // what keeps a db-only gift-card balance "Migration planned + blocked", not "pending" —
 // unreadable today, recoverable by an export, and never reported as a limitation of Wix.

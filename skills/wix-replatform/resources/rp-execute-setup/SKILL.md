@@ -172,7 +172,12 @@ the route look like a dead end (the REST index advertises only the parameterized
 route, and the WooCommerce consumer key 401s on it while the WordPress application password
 succeeds). Nothing reported it missing, because no domain owned it.
 
-Three steps, in order:
+The address part runs as the plan's **`import-business-contact`** step, which
+`execute-setup.js` performs itself (`lib/business-contact-setup.js`): it captures the settings when the
+file is missing, builds the address, reads the site, writes only when the address differs, and reads
+back `properties.address` (GET `/site-properties/v4/properties` has no `businessContact` object).
+A source with no address passes as a recorded no-op. Do not run these calls by hand when the plan has
+the step. What it does, step by step:
 
 1. **Capture.** Run `rp-source-wordpress/scripts/capture-store-settings.js <projectDir>`.
    Deterministic; writes `data/store-settings-general.json`. Do not hand-roll the fetch — the
@@ -263,8 +268,11 @@ RePlatform level is:
 - setup execution follows shared runtime behavior
 - setup provisioning is not re-planned live by the agent
 
-The approval gate is unchanged: no setup write before the user accepts the execution
-plan.
+The approval gate is unchanged: no setup write before the execution plan is approved. In a
+user-chosen one-click run the route records that approval itself on entering setup
+(`stagePrepared`, `one-click-execution-approval`). Never create an approval request then: an
+open setup blocker is not a reason to ask. Run setup; a step that fails stops as its typed
+blocker.
 
 If a helpful Wix tool surface is available in the runtime, it may be used beneath the
 shared setup runtime for verification or transport. If no such surface is available, do

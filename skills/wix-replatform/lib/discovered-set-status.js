@@ -17,6 +17,7 @@ const COVERAGE_OPEN = {
   recovered: false,
   'gated-exclusion': false,
   'ungated-exclusion': true,
+  'route-gap': true,
   'accepted-loss': true,
   unresolved: true
 };
@@ -206,8 +207,9 @@ async function buildDiscoveredSetStatus(projectDir) {
   if (!reconciliation) throw refusal('census_reconciliation_missing');
   const fresh = await censusReconciliationFreshness(projectDir, reconciliation);
   if (!fresh.ok) throw refusal('census_reconciliation_stale', fresh);
-  if (reconciliation.errors?.length) throw refusal('census_reconciliation_blocking', {
-    errors: reconciliation.errors
+  const censusErrors = require('./route-settlement').unsettledErrors(projectDir, 'census', reconciliation.errors);
+  if (censusErrors?.length) throw refusal('census_reconciliation_blocking', {
+    errors: censusErrors
   });
   const approval = (await json(projectDir, 'orchestration/approvals.json'))?.mapping;
   const ref = approval?.artifactRefs?.find(ref => ref && typeof ref === 'object' && ref.kind === 'census-reconciliation' && ref.path === RECONCILIATION_FILE && /^[0-9a-f]{64}$/i.test(ref.sha256));

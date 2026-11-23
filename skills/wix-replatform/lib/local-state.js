@@ -1,7 +1,11 @@
 'use strict';
 
 const fs = require('node:fs/promises');
+const fsSync = require('node:fs');
 const path = require('node:path');
+const os = require('node:os');
+const crypto = require('node:crypto');
+const { AsyncLocalStorage } = require('node:async_hooks');
 
 const SCHEMA_VERSION = 1;
 
@@ -1145,10 +1149,17 @@ async function appendAttempt(projectDir, row, options = {}) {
 // Latest row per source record, in file order. This is the fold that turns a
 // per-ROW file into per-RECORD counts; grouping the same rows by `runId` gives the per-PASS
 // counts instead. Both are derivable from the journal alone, which is the point.
+// The completion step's note that a task never reached a record in one run. It records that
+// nothing happened: it never hides the record's earlier real status, and it is never final.
+const NOT_ATTEMPTED_REASON = 'task-not-attempted-in-run';
+const isNotAttempted = (row) => Boolean(row) && row.status === 'skipped_unexpected' && row.reason === NOT_ATTEMPTED_REASON;
+// Whether `row` becomes a record's latest status over `previous`.
+const supersedesAttempt = (previous, row) => !(previous && isNotAttempted(row));
+
 function foldAttemptsBySourceKey(rows) {
   const bySource = new Map();
   for (const row of rows) {
-    if (row && row.sourceStableKey) {
+    if (row && row.sourceStableKey && supersedesAttempt(bySource.get(row.sourceStableKey), row)) {
       bySource.set(row.sourceStableKey, row);
     }
   }
@@ -1393,45 +1404,205 @@ function crosswalkRowsToMirrorItemInputs(rows) {
   });
 }
 
-async function withStateLock(projectDir, fn, { script } = {}) {
-  const lockPath = path.join(stateDir(projectDir), '.lock');
-  await mkdirp(lockPath);
-  const host = Buffer.from(require('node:os').hostname()).toString('base64url');
-  // Unique claim files avoid deleting/replacing a directory another runner just acquired.
-  // Publish the claim before scanning. Concurrent entrants see each other and at least
-  // one backs off; a process that starts later always sees the active owner's claim.
-  const claim = `${host}.${process.pid}.${require('node:crypto').randomUUID()}.owner`;
-  const claimPath = path.join(lockPath, claim);
-  // the claim used to carry only pid/host/acquiredAt, with no
-  // record of WHICH script/writer acquired it. execution-health-check.js's hasLiveLocalProcess
-  // trusted ANY live claim in the project as proof that the specific `--script` it was asked
-  // about was alive -- a genuinely crashed run-import.js could be reported healthy merely because
-  // an unrelated concurrent writer (e.g. run-extract.js) held its own live claim in the same
-  // project. An explicit `script` identifies the claim; a caller that already knows its own
-  // identity may pass it, and every current caller (product-import.js, contact-import.js) is
-  // itself invoked from whichever file node is actually running as a script -- `process.argv[1]`
-  // -- so that is the correct default with no call-site changes required.
-  const scriptId = script || process.argv[1] || null;
-  await fs.writeFile(claimPath, JSON.stringify({ pid: process.pid, host, acquiredAt: new Date().toISOString(), script: scriptId }), { flag: 'wx', mode: 0o600 });
-  try {
+async function withStateLock(projectDir, fn, { script, reentrant = false } = {}) {
+  const project = path.resolve(projectDir);
+  const lockPath = path.join(stateDir(project), '.lock');
+  const holderPath = path.join(lockPath, 'holder');
+  const context = stateLockContext.getStore();
+  // run-import owns the project lock while dispatching; task-level and composite writers can
+  // safely reuse that same ownership in-process without trying to acquire a second lock.
+  if (context && context.project === project && context.reentrant && reentrant) return fn();
+
+  const host = Buffer.from(os.hostname()).toString('base64url');
+  const scriptId = script || process.argv[1] || 'unknown';
+  const scriptToken = Buffer.from(String(scriptId)).toString('base64url') || '-';
+  const owner = `owner.${host}.${process.pid}.${crypto.randomUUID()}.${scriptToken}`;
+
+  // Claims written by the pre-fix implementation are still understood during rollout. They are
+  // removed only when their same-host PID is dead; a foreign-host claim remains an explicit block.
+  const cleanLegacyClaims = async () => {
     for (const entry of await fs.readdir(lockPath)) {
-      if (entry === claim) continue;
       const match = /^([^.]+)\.(\d+)\.[a-f0-9-]+\.owner$/.exec(entry);
-      if (!match || match[1] !== host) throw new Error(`state lock owner cannot be checked locally: ${path.join(lockPath, entry)}; confirm that importer is stopped before removing its claim`);
-      // `kill(2)` errors are EINVAL/EPERM/ESRCH only -- never ENOENT -- so the shared
-      // `isProcessAlive` correctly folds every other-than-EPERM error into "dead" here.
-      if (!isProcessAlive(Number(match[2]))) { await fs.rm(path.join(lockPath, entry), { force: true }); continue; }
-      throw new Error(`state lock already held by PID ${match[2]}: ${lockPath}`);
+      if (!match) continue;
+      if (match[1] !== host) throw lockOwnerError(`legacy claim ${entry} on another host`, lockPath);
+      if (isProcessAlive(Number(match[2]))) throw lockOwnerError(`PID ${match[2]} (legacy claim ${entry})`, lockPath);
+      await fs.rm(path.join(lockPath, entry), { force: true });
     }
-    return await fn();
-  } finally {
-    await fs.rm(claimPath, { force: true });
-    // Keep the empty container: its existence is not ownership. SIGKILL leaves only
-    // this process's uniquely named claim, which the next local process can reclaim.
+  };
+
+  const readClaim = async (claimPath) => {
+    try {
+      const target = await fs.readlink(claimPath);
+      const match = /^owner\.([^.]+)\.(\d+)\.([a-f0-9-]+)\.([A-Za-z0-9_-]+)$/.exec(target);
+      if (!match) return { unknown: true, detail: `unrecognized lock claim ${target}` };
+      return {
+        host: match[1], pid: Number(match[2]),
+        script: match[4] === '-' ? null : Buffer.from(match[4], 'base64url').toString(),
+        target,
+      };
+    } catch (error) {
+      if (error && error.code === 'ENOENT') return null;
+      if (error && error.code === 'EINVAL') return { unknown: true, detail: 'lock claim is not an atomic claim' };
+      throw error;
+    }
+  };
+
+  const holder = () => readClaim(holderPath);
+
+  const quarantines = async () => (await fs.readdir(lockPath)).filter(entry => entry.startsWith('holder.stale-'));
+
+  // A process can die after moving holder to quarantine and before it removes the quarantine.
+  // Treating that file as a permanent reason to retry makes the project lock unrecoverable.
+  // A quarantined claim is safe to remove only after inspecting its identity: a live claim is
+  // restored (when needed) and reported as held, while a dead same-host claim is discarded.
+  const recoverQuarantines = async () => {
+    for (const entry of await quarantines()) {
+      const quarantine = path.join(lockPath, entry);
+      const quarantined = await readClaim(quarantine);
+      if (!quarantined) continue;
+      if (quarantined.unknown) throw lockOwnerError(quarantined.detail, lockPath);
+
+      const current = await holder();
+      if (current && current.unknown) throw lockOwnerError(current.detail, lockPath);
+      if (current && current.target === quarantined.target) {
+        // A takeover restored the claim but crashed before removing its quarantine. The holder
+        // is authoritative; removing only the duplicate quarantine cannot release the lock.
+        await fs.rm(quarantine, { force: true });
+        continue;
+      }
+
+      if (quarantined.host !== host) {
+        throw lockOwnerError(`a writer on another host (PID ${quarantined.pid})`, lockPath);
+      }
+      if (isProcessAlive(quarantined.pid)) {
+        // This is an in-flight takeover, not an orphan. Restore the claim if the holder path is
+        // empty, then stop instead of spinning or competing with the live takeover process.
+        if (!current) {
+          try {
+            await fs.link(quarantine, holderPath);
+          } catch (restoreError) {
+            if (!restoreError || restoreError.code !== 'EEXIST') throw restoreError;
+          }
+        }
+        throw lockOwnerError(`PID ${quarantined.pid} (quarantined holder ${entry})`, lockPath);
+      }
+
+      // The quarantine owner is dead, so no process can complete its cleanup. Remove the orphan
+      // and let the normal atomic acquisition path reclaim the project.
+      await fs.rm(quarantine, { force: true });
+    }
+  };
+
+  const invokeHeld = async () => {
+    try {
+      return await stateLockContext.run({ project, reentrant: Boolean(reentrant) }, fn);
+    } finally {
+      // Never remove a replacement holder if cleanup races a takeover after an external kill.
+      try { if (await fs.readlink(holderPath) === owner) await fs.unlink(holderPath); } catch (error) {
+        if (!error || error.code !== 'ENOENT') throw error;
+      }
+    }
+  };
+
+  // The common uncontended path is synchronous through acquisition. Besides reducing startup
+  // latency, this means run-import installs its signal handlers before an immediate SIGTERM can
+  // arrive; stale-holder takeover below remains asynchronous because it may need a rename race.
+  try {
+    fsSync.mkdirSync(lockPath, { recursive: true });
+    for (const entry of fsSync.readdirSync(lockPath)) {
+      const match = /^([^.]+)\.(\d+)\.[a-f0-9-]+\.owner$/.exec(entry);
+      if (!match) continue;
+      if (match[1] !== host) throw lockOwnerError(`legacy claim ${entry} on another host`, lockPath);
+      if (isProcessAlive(Number(match[2]))) throw lockOwnerError(`PID ${match[2]} (legacy claim ${entry})`, lockPath);
+      fsSync.rmSync(path.join(lockPath, entry), { force: true });
+    }
+    if (!fsSync.readdirSync(lockPath).some(entry => entry.startsWith('holder.stale-'))) {
+      fsSync.symlinkSync(owner, holderPath);
+      return invokeHeld();
+    }
+  } catch (error) {
+    if (!error || error.code !== 'EEXIST') throw error;
   }
+
+  await cleanLegacyClaims();
+  for (;;) {
+    await recoverQuarantines();
+    try {
+      // A symlink is the singleton: creation is atomic, and its target carries the PID/host even
+      // if the process dies before it can write any metadata. The target need not exist.
+      await fs.symlink(owner, holderPath);
+      if ((await quarantines()).length) {
+        try { if (await fs.readlink(holderPath) === owner) await fs.unlink(holderPath); } catch (error) {
+          if (!error || error.code !== 'ENOENT') throw error;
+        }
+        await recoverQuarantines();
+        continue;
+      }
+      break;
+    } catch (error) {
+      if (!error || error.code !== 'EEXIST') throw error;
+      const current = await holder();
+      if (!current) {
+        await recoverQuarantines();
+        continue;
+      }
+      if (current.unknown) throw lockOwnerError(current.detail, lockPath);
+      if (current.host !== host) throw lockOwnerError(`a writer on another host (PID ${current.pid})`, lockPath);
+      if (isProcessAlive(current.pid)) throw lockOwnerError(`PID ${current.pid}${current.script ? ` (${current.script})` : ''}`, lockPath);
+      // Rename is the stale-owner takeover gate. Only one contender can move this exact holder;
+      // all others either acquire the new holder or observe the winner and refuse.
+      const quarantine = `${holderPath}.stale-${crypto.randomUUID()}`;
+      try { await fs.rename(holderPath, quarantine); } catch (renameError) {
+        if (renameError && (renameError.code === 'ENOENT' || renameError.code === 'EEXIST')) {
+          await recoverQuarantines();
+          continue;
+        }
+        throw renameError;
+      }
+      // `current` was read before the rename. A second contender can have read the same stale
+      // holder and rename our newly-created holder before this contender reaches its own rename.
+      // Revalidate the quarantined identity before discarding it; otherwise that contender would
+      // silently steal a live lock and both processes could write the project concurrently.
+      let quarantinedTarget;
+      try { quarantinedTarget = await fs.readlink(quarantine); } catch (readError) {
+        if (readError && readError.code === 'ENOENT') {
+          await recoverQuarantines();
+          continue;
+        }
+        throw readError;
+      }
+      if (quarantinedTarget !== current.target) {
+        // We moved a newer holder, not the stale holder we observed. Restore it without replacing
+        // a holder another contender may have installed while this one was in quarantine.
+        try {
+          await fs.link(quarantine, holderPath);
+        } catch (restoreError) {
+          if (!restoreError || restoreError.code !== 'EEXIST') throw restoreError;
+          const restored = await holder();
+          if (!restored || restored.unknown || restored.target !== quarantinedTarget) {
+            throw lockOwnerError(`concurrent takeover left holder ${quarantinedTarget} quarantined`, lockPath);
+          }
+        }
+        await fs.rm(quarantine, { force: true });
+        await recoverQuarantines();
+        continue;
+      }
+      await fs.rm(quarantine, { force: true });
+    }
+  }
+
+  return invokeHeld();
+}
+
+const stateLockContext = new AsyncLocalStorage();
+function lockOwnerError(holder, lockPath) {
+  return new Error(`state lock already held: project writer lock already held by ${holder}; wait for that writer or confirm it is dead before retrying (${lockPath})`);
 }
 
 module.exports = {
+  NOT_ATTEMPTED_REASON,
+  isNotAttempted,
+  supersedesAttempt,
   onCrosswalkChange,
   SCHEMA_VERSION,
   stateDir,

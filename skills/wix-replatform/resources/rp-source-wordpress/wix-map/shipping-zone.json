@@ -1,0 +1,656 @@
+{
+  "schemaVersion": 1,
+  "kind": "wix-map-suggestion",
+  "sourcePlatform": "woocommerce",
+  "primaryKey": "id",
+  "sourceEntity": "shipping-zone",
+  "targetRef": "ecom/delivery-profile",
+  "targetEntity": "delivery-profile",
+  "preferredWrite": "ensureDeliveryRegion",
+  "requiredSourceEntityRefs": [],
+  "builder": "rp-source-wordpress/wix-map/shipping-zone.builder.js",
+  "sourceShape": {
+    "record": "GET /wc/v3/shipping/zones item",
+    "children": {
+      "locations": {
+        "route": "GET /wc/v3/shipping/zones/{id}/locations"
+      },
+      "methods": {
+        "route": "GET /wc/v3/shipping/zones/{id}/methods"
+      }
+    }
+  },
+  "provenance": [
+    "store T 11-15 run plan (shipping-zone)",
+    "store T and P 11-10 plans (shipping-zone, shipping-method)"
+  ],
+  "holdCodes": {
+    "shipping-zone-empty": {
+      "role": "cutover-operator",
+      "severity": "low",
+      "action": "WooCommerce's unused catch-all shipping zone was not migrated. Nothing to do unless you used it.",
+      "resolutionEvidence": "Confirmed."
+    },
+    "shipping-zone-no-wix-destination": {
+      "role": "cutover-operator",
+      "severity": "high",
+      "action": "These shipping zones are defined only by postcodes, which Wix delivery regions cannot hold. Set up delivery for those areas in Business Manager > Settings > Shipping & delivery.",
+      "resolutionEvidence": "Each listed zone has a Wix delivery region or is confirmed unwanted."
+    }
+  },
+  "fieldMappings": [
+    {
+      "id": "shipping-zone-region",
+      "sourcePaths": [
+        "name",
+        "locations[].type",
+        "locations[].code"
+      ],
+      "disposition": "native",
+      "reason": "Each configured zone becomes a delivery region on the default delivery profile. WooCommerce's unused catch-all zone (no locations, no methods) is not migrated; postcode locations have no Wix destination.",
+      "evidence": [
+        "resources/rp-target-wix/lib/shipping-build.js planShippingZones",
+        "store T 11-15 run plan (shipping-zone-region row)"
+      ],
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/shipping-zone.builder.js#zoneRegion",
+        "revision": "rp-source-wordpress/wix-map/shipping-zone.builder.js",
+        "arguments": {}
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "sz-1",
+          "input": {
+            "name": "Israel",
+            "locations": [
+              {
+                "type": "country",
+                "code": "IL"
+              }
+            ],
+            "methods": [
+              {
+                "method_id": "flat_rate",
+                "enabled": true,
+                "settings": {
+                  "cost": {
+                    "value": "30"
+                  }
+                }
+              }
+            ]
+          },
+          "expected": [
+            {
+              "outputId": "name",
+              "writeOperation": "ensureDeliveryRegion",
+              "value": "Israel"
+            },
+            {
+              "outputId": "destinations",
+              "writeOperation": "ensureDeliveryRegion",
+              "value": [
+                {
+                  "countryCode": "IL"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "sz-2",
+          "input": {
+            "name": "Fallback",
+            "locations": [],
+            "methods": []
+          },
+          "expected": [
+            {
+              "outputId": "name",
+              "writeOperation": "ensureDeliveryRegion",
+              "noWrite": true,
+              "findingCodes": [
+                "shipping-zone-empty"
+              ]
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "name",
+          "sourcePaths": [
+            "name"
+          ],
+          "targetRef": "ecom/delivery-profile",
+          "writeOperation": "ensureDeliveryRegion",
+          "targetPath": "deliveryRegion.name",
+          "verification": {
+            "readPath": "deliveryRegion.name"
+          }
+        },
+        {
+          "id": "destinations",
+          "sourcePaths": [
+            "locations[].type",
+            "locations[].code"
+          ],
+          "targetRef": "ecom/delivery-profile",
+          "writeOperation": "ensureDeliveryRegion",
+          "targetPath": "deliveryRegion.destinations",
+          "verification": {
+            "readPath": "deliveryRegion.destinations"
+          }
+        },
+        {
+          "id": "active",
+          "sourcePaths": [
+            "name"
+          ],
+          "targetRef": "ecom/delivery-profile",
+          "writeOperation": "ensureDeliveryRegion",
+          "targetPath": "deliveryRegion.active",
+          "verification": {
+            "readPath": "deliveryRegion.active"
+          }
+        }
+      ],
+      "choice": {
+        "name": "shipping-zone-region",
+        "value": {
+          "shipping-zone-catch-all": "not migrated when empty",
+          "shipping-zone-postcodes": "not carried (finding; a postcode-only zone is held)"
+        },
+        "default": {
+          "shipping-zone-catch-all": "not migrated when empty",
+          "shipping-zone-postcodes": "not carried (finding; a postcode-only zone is held)"
+        },
+        "reason": "This row decides several values; each part has its own default and reason.",
+        "decidedBy": "suggestion",
+        "parts": [
+          {
+            "name": "shipping-zone-catch-all",
+            "value": "not migrated when empty",
+            "default": "not migrated when empty",
+            "reason": "It is the install default, not a merchant choice (store T zone 0).",
+            "decidedBy": "suggestion"
+          },
+          {
+            "name": "shipping-zone-postcodes",
+            "value": "not carried (finding; a postcode-only zone is held)",
+            "default": "not carried (finding; a postcode-only zone is held)",
+            "reason": "Wix destinations are country and subdivision only.",
+            "decidedBy": "suggestion"
+          }
+        ]
+      }
+    },
+    {
+      "id": "shipping-zone-methods",
+      "sourcePaths": [
+        "methods[].method_id",
+        "methods[].enabled",
+        "methods[].title",
+        "methods[].settings.cost.value",
+        "methods[].settings.min_amount.value",
+        "methods[].settings.requires.value"
+      ],
+      "disposition": "native",
+      "reason": "Enabled methods become Wix shipping options: flat rate as its price, free shipping above a minimum as a threshold option folded onto the paid one, coupon-gated free shipping carried by the coupon. Formula costs and per-class costs have no Wix shape and are reported.",
+      "evidence": [
+        "resources/rp-target-wix/lib/shipping-build.js planShippingZones",
+        "store T 11-15 run plan (shipping-zone-region row)"
+      ],
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/shipping-zone.builder.js#zoneShippingOptions",
+        "revision": "rp-source-wordpress/wix-map/shipping-zone.builder.js",
+        "arguments": {}
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "sm-1",
+          "input": {
+            "name": "Israel",
+            "locations": [
+              {
+                "type": "country",
+                "code": "IL"
+              }
+            ],
+            "methods": [
+              {
+                "method_id": "flat_rate",
+                "enabled": true,
+                "settings": {
+                  "cost": {
+                    "value": "30"
+                  }
+                }
+              }
+            ]
+          },
+          "expected": [
+            {
+              "outputId": "title",
+              "writeOperation": "createShippingOptionVerified",
+              "values": [
+                "flat_rate"
+              ]
+            },
+            {
+              "outputId": "rates",
+              "writeOperation": "createShippingOptionVerified",
+              "values": [
+                [
+                  {
+                    "conditions": [],
+                    "amount": "30",
+                    "multiplyByQuantity": false
+                  }
+                ]
+              ]
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "title",
+          "sourcePaths": [
+            "methods[].method_id",
+            "methods[].enabled",
+            "methods[].title"
+          ],
+          "targetRef": "ecom/shipping-option",
+          "writeOperation": "createShippingOptionVerified",
+          "writeInput": "shippingOption",
+          "targetPath": "title",
+          "verification": {
+            "unverifiableReason": "Written and read back by the shipping-option stage (shipping-option-stage.js)."
+          }
+        },
+        {
+          "id": "rates",
+          "sourcePaths": [
+            "methods[].method_id",
+            "methods[].enabled",
+            "methods[].settings.cost.value",
+            "methods[].settings.min_amount.value",
+            "methods[].settings.requires.value"
+          ],
+          "targetRef": "ecom/shipping-option",
+          "writeOperation": "createShippingOptionVerified",
+          "writeInput": "shippingOption",
+          "targetPath": "rates",
+          "verification": {
+            "unverifiableReason": "Written and read back by the shipping-option stage (shipping-option-stage.js)."
+          }
+        }
+      ],
+      "choice": {
+        "name": "shipping-zone-methods",
+        "value": {
+          "shipping-free-threshold": "fold onto the paid option as free above the lowest threshold",
+          "shipping-class-costs": "not applied (reported)"
+        },
+        "default": {
+          "shipping-free-threshold": "fold onto the paid option as free above the lowest threshold",
+          "shipping-class-costs": "not applied (reported)"
+        },
+        "reason": "This row decides several values; each part has its own default and reason.",
+        "decidedBy": "suggestion",
+        "parts": [
+          {
+            "name": "shipping-free-threshold",
+            "value": "fold onto the paid option as free above the lowest threshold",
+            "default": "fold onto the paid option as free above the lowest threshold",
+            "reason": "Matches WooCommerce showing free shipping once any threshold is met (shipping-build resolveZoneMethods).",
+            "decidedBy": "suggestion"
+          },
+          {
+            "name": "shipping-class-costs",
+            "value": "not applied (reported)",
+            "default": "not applied (reported)",
+            "reason": "Wix additional charges are per order; applying a class cost would overcharge every other class.",
+            "decidedBy": "suggestion"
+          }
+        ]
+      }
+    },
+    {
+      "id": "source-archive",
+      "sourcePaths": [
+        "_links.collection[].href",
+        "_links.describedby[].href",
+        "_links.self[].href",
+        "_links.self[].targetHints.allow[]",
+        "id",
+        "locations[]._links.collection[].href",
+        "locations[]._links.describes[].href",
+        "methods[]._links.collection[].href",
+        "methods[]._links.describes[].href",
+        "methods[]._links.self[].href",
+        "methods[]._links.self[].targetHints.allow[]",
+        "methods[].id",
+        "methods[].instance_id",
+        "methods[].method_description",
+        "methods[].method_title",
+        "methods[].order",
+        "methods[].settings.class_cost_480.description",
+        "methods[].settings.class_cost_480.id",
+        "methods[].settings.class_cost_480.label",
+        "methods[].settings.class_cost_480.placeholder",
+        "methods[].settings.class_cost_480.tip",
+        "methods[].settings.class_cost_480.type",
+        "methods[].settings.class_costs.description",
+        "methods[].settings.class_costs.id",
+        "methods[].settings.class_costs.label",
+        "methods[].settings.class_costs.tip",
+        "methods[].settings.class_costs.type",
+        "methods[].settings.cost.description",
+        "methods[].settings.cost.id",
+        "methods[].settings.cost.label",
+        "methods[].settings.cost.tip",
+        "methods[].settings.cost.type",
+        "methods[].settings.free_shipping_override.default",
+        "methods[].settings.free_shipping_override.description",
+        "methods[].settings.free_shipping_override.id",
+        "methods[].settings.free_shipping_override.label",
+        "methods[].settings.free_shipping_override.tip",
+        "methods[].settings.free_shipping_override.type",
+        "methods[].settings.free_shipping_override.value",
+        "methods[].settings.hide_other_methods.default",
+        "methods[].settings.hide_other_methods.description",
+        "methods[].settings.hide_other_methods.id",
+        "methods[].settings.hide_other_methods.label",
+        "methods[].settings.hide_other_methods.tip",
+        "methods[].settings.hide_other_methods.type",
+        "methods[].settings.hide_other_methods.value",
+        "methods[].settings.ignore_discounts.default",
+        "methods[].settings.ignore_discounts.description",
+        "methods[].settings.ignore_discounts.id",
+        "methods[].settings.ignore_discounts.label",
+        "methods[].settings.ignore_discounts.tip",
+        "methods[].settings.ignore_discounts.type",
+        "methods[].settings.ignore_discounts.value",
+        "methods[].settings.min_amount.description",
+        "methods[].settings.min_amount.id",
+        "methods[].settings.min_amount.label",
+        "methods[].settings.min_amount.tip",
+        "methods[].settings.min_amount.type",
+        "methods[].settings.no_class_cost.description",
+        "methods[].settings.no_class_cost.id",
+        "methods[].settings.no_class_cost.label",
+        "methods[].settings.no_class_cost.placeholder",
+        "methods[].settings.no_class_cost.tip",
+        "methods[].settings.no_class_cost.type",
+        "methods[].settings.remove_from_shipping_methods_calculations.default",
+        "methods[].settings.remove_from_shipping_methods_calculations.description",
+        "methods[].settings.remove_from_shipping_methods_calculations.id",
+        "methods[].settings.remove_from_shipping_methods_calculations.label",
+        "methods[].settings.remove_from_shipping_methods_calculations.tip",
+        "methods[].settings.remove_from_shipping_methods_calculations.type",
+        "methods[].settings.remove_from_shipping_methods_calculations.value",
+        "methods[].settings.requires.id",
+        "methods[].settings.requires.label",
+        "methods[].settings.requires.options.both",
+        "methods[].settings.requires.options.coupon",
+        "methods[].settings.requires.options.either",
+        "methods[].settings.requires.options.min_amount",
+        "methods[].settings.requires.options[\"\"]",
+        "methods[].settings.requires.type",
+        "methods[].settings.tax_status.default",
+        "methods[].settings.tax_status.id",
+        "methods[].settings.tax_status.label",
+        "methods[].settings.tax_status.options.none",
+        "methods[].settings.tax_status.options.taxable",
+        "methods[].settings.tax_status.type",
+        "methods[].settings.tax_status.value",
+        "methods[].settings.title.default",
+        "methods[].settings.title.description",
+        "methods[].settings.title.id",
+        "methods[].settings.title.label",
+        "methods[].settings.title.placeholder",
+        "methods[].settings.title.tip",
+        "methods[].settings.title.type",
+        "methods[].settings.title.value",
+        "methods[].settings.type.default",
+        "methods[].settings.type.description",
+        "methods[].settings.type.id",
+        "methods[].settings.type.label",
+        "methods[].settings.type.options.class",
+        "methods[].settings.type.options.order",
+        "methods[].settings.type.tip",
+        "methods[].settings.type.type",
+        "methods[].settings.type.value",
+        "order"
+      ],
+      "disposition": "cms",
+      "reason": "Every other zone field (order, links, method settings) is kept in the private source-archive collection.",
+      "evidence": [
+        "resources/rp-target-wix/lib/source-archive.js PACKED_ARCHIVE_FIELDS",
+        "store T 11-15 run plan (source-archive rows)"
+      ],
+      "transform": {
+        "kind": "helper",
+        "name": "source-archive.buildArchiveRecord",
+        "revision": "source-archive-retention-v1",
+        "arguments": {
+          "sourceEntity": "shipping-zone",
+          "sourceKeyPath": "id",
+          "collectionId": "ImportArchive_shipping-zone_2a259f18"
+        }
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "archive-as-is"
+        },
+        "invalid": {
+          "action": "archive-as-is"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "shipping-zone-archive-1",
+          "input": {
+            "id": 3
+          },
+          "expected": [
+            {
+              "outputId": "records",
+              "writeOperation": "insertDataItem",
+              "values": [
+                {
+                  "3": {
+                    "fields": {}
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "records",
+          "sourcePaths": [
+            "_links.collection[].href",
+            "_links.describedby[].href",
+            "_links.self[].href",
+            "_links.self[].targetHints.allow[]",
+            "id",
+            "locations[]._links.collection[].href",
+            "locations[]._links.describes[].href",
+            "methods[]._links.collection[].href",
+            "methods[]._links.describes[].href",
+            "methods[]._links.self[].href",
+            "methods[]._links.self[].targetHints.allow[]",
+            "methods[].id",
+            "methods[].instance_id",
+            "methods[].method_description",
+            "methods[].method_title",
+            "methods[].order",
+            "methods[].settings.class_cost_480.description",
+            "methods[].settings.class_cost_480.id",
+            "methods[].settings.class_cost_480.label",
+            "methods[].settings.class_cost_480.placeholder",
+            "methods[].settings.class_cost_480.tip",
+            "methods[].settings.class_cost_480.type",
+            "methods[].settings.class_costs.description",
+            "methods[].settings.class_costs.id",
+            "methods[].settings.class_costs.label",
+            "methods[].settings.class_costs.tip",
+            "methods[].settings.class_costs.type",
+            "methods[].settings.cost.description",
+            "methods[].settings.cost.id",
+            "methods[].settings.cost.label",
+            "methods[].settings.cost.tip",
+            "methods[].settings.cost.type",
+            "methods[].settings.free_shipping_override.default",
+            "methods[].settings.free_shipping_override.description",
+            "methods[].settings.free_shipping_override.id",
+            "methods[].settings.free_shipping_override.label",
+            "methods[].settings.free_shipping_override.tip",
+            "methods[].settings.free_shipping_override.type",
+            "methods[].settings.free_shipping_override.value",
+            "methods[].settings.hide_other_methods.default",
+            "methods[].settings.hide_other_methods.description",
+            "methods[].settings.hide_other_methods.id",
+            "methods[].settings.hide_other_methods.label",
+            "methods[].settings.hide_other_methods.tip",
+            "methods[].settings.hide_other_methods.type",
+            "methods[].settings.hide_other_methods.value",
+            "methods[].settings.ignore_discounts.default",
+            "methods[].settings.ignore_discounts.description",
+            "methods[].settings.ignore_discounts.id",
+            "methods[].settings.ignore_discounts.label",
+            "methods[].settings.ignore_discounts.tip",
+            "methods[].settings.ignore_discounts.type",
+            "methods[].settings.ignore_discounts.value",
+            "methods[].settings.min_amount.description",
+            "methods[].settings.min_amount.id",
+            "methods[].settings.min_amount.label",
+            "methods[].settings.min_amount.tip",
+            "methods[].settings.min_amount.type",
+            "methods[].settings.no_class_cost.description",
+            "methods[].settings.no_class_cost.id",
+            "methods[].settings.no_class_cost.label",
+            "methods[].settings.no_class_cost.placeholder",
+            "methods[].settings.no_class_cost.tip",
+            "methods[].settings.no_class_cost.type",
+            "methods[].settings.remove_from_shipping_methods_calculations.default",
+            "methods[].settings.remove_from_shipping_methods_calculations.description",
+            "methods[].settings.remove_from_shipping_methods_calculations.id",
+            "methods[].settings.remove_from_shipping_methods_calculations.label",
+            "methods[].settings.remove_from_shipping_methods_calculations.tip",
+            "methods[].settings.remove_from_shipping_methods_calculations.type",
+            "methods[].settings.remove_from_shipping_methods_calculations.value",
+            "methods[].settings.requires.id",
+            "methods[].settings.requires.label",
+            "methods[].settings.requires.options.both",
+            "methods[].settings.requires.options.coupon",
+            "methods[].settings.requires.options.either",
+            "methods[].settings.requires.options.min_amount",
+            "methods[].settings.requires.options[\"\"]",
+            "methods[].settings.requires.type",
+            "methods[].settings.tax_status.default",
+            "methods[].settings.tax_status.id",
+            "methods[].settings.tax_status.label",
+            "methods[].settings.tax_status.options.none",
+            "methods[].settings.tax_status.options.taxable",
+            "methods[].settings.tax_status.type",
+            "methods[].settings.tax_status.value",
+            "methods[].settings.title.default",
+            "methods[].settings.title.description",
+            "methods[].settings.title.id",
+            "methods[].settings.title.label",
+            "methods[].settings.title.placeholder",
+            "methods[].settings.title.tip",
+            "methods[].settings.title.type",
+            "methods[].settings.title.value",
+            "methods[].settings.type.default",
+            "methods[].settings.type.description",
+            "methods[].settings.type.id",
+            "methods[].settings.type.label",
+            "methods[].settings.type.options.class",
+            "methods[].settings.type.options.order",
+            "methods[].settings.type.tip",
+            "methods[].settings.type.type",
+            "methods[].settings.type.value",
+            "order"
+          ],
+          "targetRef": "cms/data-item",
+          "writeOperation": "insertDataItem",
+          "targetPath": "data.records",
+          "storage": {
+            "collectionId": "ImportArchive_shipping-zone_2a259f18"
+          },
+          "verification": {
+            "unverifiableReason": "Packed archive items are verified by the archive step read-back."
+          }
+        }
+      ],
+      "choice": {
+        "name": "leftover-fields",
+        "value": "source archive",
+        "default": "source archive",
+        "reason": "No native Wix field holds them; nothing is dropped silently.",
+        "decidedBy": "suggestion"
+      }
+    }
+  ]
+}

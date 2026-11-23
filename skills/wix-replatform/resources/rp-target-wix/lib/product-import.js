@@ -47,6 +47,12 @@ async function verifyProductCandidate(wix, { siteId, sourceKey, expected, target
 // of holding it as uncertain forever. The catalog sweep still adopts one that exists by marker.
 const NOT_WRITTEN_ERROR = /^(?:DEPENDENCY_READINESS_REQUIRED$|POST https:\/\/www\.wixapis\.com\/stores\/v3\/bulk\/products-with-inventory\/create → 429:)/;
 const savedUncertain = row => Boolean(row?.uncertain) && !(!row.targetId && NOT_WRITTEN_ERROR.test(String(row.error || '')));
+// The crosswalk row a verified product is published under. Its key is the row's own `sourceKey`
+// (the import loop's binding key), so a reader that looks the record up again uses that key.
+function productCrosswalkRow(r) {
+  return { schemaVersion: 1, sourceSystem: r.sourceSystem || 'source', sourceEntityType: r.sourceEntityType || 'product', sourceId: stateIO.crosswalkSourceId(r),
+    sourceStableKey: r.sourceKey, targetSystem: 'wix', targetEntityType: 'product', targetId: r.targetId, status: 'imported' };
+}
 async function importProducts(wix, { projectDir, siteId, rows, verifyAttempts = 3, sleep = pause, dryRun = false, seoConflictDecisions = {}, seoSleep = null, seoPacer = null }) {
   if (!siteId || !projectDir || !Array.isArray(rows) || !Number.isInteger(verifyAttempts) || verifyAttempts < 1 || verifyAttempts > 5) throw new Error('Invalid product import arguments');
   if (rows.some(r => !r.sourceKey || !r.expected || !Object.keys(r.expected).length || !r.marker?.path || r.marker.value == null || r.marker.value === '' || !Array.isArray(r.variantExpectations) || !r.variantExpectations.length) || new Set(rows.map(r => r.sourceKey)).size !== rows.length) throw new Error('Product source identity, projection and variant expectations are required');
@@ -145,7 +151,7 @@ async function importProducts(wix, { projectDir, siteId, rows, verifyAttempts = 
         for (const outcome of result.results) if (outcome.correlated) {
           const r = group[outcome.index];
           if (outcome.success) { r.targetId = outcome.productId; r.uncertain = false; r.confirmedCreate = true; }
-          else { r.error = outcome.errorCode || 'Product create failed'; r.uncertain = false; }
+          else { r.error = [outcome.errorCode, outcome.errorMessage].filter(Boolean).join(': ') || 'Product create failed'; r.uncertain = false; }
           save(r);
         }
         for (const index of result.unresolvedIndexes) { group[index].error = 'Unresolved bulk product result'; save(group[index]); }
@@ -169,8 +175,7 @@ async function importProducts(wix, { projectDir, siteId, rows, verifyAttempts = 
       if (!r.error && r.targetId) Object.assign(r, await verifyProductCandidate(wix, { ...r, siteId, verifyAttempts, sleep }));
       save(r);
       if (r.receipt?.verified && !r.error) catalogBaseline.clearCollision(projectDir, 'stores/product', r.sourceKey);
-      if (r.receipt?.verified && !r.error) publications.push({ row: { schemaVersion: 1, sourceSystem: r.sourceSystem || 'source', sourceEntityType: r.sourceEntityType || 'product', sourceId: stateIO.crosswalkSourceId(r),
-        sourceStableKey: r.sourceKey, targetSystem: 'wix', targetEntityType: 'product', targetId: r.targetId, status: 'imported' }, receipt: r.receipt, options: r });
+      if (r.receipt?.verified && !r.error) publications.push({ row: productCrosswalkRow(r), receipt: r.receipt, options: r });
       verifiedBatch.push(r);
       if (verifiedBatch.length === 100) { await stateIO.checkpoint(projectDir, state, verifiedBatch); verifiedBatch = []; }
     }
@@ -197,6 +202,6 @@ async function importProducts(wix, { projectDir, siteId, rows, verifyAttempts = 
       report.seo.stageResiduals = seo.collectSeoStageResiduals([...report.seo.results, ...unreconciled]);
     }
     return report;
-  });
+  }, { script: 'product-import.js', reentrant: true });
 }
-module.exports = { resolveVariants, verifyProductCandidate, importProducts };
+module.exports = { resolveVariants, verifyProductCandidate, importProducts, productCrosswalkRow };

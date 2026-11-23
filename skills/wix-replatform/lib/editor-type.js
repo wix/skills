@@ -12,5 +12,7 @@ function editorTypeFromUrls(json) {
 
 // The editor type of a Harmony (Wix Harmony / ODE) site, as `GET /editor-urls` names it.
 const HARMONY_EDITOR_TYPE = 'ODEDITOR';
+// The editor type of a Wix Studio 2 site, edited as local code with Origami.
+const STUDIO_TWO_EDITOR_TYPE = 'STUDIO_TWO';
 
-module.exports = { editorTypeFromUrls, HARMONY_EDITOR_TYPE };
+module.exports = { editorTypeFromUrls, HARMONY_EDITOR_TYPE, STUDIO_TWO_EDITOR_TYPE };

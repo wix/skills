@@ -1,12 +1,19 @@
 ---
 name: rp-subagent-dispatch
 description: >-
-  How the orchestrator dispatches Developer and QA subagents so a run's token cost stays
-  bounded: a fresh subagent per round, a short deterministic handoff file, a context budget
-  with a clean handoff, and bounded helpers instead of raw ledgers.
+  How non-Codex hosts dispatch Developer and QA subagents so a run's token cost stays bounded:
+  a fresh subagent per round, a short deterministic handoff file, a context budget with a
+  clean handoff, and bounded helpers instead of raw ledgers.
 ---
 
 # rp-subagent-dispatch
+
+## Host boundary
+
+This resource governs dispatched workers on non-Codex hosts. A Codex-hosted run executes the
+selected resource and its Developer, per-stage QA, and phase-QA passes in the top-level worker
+sequentially. It must not call `collab_tool` `spawn_agent`, `wait`, or `close_agent` for stage
+work; the fresh-subagent and redispatch rules below do not authorize nested Codex workers.
 
 Most of a run's token cost is history re-sent on every model call, not tool output. A
 subagent that is resumed round after round keeps re-sending everything it ever saw: one
@@ -63,6 +70,6 @@ out of 522M for the whole run. These rules keep each subagent short.
 
   Default output: counts per entity × status (current status per attempt) and top error
   classes; `--entity`/`--status` add up to `--limit` matching rows. Output stays ≤ 4 KB.
-- Run a generated import with `scripts/import-supervise.js` (see `rp-execute-import`): one
-  tool call that launches, polls, resumes and returns `complete`, `needs_decision` or
-  `resume_limit`, instead of one model call per poll.
+- A subagent never waits on a long import or extract. The top-level agent runs
+  `scripts/import-supervise.js` in background mode and ends its turn; it is woken once, on
+  `complete`, `needs_decision` or `resume_limit` (see `rp-execute-import`).

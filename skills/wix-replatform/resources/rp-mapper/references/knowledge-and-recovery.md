@@ -59,9 +59,9 @@ The decision's `recovery` contains:
 - `source` pins the retained NDJSON; `membership` pins a JSON array of
   `{sourceId,sourceStableKey}`. Full identity and original values must survive; a count alone
   does not authorize continuation. Values remain local, outside reports and telemetry.
-- `createWithoutField: {optional:true,noMaterialBehaviorChange:true,reason,targetRef,operation,writeInput,paths}`
+- `createWithoutField: {optional:true,noMaterialBehaviorChange:true,reason,targetRef,operation,paths}`
   names the exact withheld create fields and checked eligibility.
-- `correction: {mutable:true,targetRef,operation,writeInput,paths}` names the supported later
+- `correction: {mutable:true,targetRef,operation,paths}` names the supported later
   update fields. Pin authoritative schema evidence for both operations.
 
 Required/immutable fields, unsafe financial/consent/notification behavior or an unavailable

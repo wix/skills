@@ -1,0 +1,416 @@
+{
+  "schemaVersion": 1,
+  "kind": "wix-map-suggestion",
+  "sourcePlatform": "woocommerce",
+  "sourceEntity": "product-category",
+  "targetRef": "stores/category",
+  "targetEntity": "category",
+  "preferredWrite": "createStoresCategory",
+  "primaryKey": "id",
+  "requiredSourceEntityRefs": [],
+  "provenance": [
+    "store T 11-15 run mapping plan (checks passed)"
+  ],
+  "fieldMappings": [
+    {
+      "id": "category-name",
+      "sourcePaths": [
+        "name",
+        "slug"
+      ],
+      "disposition": "native",
+      "reason": "Category name, HTML entities decoded. A category with no name is still imported: its name falls back to the decoded slug, else \"Category <source id>\", with one grouped cutover task (product-category-name-missing).",
+      "evidence": [
+        "store T 11-15 run mapping plan (every product check passed)",
+        "resources/rp-target-wix/domains/stores/entities/category.json"
+      ],
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/product-term.builder.js#termName",
+        "revision": "rp-source-wordpress/wix-map/product-term.builder.js",
+        "arguments": {
+          "sourceEntity": "product-category",
+          "label": "Category"
+        }
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "write-as-is"
+        },
+        "null": {
+          "action": "write-as-is"
+        },
+        "empty": {
+          "action": "write-as-is"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "pcn-1",
+          "input": {
+            "name": "Beans &amp; Capsules"
+          },
+          "expected": [
+            {
+              "outputId": "name",
+              "writeOperation": "createStoresCategory",
+              "value": "Beans & Capsules"
+            }
+          ]
+        },
+        {
+          "id": "pcn-2",
+          "input": {
+            "id": 77,
+            "name": "",
+            "slug": "coffee-beans"
+          },
+          "expected": [
+            {
+              "outputId": "name",
+              "writeOperation": "createStoresCategory",
+              "value": "coffee-beans"
+            }
+          ]
+        },
+        {
+          "id": "pcn-3",
+          "input": {
+            "id": 78,
+            "name": "  ",
+            "slug": ""
+          },
+          "expected": [
+            {
+              "outputId": "name",
+              "writeOperation": "createStoresCategory",
+              "value": "Category 78"
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "name",
+          "sourcePaths": [
+            "name",
+            "slug"
+          ],
+          "targetRef": "stores/category",
+          "writeOperation": "createStoresCategory",
+          "targetPath": "name",
+          "verification": {
+            "readPath": "category.name"
+          }
+        }
+      ],
+      "choice": {
+        "name": "product-category-name-missing",
+        "value": "fallback name: decoded slug, else \"Category <source id>\"",
+        "default": "fallback name: decoded slug, else \"Category <source id>\"",
+        "reason": "Import everything: a nameless term is neither dropped nor held. The merchant renames it, or keeps the fallback (cutover task).",
+        "decidedBy": "suggestion",
+        "alternatives": [
+          "omit-output",
+          "hold-record"
+        ]
+      }
+    },
+    {
+      "id": "category-parent",
+      "sourcePaths": [
+        "parent"
+      ],
+      "disposition": "native",
+      "reason": "Hierarchy is preserved: parent resolved through the category crosswalk (same-entity hierarchy, created depth-ascending); 0 means top level.",
+      "evidence": [
+        "store T 11-15 run mapping plan (every product check passed)",
+        "resources/rp-target-wix/domains/stores/entities/category.json"
+      ],
+      "transform": {
+        "kind": "helper",
+        "name": "same-entity-hierarchy",
+        "revision": "rp-target-wix/same-entity-hierarchy.js",
+        "arguments": {
+          "parent": "parent",
+          "root": 0
+        }
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "omit-output",
+          "reason": "top-level category"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "pcp-1",
+          "input": {
+            "parent": 0
+          },
+          "expected": [
+            {
+              "outputId": "parent",
+              "writeOperation": "createStoresCategory",
+              "omitted": true
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "parent",
+          "sourcePaths": [
+            "parent"
+          ],
+          "targetRef": "stores/category",
+          "writeOperation": "createStoresCategory",
+          "targetPath": "parentCategory.id",
+          "verification": {
+            "readPath": "category.parentCategory.id"
+          }
+        }
+      ],
+      "referencePolicy": {
+        "cardinality": "one",
+        "order": "depth ascending",
+        "entityRef": "product-category",
+        "input": "parent",
+        "targetPath": "parentCategory.id",
+        "missing": "top level",
+        "ambiguous": "hold category",
+        "orphan": "hold category and its descendants"
+      },
+      "choice": {
+        "name": "category-hierarchy",
+        "value": "keep",
+        "default": "keep",
+        "reason": "The tree is kept: parents first, resolved through the category crosswalk; parent 0 is top level.",
+        "decidedBy": "suggestion"
+      }
+    },
+    {
+      "id": "source-archive",
+      "sourcePaths": [
+        "_links.collection[].href",
+        "_links.self[].href",
+        "_links.self[].targetHints.allow[]",
+        "_links.up[].href",
+        "count",
+        "display",
+        "id",
+        "image.date_created",
+        "image.date_created_gmt",
+        "image.date_modified",
+        "image.date_modified_gmt",
+        "image.id",
+        "image.name",
+        "image.src",
+        "menu_order",
+        "slug",
+        "yoast_head",
+        "yoast_head_json.canonical",
+        "yoast_head_json.og_locale",
+        "yoast_head_json.og_site_name",
+        "yoast_head_json.og_title",
+        "yoast_head_json.og_type",
+        "yoast_head_json.og_url",
+        "yoast_head_json.robots.follow",
+        "yoast_head_json.robots.index",
+        "yoast_head_json.robots.max-image-preview",
+        "yoast_head_json.robots.max-snippet",
+        "yoast_head_json.robots.max-video-preview",
+        "yoast_head_json.schema[\"@context\"]",
+        "yoast_head_json.schema[\"@graph\"][].breadcrumb[\"@id\"]",
+        "yoast_head_json.schema[\"@graph\"][].description",
+        "yoast_head_json.schema[\"@graph\"][].inLanguage",
+        "yoast_head_json.schema[\"@graph\"][].isPartOf[\"@id\"]",
+        "yoast_head_json.schema[\"@graph\"][].itemListElement[].item",
+        "yoast_head_json.schema[\"@graph\"][].itemListElement[].name",
+        "yoast_head_json.schema[\"@graph\"][].itemListElement[].position",
+        "yoast_head_json.schema[\"@graph\"][].itemListElement[][\"@type\"]",
+        "yoast_head_json.schema[\"@graph\"][].name",
+        "yoast_head_json.schema[\"@graph\"][].potentialAction[].query-input.valueName",
+        "yoast_head_json.schema[\"@graph\"][].potentialAction[].query-input.valueRequired",
+        "yoast_head_json.schema[\"@graph\"][].potentialAction[].query-input[\"@type\"]",
+        "yoast_head_json.schema[\"@graph\"][].potentialAction[].target.urlTemplate",
+        "yoast_head_json.schema[\"@graph\"][].potentialAction[].target[\"@type\"]",
+        "yoast_head_json.schema[\"@graph\"][].potentialAction[][\"@type\"]",
+        "yoast_head_json.schema[\"@graph\"][].url",
+        "yoast_head_json.schema[\"@graph\"][][\"@id\"]",
+        "yoast_head_json.schema[\"@graph\"][][\"@type\"]",
+        "yoast_head_json.title",
+        "yoast_head_json.twitter_card"
+      ],
+      "disposition": "cms",
+      "reason": "No native Wix field holds these source values; each is kept per field in the private source-archive CMS collection (packed records, source-archive-retention-v1 drops only IP address / user-agent plumbing).",
+      "evidence": [
+        "store T 11-15 run mapping plan (every product check passed)",
+        "rp-mapper SKILL.md \"The source archive is per field, not per record\"",
+        "resources/rp-target-wix/lib/source-archive.js PACKED_ARCHIVE_FIELDS",
+        "Archive expectations use the packed source-archive-retention-v1 item shape ({\"<source id>\":{fields:{\"<group> › <label>\":value}}}); labels follow rp-target-wix/lib/source-archive.js labelFor and domains/cms/source-archive-fields.v1.json groups; a record whose archived leaves are all empty or noise writes no archive item (source-archive-item-missing)."
+      ],
+      "transform": {
+        "kind": "helper",
+        "name": "source-archive.buildArchiveRecord",
+        "revision": "source-archive-retention-v1",
+        "arguments": {
+          "sourceEntity": "product-category",
+          "sourceKeyPath": "id",
+          "collectionId": "ImportArchive_product-categ_3367d9f8"
+        }
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "archive-as-is"
+        },
+        "invalid": {
+          "action": "archive-as-is"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "product-category-archive-1",
+          "input": {
+            "id": 1
+          },
+          "expected": [
+            {
+              "outputId": "records",
+              "writeOperation": "insertDataItem",
+              "noWrite": true,
+              "findingCodes": [
+                "source-archive-item-missing"
+              ]
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "records",
+          "sourcePaths": [
+            "_links.collection[].href",
+            "_links.self[].href",
+            "_links.self[].targetHints.allow[]",
+            "_links.up[].href",
+            "count",
+            "display",
+            "id",
+            "image.date_created",
+            "image.date_created_gmt",
+            "image.date_modified",
+            "image.date_modified_gmt",
+            "image.id",
+            "image.name",
+            "image.src",
+            "menu_order",
+            "slug",
+            "yoast_head",
+            "yoast_head_json.canonical",
+            "yoast_head_json.og_locale",
+            "yoast_head_json.og_site_name",
+            "yoast_head_json.og_title",
+            "yoast_head_json.og_type",
+            "yoast_head_json.og_url",
+            "yoast_head_json.robots.follow",
+            "yoast_head_json.robots.index",
+            "yoast_head_json.robots.max-image-preview",
+            "yoast_head_json.robots.max-snippet",
+            "yoast_head_json.robots.max-video-preview",
+            "yoast_head_json.schema[\"@context\"]",
+            "yoast_head_json.schema[\"@graph\"][].breadcrumb[\"@id\"]",
+            "yoast_head_json.schema[\"@graph\"][].description",
+            "yoast_head_json.schema[\"@graph\"][].inLanguage",
+            "yoast_head_json.schema[\"@graph\"][].isPartOf[\"@id\"]",
+            "yoast_head_json.schema[\"@graph\"][].itemListElement[].item",
+            "yoast_head_json.schema[\"@graph\"][].itemListElement[].name",
+            "yoast_head_json.schema[\"@graph\"][].itemListElement[].position",
+            "yoast_head_json.schema[\"@graph\"][].itemListElement[][\"@type\"]",
+            "yoast_head_json.schema[\"@graph\"][].name",
+            "yoast_head_json.schema[\"@graph\"][].potentialAction[].query-input.valueName",
+            "yoast_head_json.schema[\"@graph\"][].potentialAction[].query-input.valueRequired",
+            "yoast_head_json.schema[\"@graph\"][].potentialAction[].query-input[\"@type\"]",
+            "yoast_head_json.schema[\"@graph\"][].potentialAction[].target.urlTemplate",
+            "yoast_head_json.schema[\"@graph\"][].potentialAction[].target[\"@type\"]",
+            "yoast_head_json.schema[\"@graph\"][].potentialAction[][\"@type\"]",
+            "yoast_head_json.schema[\"@graph\"][].url",
+            "yoast_head_json.schema[\"@graph\"][][\"@id\"]",
+            "yoast_head_json.schema[\"@graph\"][][\"@type\"]",
+            "yoast_head_json.title",
+            "yoast_head_json.twitter_card"
+          ],
+          "targetRef": "cms/data-item",
+          "writeOperation": "insertDataItem",
+          "targetPath": "data.records",
+          "storage": {
+            "collectionId": "ImportArchive_product-categ_3367d9f8",
+            "fieldKey": "records",
+            "fieldType": "OBJECT",
+            "permissionsPreset": "migration-internal",
+            "sourceEntity": "product-category",
+            "parentLink": {
+              "field": "sourceKeys",
+              "sourceKeyPath": "id",
+              "wixIdField": "wixIds"
+            }
+          },
+          "verification": {
+            "unverifiableReason": "Written by the source-archive step (packed CMS items), not by the entity writer; the archive step reads its own items back."
+          }
+        }
+      ],
+      "choice": {
+        "name": "category-description-image",
+        "value": "archive",
+        "default": "archive",
+        "reason": "Rev 3 archived category description and image; Wix category fields for them are not mapped yet.",
+        "decidedBy": "suggestion"
+      }
+    }
+  ],
+  "findingCodes": {
+    "product-category-name-missing": {
+      "role": "cutover-operator",
+      "severity": "low",
+      "action": "These categories have no name in the source and were imported with a fallback name (slug, else \"Category <source id>\"). Rename them in Business Manager > Store Products, or keep the fallback.",
+      "resolutionEvidence": "Each listed term has the name the merchant wants."
+    }
+  }
+}

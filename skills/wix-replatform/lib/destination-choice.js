@@ -20,6 +20,7 @@ const CHOICE_LABELS = Object.freeze({
   harmony_bookings: { label: 'Wix Harmony — bookings/services', description: 'Harmony editor; the business sells appointments, classes or services.' },
   harmony_other: { label: 'Wix Harmony — another kind of business', description: 'Harmony editor; neither a store nor a bookings business.' },
   harmony: { label: 'Wix Harmony — not sure, start blank', description: 'Harmony editor, starting from the blank template.' },
+  studio2: { label: 'Wix Studio 2', description: 'A website in the Wix Studio 2 editor; its design is copied as local code with the wix-studio2-editor skill.' },
 });
 
 const CONTEXT_HARMONY_LABEL = { label: 'Wix Harmony', description: 'A website designed in the Wix Harmony editor.' };
@@ -80,10 +81,10 @@ async function recordSiteTypeDecision(projectDir, input, options = {}) {
 // collapses to one `harmony` choice that records the context value.
 function siteTypeRequestInput({ contextBusinessType = null, evidenceRef = null, siteName = null } = {}) {
   const fromContext = contextBusinessType && KNOWN_BUSINESS_TYPES.includes(contextBusinessType) && evidenceRef;
-  const ids = fromContext ? ['headless', 'studio', 'harmony'] : Object.keys(SITE_TYPE_CHOICES);
+  const ids = fromContext ? ['headless', 'studio', 'harmony', 'studio2'] : Object.keys(SITE_TYPE_CHOICES);
   const choices = ids.map((id) => ({ id, ...(fromContext && id === 'harmony' ? CONTEXT_HARMONY_LABEL : CHOICE_LABELS[id]) }));
   const context = [
-    'A Studio or Harmony site is created in the Wix account the Wix CLI is logged into; that account is shown for confirmation before anything is created.',
+    'A Studio, Studio 2 or Harmony site is created in the Wix account the Wix CLI is logged into; that account is shown for confirmation before anything is created.',
     siteName ? `Its name will be "${siteName}".` : null,
     fromContext ? `The business type is already known from the run (${contextBusinessType}).` : null,
   ].filter(Boolean).join(' ');
@@ -91,7 +92,7 @@ function siteTypeRequestInput({ contextBusinessType = null, evidenceRef = null, 
     kind: 'question',
     stage: 'destination',
     title: 'Choose the new site type',
-    prompt: `What kind of new Wix site should this migration create? This choice decides where the imported data will live and cannot be changed later as a setting. Headless is for a website developed in code; Studio and Harmony are websites designed in a Wix editor.${context ? ` ${context}` : ''}`,
+    prompt: `What kind of new Wix site should this migration create? This choice decides where the imported data will live and cannot be changed later as a setting. Headless is for a website developed in code; Studio, Studio 2 and Harmony are websites designed in a Wix editor.${context ? ` ${context}` : ''}`,
     response: { mode: 'choice', required: true },
     choices,
     effect: {
@@ -129,12 +130,17 @@ function isValidSiteTypeEffect(effect, choices) {
 // Scope guard for management_and_website with an Editor choice.
 const EDITOR_WEBSITE_DECISIONS = Object.freeze(['management_only', 'separate_editor_handoff']);
 
+const EDITOR_SITE_LABEL = Object.freeze({ studio: 'Wix Studio', harmony: 'Wix Harmony', studio2: 'Wix Studio 2' });
+
 function editorWebsiteRequestInput({ siteType }) {
+  const website = siteType === 'studio2'
+    ? 'built separately. After the backend, the website is copied from the source with the wix-studio2-editor skill.'
+    : 'designed separately in the Wix editor.';
   return {
     kind: 'question',
     stage: 'destination',
     title: 'Editor website is not built automatically',
-    prompt: `You asked for both the backend migration and the website, on a ${siteType === 'studio' ? 'Wix Studio' : 'Wix Harmony'} site. RePlatform has no supported automatic website migration for an Editor site: it creates the site and imports the business data, but the website itself is designed separately in the Wix editor. Choose whether to migrate the backend only, or to continue with the backend now and a separate Editor website handoff (the website stays outstanding and the migration is not reported complete until it is released).`,
+    prompt: `You asked for both the backend migration and the website, on a ${EDITOR_SITE_LABEL[siteType] || 'Wix Harmony'} site. RePlatform has no supported automatic website migration for an Editor site: it creates the site and imports the business data, but the website itself is ${website} Choose whether to migrate the backend only, or to continue with the backend now and a separate Editor website handoff (the website stays outstanding and the migration is not reported complete until it is released).`,
     response: { mode: 'choice', required: true },
     choices: [
       { id: 'management_only', label: 'Backend only', description: 'Change the scope to management; no website work is owed by this run.' },

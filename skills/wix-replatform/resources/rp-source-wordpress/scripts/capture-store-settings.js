@@ -29,7 +29,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { parseEnvText } = require('../../../lib/config-env.js');
-const { fetchSource } = require('../lib/wp-http.js');
 
 const GROUP = 'general';
 const ROUTE = `/wp-json/wc/v3/settings/${GROUP}`;
@@ -58,8 +57,7 @@ async function captureStoreSettings(projectDir) {
 
   const base = env.WP_BASE_URL.replace(/\/+$/, '');
   const auth = `Basic ${Buffer.from(`${env.WP_USERNAME}:${env.WP_APPLICATION_PASSWORD}`).toString('base64')}`;
-  // The credentials go to the source site only (fetchSource drops them on a redirect elsewhere).
-  const response = await fetchSource(base + ROUTE, { headers: { Authorization: auth } }, { baseUrl: base });
+  const response = await fetch(base + ROUTE, { headers: { Authorization: auth } });
   const body = await response.json().catch(() => null);
 
   if (!response.ok || !Array.isArray(body)) {

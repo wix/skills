@@ -30,8 +30,10 @@ async function readFrame(projectDir, expectedDigest) {
       if (scope.sourceSnapshotDigest!==row.discoveryCoverage.sourceSnapshotDigest || scope.inventoryDigest!==row.discoveryCoverage.inventoryDigest) fail('mapping_binding_required','decision scope proof belongs to a different source snapshot or inventory');
     }
   }
-  const deferred = (scope.deferredEntities || []).map(d=>d.entityRef);
-  if (!Array.isArray(scope.resolvedEntityRefs) || unique(deferred).length!==deferred.length || unique(scope.resolvedEntityRefs).length!==scope.resolvedEntityRefs.length || unique([...scope.resolvedEntityRefs,...deferred]).length !== scope.selectedEntityRefs.length || scope.selectedEntityRefs.some(ref=>scope.resolvedEntityRefs.includes(ref) === deferred.includes(ref))) fail('mapping_binding_required','resolved and deferred mapping scopes must partition selected entities');
+  // Every selected entity is exactly one of resolved, deferred, or skipped on purpose by the operator.
+  const deferred = (scope.deferredEntities || []).map(d=>d.entityRef), skipped = (scope.skippedEntities || []).map(d=>d.entityRef);
+  const parts = ref => [scope.resolvedEntityRefs.includes(ref), deferred.includes(ref), skipped.includes(ref)].filter(Boolean).length;
+  if (!Array.isArray(scope.resolvedEntityRefs) || unique(deferred).length!==deferred.length || unique(skipped).length!==skipped.length || unique(scope.resolvedEntityRefs).length!==scope.resolvedEntityRefs.length || unique([...scope.resolvedEntityRefs,...deferred,...skipped]).length !== scope.selectedEntityRefs.length || scope.selectedEntityRefs.some(ref=>parts(ref)!==1)) fail('mapping_binding_required','resolved and deferred mapping scopes must partition selected entities');
   for (const ref of scope.resolvedEntityRefs) if (rows.find(row=>fields.entityRef(row)===ref).targetClassification!=='manual-mapping') fields.assertExecutionScope(plan,ref,expectedDigest,projectDir);
   const projected = fields.compareMappingProjections(projectDir,plan);
   if (!projected.ok) fail('mapping_binding_required',projected.errors.join('; '));

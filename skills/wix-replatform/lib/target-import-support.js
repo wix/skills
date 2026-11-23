@@ -10,7 +10,9 @@ const nonempty = value => typeof value === 'string' && value.trim().length > 0;
 function deferredRefs(plan) {
   const scope = plan?.executionScope || {};
   // A checkpoint placeholder (no decisions, no blockers, no human subset) still becomes executable on approval.
-  return new Set((scope.deferredEntities || []).filter(d => d?.decisionIds?.length || d?.blockedByEntityRefs?.length || Array.isArray(scope.provisionalEntityRefs)).map(d => d.entityRef));
+  // An entity the operator chose not to import (skippedEntities) has no target writes either.
+  return new Set([...(scope.deferredEntities || []).filter(d => d?.decisionIds?.length || d?.blockedByEntityRefs?.length || Array.isArray(scope.provisionalEntityRefs)).map(d => d.entityRef),
+    ...(scope.skippedEntities || []).map(d => d.entityRef)]);
 }
 function knowledge(ref) { try { return refPattern.test(ref) ? proofs.domain(ref) : null; } catch { return null; } }
 // Each executable row's target writes as [targetRef, operation|null]: the row target with its preferred

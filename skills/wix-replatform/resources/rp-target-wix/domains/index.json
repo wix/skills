@@ -20,7 +20,7 @@
           "classification": "native-plus-cms",
           "reliabilityStatus": "partially-reliable",
           "reliabilityFlags": [],
-          "summary": "Verify the target relation and notification behavior before native comment writes."
+          "summary": "RESOLVED 2026-11-21 from this file's evidence (Comments introduction, Integrations table): a Wix Blog comment is addressed by appId 14bcded7-0066-7c35-14d7-466cb3f09103 with contextId = resourceId = the post's referenceId. referenceId is a read-only field of the Blog Post object (GET /blog/v3/posts/{postId}: \"You can reference the post from other entities, for example, comments\"), not the post id. Read it from the imported post (its create response or a GET by the crosswalk post id); sending the post id instead attaches the comment to nothing. Notification behaviour is covered by the site mute."
         },
         "post": {
           "path": "domains/blog/entities/post.json",
@@ -653,7 +653,7 @@
           "classification": "native",
           "reliabilityStatus": "partially-reliable",
           "reliabilityFlags": [],
-          "summary": "Every review needs a contact: Bulk Create requires reviews.author.contactId, and the Create Review introduction states the single-create method requires a contact ID too. Importing reviews therefore CREATES OR RESOLVES A CONTACT PER DISTINCT REVIEWER — a CRM side effect well beyond the catalog, and reviewers are frequently not customers. Resolve each reviewer by email through Query Contacts first, create only on miss, and disclose the contact count at the execution gate."
+          "summary": "Every review needs a contact: Bulk Create requires reviews.author.contactId, and the Create Review introduction states the single-create method requires a contact ID too. Importing reviews therefore resolves or creates one Contacts V5 contact per distinct reviewer email, including guest reviewers whose source has no customer row. Guest contacts use the review name/email and a deterministic source marker while the site is muted; this is an intentional import side effect with no cutover task."
         },
         "subscription-product": {
           "path": "domains/stores/entities/subscription-product.json",

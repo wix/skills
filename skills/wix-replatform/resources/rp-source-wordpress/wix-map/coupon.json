@@ -1,0 +1,1100 @@
+{
+  "schemaVersion": 1,
+  "kind": "wix-map-suggestion",
+  "sourcePlatform": "woocommerce",
+  "primaryKey": "id",
+  "sourceEntity": "coupon",
+  "targetRef": "stores/coupon",
+  "targetEntity": "coupon",
+  "preferredWrite": "createCoupon",
+  "requiredSourceEntityRefs": [
+    "product",
+    "product-category"
+  ],
+  "builder": "rp-source-wordpress/wix-map/coupon.builder.js",
+  "exampleConventions": "Example input merges onto a base percent coupon; references resolve as \"<ref:key>\".",
+  "provenance": [
+    "store T 11-15 run plan (coupon rows, all through coupon-discovery mapCouponToWix)",
+    "store P 11-10 plan (coupon)"
+  ],
+  "holdCodes": {
+    "coupon-code-missing": {
+      "role": "site-owner",
+      "severity": "low",
+      "action": "These coupons have no code in the source and were not imported. Create them in Business Manager > Marketing > Coupons if still wanted.",
+      "resolutionEvidence": "Each listed coupon exists on Wix or is confirmed unwanted."
+    },
+    "coupon-type-unmappable": {
+      "role": "cutover-operator",
+      "severity": "medium",
+      "action": "These coupons have a type Wix coupons cannot hold (free gift, buy-one-get-one, a per-unit amount on every product, or no amount) and were not imported. Recreate the offer another way in Business Manager (for example an automatic discount), or confirm it is no longer wanted.",
+      "resolutionEvidence": "Each listed coupon has a Wix replacement or is confirmed unwanted."
+    },
+    "coupon-scope-unmappable": {
+      "role": "cutover-operator",
+      "severity": "medium",
+      "action": "These coupons are limited in a way Wix coupons cannot hold (several products or categories, excluded products, sale items, a maximum amount, email limits, or a minimum spend with a product limit). They were not imported, so none is more generous than published. Recreate each as one or more Wix coupons or discounts, or confirm it is no longer wanted.",
+      "resolutionEvidence": "Each listed coupon has a Wix replacement or is confirmed unwanted."
+    },
+    "coupon-amount-precision-unsupported": {
+      "role": "site-owner",
+      "severity": "medium",
+      "action": "These coupons have an amount with more than 2 decimals, which Wix cannot store. Create them by hand with the amount you want.",
+      "resolutionEvidence": "Each listed coupon exists on Wix with a chosen amount."
+    },
+    "coupon-usage-limit-unresolved": {
+      "role": "import-operator",
+      "severity": "high",
+      "action": "Requires Import Operator: these coupons have usage counts that are not whole numbers, so it cannot be decided whether they can still be used. Nothing was written.",
+      "importOperatorPrompt": "Re-extract the listed coupons from WooCommerce (GET /wc/v3/coupons/<id>), check usage_limit / usage_count, and rerun the coupon import for these ids.",
+      "resolutionEvidence": "Each listed coupon is imported or confirmed unwanted."
+    }
+  },
+  "fieldMappings": [
+    {
+      "id": "coupon-code",
+      "sourcePaths": [
+        "code"
+      ],
+      "disposition": "native",
+      "reason": "The coupon code is also its name. A coupon the reviewed mapping refuses is held from every row with the same code.",
+      "evidence": [
+        "rp-source-wordpress/lib/coupon-discovery.js mapCouponToWix",
+        "resources/rp-target-wix/domains/stores/entities/coupon.json"
+      ],
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/coupon.builder.js#couponCode",
+        "revision": "rp-source-wordpress/wix-map/coupon.builder.js",
+        "arguments": {}
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "hold-record",
+          "code": "coupon-code-missing"
+        },
+        "null": {
+          "action": "hold-record",
+          "code": "coupon-code-missing"
+        },
+        "empty": {
+          "action": "hold-record",
+          "code": "coupon-code-missing"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "cc-1",
+          "input": {
+            "code": "SAMPLE10"
+          },
+          "expected": [
+            {
+              "outputId": "code",
+              "writeOperation": "createCoupon",
+              "value": "SAMPLE10"
+            },
+            {
+              "outputId": "name",
+              "writeOperation": "createCoupon",
+              "value": "SAMPLE10"
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "code",
+          "sourcePaths": [
+            "code"
+          ],
+          "targetRef": "stores/coupon",
+          "writeOperation": "createCoupon",
+          "targetPath": "code",
+          "verification": {
+            "readPath": "specification.code"
+          },
+          "writeInput": "specification"
+        },
+        {
+          "id": "name",
+          "sourcePaths": [
+            "code"
+          ],
+          "targetRef": "stores/coupon",
+          "writeOperation": "createCoupon",
+          "targetPath": "name",
+          "verification": {
+            "readPath": "specification.name"
+          },
+          "writeInput": "specification"
+        }
+      ],
+      "choice": {
+        "name": "coupon-code",
+        "value": {
+          "coupon-name": "the code",
+          "coupon-plugin-rule": "written switched off, tagged Rule_Not_Carried"
+        },
+        "default": {
+          "coupon-name": "the code",
+          "coupon-plugin-rule": "written switched off, tagged Rule_Not_Carried"
+        },
+        "reason": "This row decides several values; each part has its own default and reason.",
+        "decidedBy": "suggestion",
+        "parts": [
+          {
+            "name": "coupon-name",
+            "value": "the code",
+            "default": "the code",
+            "reason": "WooCommerce coupons have no separate name; the description is archived.",
+            "decidedBy": "suggestion"
+          },
+          {
+            "name": "coupon-plugin-rule",
+            "value": "written switched off, tagged Rule_Not_Carried",
+            "default": "written switched off, tagged Rule_Not_Carried",
+            "reason": "A coupon plugin rule Wix cannot hold (free gift, role, payment or location limit) must not go live without it (coupon-discovery plugin rules). The cutover task lists them by id.",
+            "decidedBy": "suggestion",
+            "alternatives": [
+              "hold-record"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "coupon-type-amount",
+      "sourcePaths": [
+        "discount_type",
+        "amount",
+        "free_shipping"
+      ],
+      "disposition": "native",
+      "reason": "percent -> percentOffRate; fixed_cart, and fixed_product on named products, -> moneyOffAmount; free shipping is its own Wix type and wins over an amount. Other types (free gift, BOGO) have no Wix coupon and are held.",
+      "evidence": [
+        "rp-source-wordpress/lib/coupon-discovery.js mapCouponToWix",
+        "resources/rp-target-wix/domains/stores/entities/coupon.json"
+      ],
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/coupon.builder.js#couponType",
+        "revision": "rp-source-wordpress/wix-map/coupon.builder.js",
+        "arguments": {}
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "ct-1",
+          "input": {
+            "discount_type": "percent",
+            "amount": "15"
+          },
+          "expected": [
+            {
+              "outputId": "percentOffRate",
+              "writeOperation": "createCoupon",
+              "value": 15
+            },
+            {
+              "outputId": "moneyOffAmount",
+              "writeOperation": "createCoupon",
+              "omitted": true
+            }
+          ]
+        },
+        {
+          "id": "ct-2",
+          "input": {
+            "discount_type": "fixed_cart",
+            "amount": "20.00"
+          },
+          "expected": [
+            {
+              "outputId": "moneyOffAmount",
+              "writeOperation": "createCoupon",
+              "value": 20
+            }
+          ]
+        },
+        {
+          "id": "ct-3",
+          "input": {
+            "discount_type": "fgf_free_gift",
+            "amount": "0"
+          },
+          "expected": [
+            {
+              "outputId": "percentOffRate",
+              "writeOperation": "createCoupon",
+              "noWrite": true,
+              "findingCodes": [
+                "coupon-type-unmappable"
+              ]
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "percentOffRate",
+          "sourcePaths": [
+            "discount_type",
+            "amount",
+            "free_shipping"
+          ],
+          "targetRef": "stores/coupon",
+          "writeOperation": "createCoupon",
+          "targetPath": "percentOffRate",
+          "verification": {
+            "readPath": "specification.percentOffRate"
+          },
+          "writeInput": "specification"
+        },
+        {
+          "id": "moneyOffAmount",
+          "sourcePaths": [
+            "discount_type",
+            "amount",
+            "free_shipping"
+          ],
+          "targetRef": "stores/coupon",
+          "writeOperation": "createCoupon",
+          "targetPath": "moneyOffAmount",
+          "verification": {
+            "readPath": "specification.moneyOffAmount"
+          },
+          "writeInput": "specification"
+        },
+        {
+          "id": "freeShipping",
+          "sourcePaths": [
+            "discount_type",
+            "amount",
+            "free_shipping"
+          ],
+          "targetRef": "stores/coupon",
+          "writeOperation": "createCoupon",
+          "targetPath": "freeShipping",
+          "verification": {
+            "readPath": "specification.freeShipping"
+          },
+          "writeInput": "specification",
+          "appliesWhen": {
+            "op": "equals",
+            "location": "free_shipping",
+            "value": true
+          }
+        }
+      ],
+      "choice": {
+        "name": "coupon-type-amount",
+        "value": {
+          "coupon-free-shipping-with-amount": "free shipping wins; the amount is dropped with a finding",
+          "coupon-unsupported-type": "hold-record",
+          "coupon-fixed-product-storewide": "hold-record",
+          "coupon-amount-over-2-decimals": "hold-record"
+        },
+        "default": {
+          "coupon-free-shipping-with-amount": "free shipping wins; the amount is dropped with a finding",
+          "coupon-unsupported-type": "hold-record",
+          "coupon-fixed-product-storewide": "hold-record",
+          "coupon-amount-over-2-decimals": "hold-record"
+        },
+        "reason": "This row decides several values; each part has its own default and reason.",
+        "decidedBy": "suggestion",
+        "parts": [
+          {
+            "name": "coupon-free-shipping-with-amount",
+            "value": "free shipping wins; the amount is dropped with a finding",
+            "default": "free shipping wins; the amount is dropped with a finding",
+            "reason": "A Wix coupon cannot carry both (coupon.json pitfall). 27 coupons in stores T and P grant free shipping.",
+            "decidedBy": "suggestion"
+          },
+          {
+            "name": "coupon-unsupported-type",
+            "value": "hold-record",
+            "default": "hold-record",
+            "reason": "Free-gift and BOGO coupons (store T 3, store P 3) would start discounting money if coerced.",
+            "decidedBy": "suggestion"
+          },
+          {
+            "name": "coupon-fixed-product-storewide",
+            "value": "hold-record",
+            "default": "hold-record",
+            "reason": "A per-unit amount on every product has no Wix shape; moneyOffAmount takes it off once.",
+            "decidedBy": "suggestion"
+          },
+          {
+            "name": "coupon-amount-over-2-decimals",
+            "value": "hold-record",
+            "default": "hold-record",
+            "reason": "Rounding would put a different amount on Wix than the merchant published.",
+            "decidedBy": "suggestion"
+          }
+        ]
+      }
+    },
+    {
+      "id": "coupon-dates",
+      "sourcePaths": [
+        "date_created_gmt",
+        "date_expires_gmt"
+      ],
+      "disposition": "native",
+      "reason": "The creation time is the coupon start (a plugin start date replaces it); the expiry date is its expiration. An expired coupon is imported as a record with its expiry.",
+      "evidence": [
+        "rp-source-wordpress/lib/coupon-discovery.js mapCouponToWix",
+        "resources/rp-target-wix/domains/stores/entities/coupon.json"
+      ],
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/coupon.builder.js#couponDates",
+        "revision": "rp-source-wordpress/wix-map/coupon.builder.js",
+        "arguments": {
+          "unit": "epoch-ms"
+        }
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "cd-1",
+          "input": {
+            "date_created_gmt": "2026-01-01T00:00:00",
+            "date_expires_gmt": "2026-12-31T00:00:00"
+          },
+          "expected": [
+            {
+              "outputId": "startTime",
+              "writeOperation": "createCoupon",
+              "value": 1767225600000
+            },
+            {
+              "outputId": "expirationTime",
+              "writeOperation": "createCoupon",
+              "value": 1798675200000
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "startTime",
+          "sourcePaths": [
+            "date_created_gmt",
+            "date_expires_gmt"
+          ],
+          "targetRef": "stores/coupon",
+          "writeOperation": "createCoupon",
+          "targetPath": "startTime",
+          "verification": {
+            "readPath": "specification.startTime"
+          },
+          "writeInput": "specification"
+        },
+        {
+          "id": "expirationTime",
+          "sourcePaths": [
+            "date_expires_gmt"
+          ],
+          "targetRef": "stores/coupon",
+          "writeOperation": "createCoupon",
+          "targetPath": "expirationTime",
+          "verification": {
+            "readPath": "specification.expirationTime"
+          },
+          "writeInput": "specification"
+        }
+      ],
+      "choice": {
+        "name": "coupon-dates",
+        "value": {
+          "coupon-start": "creation time",
+          "coupon-expired": "import with its past expiry"
+        },
+        "default": {
+          "coupon-start": "creation time",
+          "coupon-expired": "import with its past expiry"
+        },
+        "reason": "This row decides several values; each part has its own default and reason.",
+        "decidedBy": "suggestion",
+        "parts": [
+          {
+            "name": "coupon-start",
+            "value": "creation time",
+            "default": "creation time",
+            "reason": "WooCommerce core has no start date; a coupon plugin start date wins when present.",
+            "decidedBy": "suggestion"
+          },
+          {
+            "name": "coupon-expired",
+            "value": "import with its past expiry",
+            "default": "import with its past expiry",
+            "reason": "A record of the promotion; it cannot be redeemed on Wix after its expiry. Stores T and P: 992 coupons carry an expiry.",
+            "decidedBy": "suggestion"
+          }
+        ]
+      }
+    },
+    {
+      "id": "coupon-usage",
+      "sourcePaths": [
+        "usage_limit",
+        "usage_count",
+        "usage_limit_per_user"
+      ],
+      "disposition": "native",
+      "reason": "The remaining uses become the usage limit (Wix restarts its count at zero); a used-up code is imported switched off; no limit is said out loud (usageUnlimited); the per-customer limit is kept.",
+      "evidence": [
+        "rp-source-wordpress/lib/coupon-discovery.js mapCouponToWix",
+        "resources/rp-target-wix/domains/stores/entities/coupon.json"
+      ],
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/coupon.builder.js#couponUsage",
+        "revision": "rp-source-wordpress/wix-map/coupon.builder.js",
+        "arguments": {}
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "cu-1",
+          "input": {
+            "usage_limit": 3,
+            "usage_count": 1
+          },
+          "expected": [
+            {
+              "outputId": "usageLimit",
+              "writeOperation": "createCoupon",
+              "value": 2
+            },
+            {
+              "outputId": "active",
+              "writeOperation": "createCoupon",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "cu-2",
+          "input": {
+            "usage_limit": 1,
+            "usage_count": 1
+          },
+          "expected": [
+            {
+              "outputId": "active",
+              "writeOperation": "createCoupon",
+              "value": false
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "usageLimit",
+          "sourcePaths": [
+            "usage_limit",
+            "usage_count"
+          ],
+          "targetRef": "stores/coupon",
+          "writeOperation": "createCoupon",
+          "targetPath": "usageLimit",
+          "verification": {
+            "readPath": "specification.usageLimit"
+          },
+          "writeInput": "specification"
+        },
+        {
+          "id": "usageUnlimited",
+          "sourcePaths": [
+            "usage_limit"
+          ],
+          "targetRef": "stores/coupon",
+          "writeOperation": "createCoupon",
+          "targetPath": "usageUnlimited",
+          "verification": {
+            "unverifiableReason": "A writer directive (no limit), stripped before the request."
+          },
+          "writeInput": "specification"
+        },
+        {
+          "id": "active",
+          "sourcePaths": [
+            "usage_limit",
+            "usage_count"
+          ],
+          "targetRef": "stores/coupon",
+          "writeOperation": "createCoupon",
+          "targetPath": "active",
+          "verification": {
+            "readPath": "specification.active"
+          },
+          "writeInput": "specification"
+        },
+        {
+          "id": "limitPerCustomer",
+          "sourcePaths": [
+            "usage_limit_per_user"
+          ],
+          "targetRef": "stores/coupon",
+          "writeOperation": "createCoupon",
+          "targetPath": "limitPerCustomer",
+          "verification": {
+            "readPath": "specification.limitPerCustomer"
+          },
+          "writeInput": "specification"
+        },
+        {
+          "id": "tags",
+          "sourcePaths": [
+            "usage_limit",
+            "usage_count"
+          ],
+          "targetRef": "stores/coupon",
+          "writeOperation": "createCoupon",
+          "targetPath": "tags",
+          "verification": {
+            "readPath": "specification.tags"
+          },
+          "writeInput": "specification"
+        }
+      ],
+      "choice": {
+        "name": "coupon-usage",
+        "value": {
+          "coupon-usage-remaining": "limit = remaining uses",
+          "coupon-used-up": "imported switched off, tagged Already_Used"
+        },
+        "default": {
+          "coupon-usage-remaining": "limit = remaining uses",
+          "coupon-used-up": "imported switched off, tagged Already_Used"
+        },
+        "reason": "This row decides several values; each part has its own default and reason.",
+        "decidedBy": "suggestion",
+        "parts": [
+          {
+            "name": "coupon-usage-remaining",
+            "value": "limit = remaining uses",
+            "default": "limit = remaining uses",
+            "reason": "Writing the original limit would let a partly used code be used again from zero. Tagged Partially_Used.",
+            "decidedBy": "suggestion"
+          },
+          {
+            "name": "coupon-used-up",
+            "value": "imported switched off, tagged Already_Used",
+            "default": "imported switched off, tagged Already_Used",
+            "reason": "A used-up single-use code must not become redeemable again. Most of store T's 4,356 coupons are single-use vouchers.",
+            "decidedBy": "suggestion",
+            "alternatives": [
+              "skip"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "coupon-minimum",
+      "sourcePaths": [
+        "minimum_amount"
+      ],
+      "disposition": "native",
+      "reason": "A minimum spend on an unscoped coupon. Wix drops a minimum sent with a scope (live-verified), so a scoped coupon with a minimum is held.",
+      "evidence": [
+        "rp-source-wordpress/lib/coupon-discovery.js mapCouponToWix",
+        "resources/rp-target-wix/domains/stores/entities/coupon.json"
+      ],
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/coupon.builder.js#couponMinimum",
+        "revision": "rp-source-wordpress/wix-map/coupon.builder.js",
+        "arguments": {}
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "omit-output"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "cm-1",
+          "input": {
+            "minimum_amount": "100.00"
+          },
+          "expected": [
+            {
+              "outputId": "minimumSubtotal",
+              "writeOperation": "createCoupon",
+              "value": 100
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "minimumSubtotal",
+          "sourcePaths": [
+            "minimum_amount"
+          ],
+          "targetRef": "stores/coupon",
+          "writeOperation": "createCoupon",
+          "targetPath": "minimumSubtotal",
+          "verification": {
+            "readPath": "specification.minimumSubtotal"
+          },
+          "writeInput": "specification"
+        }
+      ],
+      "choice": {
+        "name": "coupon-scope-with-minimum",
+        "value": "hold-record",
+        "default": "hold-record",
+        "reason": "Writing it without the minimum would be more generous than published.",
+        "decidedBy": "suggestion"
+      }
+    },
+    {
+      "id": "coupon-scope",
+      "sourcePaths": [
+        "product_ids[]",
+        "product_categories[]",
+        "free_shipping",
+        "minimum_amount"
+      ],
+      "disposition": "native",
+      "reason": "A coupon for exactly one product or one category is scoped to it (crosswalked id); an unrestricted one is storewide. Wix holds one scope group, so several products or categories are held, never widened.",
+      "evidence": [
+        "rp-source-wordpress/lib/coupon-discovery.js mapCouponToWix",
+        "resources/rp-target-wix/domains/stores/entities/coupon.json"
+      ],
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/coupon.builder.js#couponScope",
+        "revision": "rp-source-wordpress/wix-map/coupon.builder.js",
+        "arguments": {
+          "products": "lookups.ref stores/product",
+          "categories": "lookups.ref stores/category"
+        }
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "cs-1",
+          "input": {
+            "product_ids": [
+              55
+            ]
+          },
+          "expected": [
+            {
+              "outputId": "scopeId",
+              "writeOperation": "createCoupon",
+              "value": "<stores/product:product:55>"
+            },
+            {
+              "outputId": "scopeGroup",
+              "writeOperation": "createCoupon",
+              "value": "product"
+            }
+          ]
+        },
+        {
+          "id": "cs-2",
+          "input": {
+            "product_ids": [
+              55,
+              56
+            ]
+          },
+          "expected": [
+            {
+              "outputId": "scopeId",
+              "writeOperation": "createCoupon",
+              "noWrite": true,
+              "findingCodes": [
+                "coupon-scope-unmappable"
+              ]
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "scopeId",
+          "sourcePaths": [
+            "product_ids[]",
+            "product_categories[]"
+          ],
+          "targetRef": "stores/coupon",
+          "writeOperation": "createCoupon",
+          "targetPath": "scope.group.entityId",
+          "verification": {
+            "readPath": "specification.scope.group.entityId"
+          },
+          "writeInput": "specification",
+          "appliesWhen": {
+            "op": "all",
+            "of": [
+              {
+                "op": "notEquals",
+                "location": "free_shipping",
+                "value": true
+              },
+              {
+                "op": "any",
+                "of": [
+                  {
+                    "op": "populated",
+                    "location": "product_ids[]"
+                  },
+                  {
+                    "op": "populated",
+                    "location": "product_categories[]"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "scopeGroup",
+          "sourcePaths": [
+            "product_ids[]",
+            "product_categories[]"
+          ],
+          "targetRef": "stores/coupon",
+          "writeOperation": "createCoupon",
+          "targetPath": "scope.group.name",
+          "verification": {
+            "readPath": "specification.scope.group.name"
+          },
+          "writeInput": "specification",
+          "appliesWhen": {
+            "op": "all",
+            "of": [
+              {
+                "op": "notEquals",
+                "location": "free_shipping",
+                "value": true
+              },
+              {
+                "op": "any",
+                "of": [
+                  {
+                    "op": "populated",
+                    "location": "product_ids[]"
+                  },
+                  {
+                    "op": "populated",
+                    "location": "product_categories[]"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "scopeNamespace",
+          "sourcePaths": [
+            "product_ids[]",
+            "product_categories[]",
+            "free_shipping",
+            "minimum_amount"
+          ],
+          "targetRef": "stores/coupon",
+          "writeOperation": "createCoupon",
+          "targetPath": "scope.namespace",
+          "verification": {
+            "readPath": "specification.scope.namespace"
+          },
+          "writeInput": "specification",
+          "appliesWhen": {
+            "op": "all",
+            "of": [
+              {
+                "op": "notEquals",
+                "location": "free_shipping",
+                "value": true
+              },
+              {
+                "op": "any",
+                "of": [
+                  {
+                    "op": "populated",
+                    "location": "product_ids[]"
+                  },
+                  {
+                    "op": "populated",
+                    "location": "product_categories[]"
+                  },
+                  {
+                    "op": "notPopulated",
+                    "location": "minimum_amount"
+                  },
+                  {
+                    "op": "in",
+                    "location": "minimum_amount",
+                    "values": [
+                      "0",
+                      "0.0",
+                      "0.00"
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "choice": {
+        "name": "coupon-several-products",
+        "value": "hold-record",
+        "default": "hold-record",
+        "reason": "Wix coupons hold one product or one category. Store P: 56 coupons name products, 14 categories.",
+        "decidedBy": "suggestion",
+        "alternatives": [
+          "one coupon per product (needs a writer change)"
+        ]
+      }
+    },
+    {
+      "id": "coupon-restrictions",
+      "sourcePaths": [
+        "excluded_product_ids[]",
+        "excluded_product_categories[]",
+        "exclude_sale_items",
+        "maximum_amount",
+        "email_restrictions[]",
+        "individual_use",
+        "limit_usage_to_x_items"
+      ],
+      "disposition": "excluded",
+      "reason": "Restrictions Wix coupons cannot hold. They are not written: a coupon that carries one (exclusions, sale items excluded, a maximum amount, email limits) is held by the mapping, because without it the coupon would be more generous than published. individual_use is implicit (one coupon per Wix order).",
+      "evidence": [
+        "rp-source-wordpress/lib/coupon-discovery.js mapCouponToWix",
+        "resources/rp-target-wix/domains/stores/entities/coupon.json"
+      ],
+      "choice": {
+        "name": "coupon-restrictions",
+        "value": "hold the coupon",
+        "default": "hold the coupon",
+        "reason": "Safety: never more generous than published. Store P: 10 coupons with exclusions.",
+        "decidedBy": "suggestion"
+      }
+    },
+    {
+      "id": "source-archive",
+      "sourcePaths": [
+        "_links.collection[].href",
+        "_links.self[].href",
+        "_links.self[].targetHints.allow[]",
+        "date_created",
+        "date_expires",
+        "date_modified",
+        "date_modified_gmt",
+        "description",
+        "id",
+        "meta_data[].id",
+        "meta_data[].key",
+        "meta_data[].value",
+        "status",
+        "used_by[]"
+      ],
+      "disposition": "cms",
+      "reason": "Every other coupon field (description, status, used_by, plugin meta) is kept in the private source-archive collection.",
+      "evidence": [
+        "resources/rp-target-wix/lib/source-archive.js PACKED_ARCHIVE_FIELDS",
+        "store T 11-15 run plan (source-archive rows)"
+      ],
+      "transform": {
+        "kind": "helper",
+        "name": "source-archive.buildArchiveRecord",
+        "revision": "source-archive-retention-v1",
+        "arguments": {
+          "sourceEntity": "coupon",
+          "sourceKeyPath": "id",
+          "collectionId": "ImportArchive_coupon_72309c04"
+        }
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "archive-as-is"
+        },
+        "invalid": {
+          "action": "archive-as-is"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "coupon-archive-1",
+          "input": {
+            "id": 3
+          },
+          "expected": [
+            {
+              "outputId": "records",
+              "writeOperation": "insertDataItem",
+              "values": [
+                {
+                  "3": {
+                    "fields": {}
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "records",
+          "sourcePaths": [
+            "_links.collection[].href",
+            "_links.self[].href",
+            "_links.self[].targetHints.allow[]",
+            "date_created",
+            "date_expires",
+            "date_modified",
+            "date_modified_gmt",
+            "description",
+            "id",
+            "meta_data[].id",
+            "meta_data[].key",
+            "meta_data[].value",
+            "status",
+            "used_by[]"
+          ],
+          "targetRef": "cms/data-item",
+          "writeOperation": "insertDataItem",
+          "targetPath": "data.records",
+          "storage": {
+            "collectionId": "ImportArchive_coupon_72309c04"
+          },
+          "verification": {
+            "unverifiableReason": "Packed archive items are verified by the archive step read-back."
+          }
+        }
+      ],
+      "choice": {
+        "name": "leftover-fields",
+        "value": "source archive",
+        "default": "source archive",
+        "reason": "No native Wix field holds them; nothing is dropped silently.",
+        "decidedBy": "suggestion"
+      }
+    }
+  ]
+}

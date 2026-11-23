@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "id": "csv-readers",
+  "version": "1.0.0",
+  "description": "Ready-made CSV readers, per vendor and file role. The fixed extractor (lib/csv-extractor.js) reads each file with lib/csv-parse.js and writes data/source-extract in the same entity files and field names the platform's API reader writes, so a CSV export from that platform reuses the platform's mapping. Field specs: `to` is the output path (dots nest), `from` lists header aliases (matched case- and punctuation-insensitively), `as` is one of string, int, bool, map, list, images, refs. Columns no field names are kept under `_csv` so nothing is dropped. A file whose vendor has no entry here is read by the generic reader (columns kept verbatim).",
+  "converters": {
+    "string": "the cell as written",
+    "int": "an integer; a cell that is not one is kept as written",
+    "bool": "1/yes/true -> true, 0/no/false -> false; anything else kept as written",
+    "map": "`values` maps the cell; an unlisted cell is kept as written",
+    "list": "split on `separator` (quote-aware), trimmed, empties dropped",
+    "images": "list of URLs -> [{ src, position }]",
+    "refs": "list of ids or SKUs; an `id:` prefix is dropped"
+  },
+  "vendors": {
+    "woocommerce": {
+      "platform": "woocommerce",
+      "roles": {
+        "product": {
+          "shape": "per-row",
+          "entity": "product",
+          "keyField": "id",
+          "child": {
+            "entity": "product-variation",
+            "discriminator": { "from": ["Type"], "values": ["variation"] },
+            "parentRef": { "from": ["Parent"], "field": "parent_id" },
+            "listField": "variations"
+          },
+          "fields": [
+            { "to": "id", "from": ["ID"], "as": "int" },
+            { "to": "type", "from": ["Type"] },
+            { "to": "sku", "from": ["SKU"] },
+            { "to": "name", "from": ["Name"] },
+            { "to": "status", "from": ["Published"], "as": "map", "values": { "1": "publish", "0": "private", "-1": "draft" } },
+            { "to": "featured", "from": ["Is featured?"], "as": "bool" },
+            { "to": "catalog_visibility", "from": ["Visibility in catalog"] },
+            { "to": "short_description", "from": ["Short description"] },
+            { "to": "description", "from": ["Description"] },
+            { "to": "date_on_sale_from", "from": ["Date sale price starts"] },
+            { "to": "date_on_sale_to", "from": ["Date sale price ends"] },
+            { "to": "tax_status", "from": ["Tax status"] },
+            { "to": "tax_class", "from": ["Tax class"] },
+            { "to": "stock_status", "from": ["In stock?"], "as": "map", "values": { "1": "instock", "0": "outofstock", "backorder": "onbackorder" } },
+            { "to": "stock_quantity", "from": ["Stock"], "as": "int", "alsoSet": { "manage_stock": true } },
+            { "to": "low_stock_amount", "from": ["Low stock amount"], "as": "int" },
+            { "to": "backorders", "from": ["Backorders allowed?"], "as": "map", "values": { "1": "yes", "0": "no", "notify": "notify" } },
+            { "to": "sold_individually", "from": ["Sold individually?"], "as": "bool" },
+            { "to": "weight", "from": ["Weight (kg)", "Weight (lbs)", "Weight (g)", "Weight (oz)", "Weight"] },
+            { "to": "dimensions.length", "from": ["Length (cm)", "Length (in)", "Length (m)", "Length (mm)", "Length"] },
+            { "to": "dimensions.width", "from": ["Width (cm)", "Width (in)", "Width (m)", "Width (mm)", "Width"] },
+            { "to": "dimensions.height", "from": ["Height (cm)", "Height (in)", "Height (m)", "Height (mm)", "Height"] },
+            { "to": "reviews_allowed", "from": ["Allow customer reviews?"], "as": "bool" },
+            { "to": "purchase_note", "from": ["Purchase note"] },
+            { "to": "sale_price", "from": ["Sale price"] },
+            { "to": "regular_price", "from": ["Regular price"] },
+            { "to": "shipping_class", "from": ["Shipping class"] },
+            { "to": "images", "from": ["Images"], "as": "images", "separator": ",", "childTo": "image", "childAs": "first-image" },
+            { "to": "download_limit", "from": ["Download limit"], "as": "int" },
+            { "to": "download_expiry", "from": ["Download expiry days"], "as": "int" },
+            { "to": "grouped_products", "from": ["Grouped products"], "as": "refs", "separator": "," },
+            { "to": "upsell_ids", "from": ["Upsells"], "as": "refs", "separator": "," },
+            { "to": "cross_sell_ids", "from": ["Cross-sells"], "as": "refs", "separator": "," },
+            { "to": "external_url", "from": ["External URL"] },
+            { "to": "button_text", "from": ["Button text"] },
+            { "to": "menu_order", "from": ["Position"], "as": "int" }
+          ],
+          "attributes": {
+            "to": "attributes",
+            "name": "Attribute {n} name",
+            "values": "Attribute {n} value(s)",
+            "visible": "Attribute {n} visible",
+            "global": "Attribute {n} global",
+            "default": "Attribute {n} default",
+            "separator": [",", "|"]
+          },
+          "meta": { "prefix": "Meta: ", "to": "meta_data" },
+          "derived": [
+            { "entity": "product-category", "field": "categories", "from": ["Categories"], "separator": ",", "hierarchy": ">" },
+            { "entity": "product-tag", "field": "tags", "from": ["Tags"], "separator": "," }
+          ]
+        }
+      }
+    }
+  }
+}

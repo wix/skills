@@ -16,6 +16,29 @@ Project initialization also creates `EXPECTATIONS.md` at the project root when i
 missing. Mention it as an optional place to record expectations; do not make it an intake
 question or replace a user's existing file.
 
+**Rights question first, on a new project.** After telemetry `start` (so the answer can be
+logged) and before anything reads the source, ask word for word: "Use this skill only to migrate
+websites and content that you have the right to transfer to Wix." Choices: **I confirm** /
+**Cancel**. Never answer it for the user.
+- Interactive agent: ask it in your question UI. Explicit 1-click: it is the first item of the
+  grouped intake question.
+- CLI-launched (`replatform`) run: first run `scripts/user-action.js list --project <dir>` (any
+  status) and look for the request titled "Confirm you may transfer this site to Wix".
+  `answered`: read the choice with `scripts/user-action.js show --project <dir> --request <id>`,
+  log it, and stop on `declined`. `pending`: end the turn and wait. Neither: write this file, run
+  `scripts/user-action.js create --project <dir> --request-file <file>`, and end the turn:
+
+  ```json
+  {"kind":"question","stage":"intake","title":"Confirm you may transfer this site to Wix",
+   "prompt":"Use this skill only to migrate websites and content that you have the right to transfer to Wix.",
+   "response":{"mode":"choice","required":true},
+   "choices":[{"id":"confirmed","label":"I confirm"},{"id":"declined","label":"Cancel"}]}
+  ```
+- Then run `node skills/wix-replatform/scripts/rights-confirmation.js confirmed|declined
+  --project <projectDir>` to log it. On Cancel, finalize telemetry with `terminal_state:
+  abandoned_by_user` and stop; read nothing from the source.
+- A quick import started with `scripts/quick-run.js` keeps the telemetry run already started.
+
 Resolve delivery mode before destination creation: default to `management`; choose
 `website` for frontend only; choose `management_and_website` when the user wants both a
 backend migration and a customer-facing storefront. Accept `both` as an input alias for
@@ -56,7 +79,7 @@ facelift stage is authorized without another routine approval.
 
 In normal mode ask only the current missing decision. In explicit user-requested 1-click mode
 record `automationMode=one_click` with `source=user`, collect every still missing intake value
-together (including the existing-site mute question), record the answers, and continue. Never infer one-click from an uploaded file or
+together (the rights question first, and the existing-site mute question), record the answers, and continue. Never infer one-click from an uploaded file or
 execution surface. Delegate all destination,
 source-file, and credential procedures to their dedicated modules.
 

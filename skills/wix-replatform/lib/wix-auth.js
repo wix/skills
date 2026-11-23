@@ -235,7 +235,9 @@ function createWixTokenSource({ projectDir, siteId, mint = runMintScript, now = 
       const age = issuedAt === null ? null : now() - issuedAt;
       const shouldRenew = (expiresAt !== null && expiresAt - now() < renewWithinMs)
         || (age !== null && age >= maxTokenAgeMs);
-      if (shouldRenew && token !== keptAfterRenewal) return renew();
+      // A kept token is used until refused, but never past its own exp: Wix may answer an
+      // expired token with 428 MISSING_IDENTITY_CONTEXT instead of 401 (Tuti run 11-18).
+      if (shouldRenew && (token !== keptAfterRenewal || (expiresAt !== null && expiresAt <= now()))) return renew();
       return token;
     },
     // True when `sent` is no longer the token in use: another request already renewed it, so a
@@ -244,13 +246,13 @@ function createWixTokenSource({ projectDir, siteId, mint = runMintScript, now = 
       return token !== null && sent !== token;
     },
     // A refusal of the token that was SENT is expiry when that token can renew: 401 always; 403
-    // only once that token's own `exp` has passed, because a 403 is otherwise a permission answer
-    // that a new token would not change.
+    // or 428 (MISSING_IDENTITY_CONTEXT) only once that token's own `exp` has passed, because
+    // otherwise they are the service's own answer that a new token would not change.
     isExpiryRefusal(status, sent = token) {
       if (!sent || isApiKey(sent)) return false;
       if (status === 401) return true;
       const sentExpiresAt = tokenExpiresAt(sent);
-      return status === 403 && sentExpiresAt !== null && sentExpiresAt <= now();
+      return (status === 403 || status === 428) && sentExpiresAt !== null && sentExpiresAt <= now();
     },
     renew,
     fail,

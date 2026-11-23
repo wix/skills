@@ -46,10 +46,12 @@ function correlateBulk(response, inputs, adapter) {
     }
     const correlated = !globalInvalid && errors.length === 0;
     defects.push(...errors.map(code => `${code}:${String(index)}`));
+    const error = metadata.error && typeof metadata.error === 'object' ? metadata.error : null;
     return { index, input: Number.isInteger(index) ? inputs[index] : undefined, raw: r,
       correlated, success: correlated && adapter.success(r) === true,
-      errorCode: errors[0] || (globalInvalid ? 'invalid-bulk-metadata' : metadata.error?.code) || null,
-      errorDescription: metadata.error?.description || null };
+      errorCode: errors[0] || (globalInvalid ? 'invalid-bulk-metadata' : error?.code) || null,
+      errorMessage: error?.message || error?.description || null,
+      error };
   });
   const accounted = new Set(results.filter(r => r.correlated).map(r => r.index));
   const unresolvedIndexes = inputs.map((_, i) => i).filter(i => !accounted.has(i));

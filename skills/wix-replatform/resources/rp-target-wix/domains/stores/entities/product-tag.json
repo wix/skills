@@ -34,6 +34,8 @@
     "surface": "Tags",
     "endpoint": "POST /tags/v1/tags",
     "writerId": "buildCreateStoresProductTagRequest",
+    "requestInput": "tag",
+    "requestFields": ["name"],
     "verification": "verified-live",
     "importSafe": true,
     "bulk": false

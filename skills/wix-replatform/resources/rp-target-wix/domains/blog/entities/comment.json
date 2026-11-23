@@ -52,16 +52,28 @@
   },
   "pitfalls": [
     {
-      "code": "relation-required",
-      "severity": "blocker",
-      "summary": "Verify the target relation and notification behavior before native comment writes."
+      "code": "relation-from-post-reference-id",
+      "severity": "warning",
+      "summary": "RESOLVED 2026-11-21 from this file's evidence (Comments introduction, Integrations table): a Wix Blog comment is addressed by appId 14bcded7-0066-7c35-14d7-466cb3f09103 with contextId = resourceId = the post's referenceId. referenceId is a read-only field of the Blog Post object (GET /blog/v3/posts/{postId}: \"You can reference the post from other entities, for example, comments\"), not the post id. Read it from the imported post (its create response or a GET by the crosswalk post id); sending the post id instead attaches the comment to nothing. Notification behaviour is covered by the site mute."
+    },
+    {
+      "code": "reply-needs-parent-first",
+      "severity": "warning",
+      "summary": "A reply carries parentComment.id = the Wix id of its parent comment, so parents are written before replies (order by source parent; a reply whose parent is not imported is held or written as a top-level comment, recorded in the faithfulness ledger)."
+    },
+    {
+      "code": "comment-date-not-created-date",
+      "severity": "warning",
+      "summary": "createdDate is the system-database date and shows the import day; the source date goes in commentDate (immutable, date-time)."
     }
   ],
   "mappingGuidance": [
-    "Classify blog comments, page comments, product reviews, and custom-post comments separately."
+    "Classify blog comments, page comments, product reviews, and custom-post comments separately.",
+    "No reviewed writer: map natively on the guarded raw path (sendGuardedRawRequest) with the fieldContracts[] request shape. Guest authors: contactDetails.email (write-only) on the request; author is a one-of userId / memberId / visitorId and is omitted for a guest.",
+    "WordPress /wp/v2/comments also returns comments on non-blog post types. A comment on a WooCommerce product whose parent is a product review is the merchant reply to that review: it goes to the stores/review reply (setStoresReviewReply), not to a blog comment. Other comments on non-blog posts are recorded as gaps."
   ],
   "setupRequirements": [
-    "Comment relation verification before execution."
+    "Wix Blog app (the posts the comments attach to)"
   ],
   "evidence": [
     {
@@ -78,6 +90,93 @@
       "type": "wix-docs",
       "url": "https://dev.wix.com/docs/api-reference/crm/community/feedback-moderation/comments/comments/introduction",
       "note": "fetched 2026-08-16. Comments are addressed by (appId, contextId, resourceId); Wix Blog is appId 14bcded7-0066-7c35-14d7-466cb3f09103 with contextId = resourceId = the post's referenceId — this is the 'target relation' the relation-required pitfall demands. Guest commenting is supported, so non-member WordPress commenters have a path."
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/crm/community/feedback-moderation/comments/comments/create-comment",
+      "note": "Create Comment schema read 2026-11-21: required comment.appId, contextId, resourceId, content; optional parentComment.id, commentDate, author one-of; guest email in top-level contactDetails.email (INVALID_AUTHOR_EMAIL on a bad address). Recorded as fieldContracts[0]."
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/blog/posts-stats/get-post",
+      "note": "Get Post schema read 2026-11-21: post.referenceId, read-only, maxLength 24, \"Post reference GUID. You can reference the post from other entities, for example, comments.\""
+    }
+  ],
+  "fieldContracts": [
+    {
+      "domain": "blog",
+      "entity": "comment",
+      "surface": "comments-v1",
+      "operation": "createComment",
+      "path": "comment",
+      "verificationLevel": "docs",
+      "lastVerified": "2026-11-21",
+      "verifiedBy": "docs",
+      "endpoint": "POST https://www.wixapis.com/comments/v1/comments",
+      "requiredPaths": [
+        "comment.appId",
+        "comment.contextId",
+        "comment.resourceId",
+        "comment.content"
+      ],
+      "optionalPaths": [
+        "comment.content.richContent",
+        "comment.parentComment.id",
+        "comment.commentDate",
+        "comment.author.memberId",
+        "comment.author.visitorId",
+        "comment.author.userId",
+        "contactDetails.email"
+      ],
+      "constraints": [
+        {
+          "path": "comment.appId",
+          "equals": "14bcded7-0066-7c35-14d7-466cb3f09103",
+          "when": "Wix Blog",
+          "source": "docs"
+        },
+        {
+          "path": "comment.contextId",
+          "from": "blog/post referenceId",
+          "maxLength": 128,
+          "source": "docs"
+        },
+        {
+          "path": "comment.resourceId",
+          "from": "blog/post referenceId",
+          "maxLength": 128,
+          "source": "docs"
+        },
+        {
+          "path": "comment.commentDate",
+          "format": "date-time",
+          "source": "docs"
+        },
+        {
+          "path": "contactDetails.email",
+          "format": "email",
+          "maxLength": 300,
+          "writeOnly": true,
+          "source": "docs"
+        },
+        {
+          "path": "comment.author",
+          "oneOf": [
+            "userId",
+            "memberId",
+            "visitorId"
+          ],
+          "source": "docs"
+        }
+      ],
+      "readback": {
+        "comment.id": "server-assigned",
+        "comment.revision": "server-assigned",
+        "comment.createdDate": "server-assigned",
+        "comment.status": "server-assigned",
+        "contactDetails.email": "write-only"
+      },
+      "evidence": "https://dev.wix.com/docs/api-reference/crm/community/feedback-moderation/comments/comments/create-comment (schema read 2026-11-21); no live probe yet: the first-record canary verifies the shape."
     }
   ]
 }

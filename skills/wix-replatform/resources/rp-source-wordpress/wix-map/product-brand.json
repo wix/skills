@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "kind": "wix-map-suggestion",
+  "sourcePlatform": "woocommerce",
+  "sourceEntity": "product-brand",
+  "targetRef": "stores/brand",
+  "targetEntity": "brand",
+  "preferredWrite": "createStoresBrand",
+  "primaryKey": "id",
+  "requiredSourceEntityRefs": [],
+  "provenance": [
+    "store P 11-10 and 11-15 plans (brand-name rows)",
+    "rp-target-wix/domains/stores/entities/brand.json pitfalls"
+  ],
+  "fieldMappings": [
+    {
+      "id": "brand-name",
+      "sourcePaths": [
+        "name"
+      ],
+      "disposition": "native",
+      "reason": "Brand name, HTML entities decoded and trimmed (the same normalization as the product link). Wix brand names are unique; the writer reuses an existing brand by exact name on 409.",
+      "evidence": [
+        "store P 11-15 plan p-brand (decoded, trimmed)",
+        "resources/rp-target-wix/domains/stores/entities/brand.json pitfall unique-name-double-create"
+      ],
+      "transform": {
+        "kind": "helper",
+        "name": "value.text",
+        "revision": "lib/plan-builder.js",
+        "arguments": {
+          "uses": "decode(name).trim()"
+        }
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "hold-record",
+          "code": "brand-name-missing"
+        },
+        "null": {
+          "action": "hold-record",
+          "code": "brand-name-missing"
+        },
+        "empty": {
+          "action": "hold-record",
+          "code": "brand-name-missing"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "bn-1",
+          "input": {
+            "name": "North &amp; South"
+          },
+          "expected": [
+            {
+              "outputId": "name",
+              "writeOperation": "createStoresBrand",
+              "value": "North & South"
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "name",
+          "sourcePaths": [
+            "name"
+          ],
+          "targetRef": "stores/brand",
+          "writeOperation": "createStoresBrand",
+          "targetPath": "name",
+          "verification": {
+            "readPath": "brand.name"
+          }
+        }
+      ],
+      "choice": {
+        "name": "brand-logo-description",
+        "value": "archive",
+        "default": "archive",
+        "reason": "The Wix brand is name-only (brand.json pitfall name-only-object); logo and description stay in the source archive.",
+        "decidedBy": "suggestion"
+      }
+    }
+  ],
+  "leftovers": "Every other product-brand leaf (slug, description, image, count, _links) goes to the source-archive row the pre-fill builds for this entity."
+}

@@ -3,6 +3,7 @@
 const ledger = require('./blog-post-build-ledger');
 const reports = require('./blog-post-build-report');
 const duplicates = require('./blog-post-build-duplicates');
+const local = require('../../../lib/local-state.js');
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const NOT_FOUND_CODE = 'NOT_FOUND';
@@ -55,9 +56,13 @@ function defaultChecks() {
   return [{ name: 'path', blocking: false, kind: 'verify', run(published, ctx) {
     const actual = publishedPath(published);
     const expected = ctx.expectedPath;
-    return actual === expected ? [] : [makeFinding('path', false,
+    // Wix returns the decoded path; the ledger stores the encoded one.
+    return decodedPath(actual) === decodedPath(expected) ? [] : [makeFinding('path', false,
       { sourceStableKey: ctx.sourceStableKey, expected }, { expected, actual })];
   } }];
+}
+function decodedPath(value) {
+  try { return typeof value === 'string' ? decodeURIComponent(value) : value; } catch { return value; }
 }
 function checkRegistry(checks = []) {
   const out = [...defaultChecks(), ...checks];
@@ -296,11 +301,14 @@ async function finalizePost(projectDir, post, client, transforms = {}, options =
     commitGeneration(projectDir, post, draftId, desired, origin, 'captured', undefined,
       { ownerState, finalSlug: draftSlug(liveDraft.draftPost || liveDraft) });
     const readSlug = draftSlug(liveDraft.draftPost || liveDraft);
-    if (!readSlug) { if (state.phase.reason !== 'slug-missing-in-response') phase(projectDir, post, 'held', { draftId, reason: 'slug-missing-in-response' }); return; }
-    if (slug && readSlug !== slug) { if (state.phase.reason !== 'slug-changed-while-held') phase(projectDir, post, 'held', { draftId, reason: 'slug-changed-while-held', slug }); return; }
+    // A draft held only because it has no slug yet (the source slug never reached it: live slice
+    // #811) gets the source slug below, like a fresh draft; with no source slug it stays held.
+    const slugOwed = !readSlug && state.phase.reason === 'slug-missing-in-response' && Boolean(post.slug);
+    if (!readSlug && !slugOwed) { if (state.phase.reason !== 'slug-missing-in-response') phase(projectDir, post, 'held', { draftId, reason: 'slug-missing-in-response' }); return; }
+    if (readSlug && slug && readSlug !== slug) { if (state.phase.reason !== 'slug-changed-while-held') phase(projectDir, post, 'held', { draftId, reason: 'slug-changed-while-held', slug }); return; }
     slug = readSlug;
   }
-  if (!heldResume && (state.phase.phase === 'drafted' || state.phase.phase === 'held' || state.phase.phase === 'contained')) {
+  if ((!heldResume || !slug) && (state.phase.phase === 'drafted' || state.phase.phase === 'held' || state.phase.phase === 'contained')) {
     if (!slug || post.forceSlugUpdate) {
       const sourceSlug = post.slug || desired.seoSlug;
       if (!sourceSlug) { phase(projectDir, post, 'held', { draftId, reason: 'slug-missing-in-response' }); return; }
@@ -378,11 +386,14 @@ async function verifyPost(projectDir, post, client, checks, sampled, via = 'read
   }
   if (sampled && fetchLivePage) {
     if (typeof client.fetchPage !== 'function') throw new Error('live-page fetch required for the verification sample');
+    // null = the new site's public URL is unknown, so there is no live page to sample.
     const page = await client.fetchPage(expected);
-    if (page.status !== 200 || String(page.body || '').includes('fit/w_0')) {
+    // Not fetched, so not sampled: the post stays in the cutover live-page spot-check.
+    if (!page) sampled = false;
+    if (page && (page.status !== 200 || String(page.body || '').includes('fit/w_0'))) {
       findings.push(makeFinding('live-page', false, { key, expected }, { status: page.status }));
     }
-    const covers = page.coverUrls || [];
+    const covers = page?.coverUrls || [];
     if (covers.length > 3) throw new Error('sample page reported more than three cover URLs');
     for (const url of covers) {
       if (typeof client.fetchImage !== 'function') throw new Error('cover-image fetch required for a sampled page with a cover');
@@ -562,7 +573,7 @@ async function publishPost(projectDir, post, client, checks, sampled, options) {
   }
   return result;
 }
-async function runBlogBuild({ projectDir, posts, client, crosswalk, checks = [], transforms = {}, options = {} }) {
+async function runBlogBuildUnlocked({ projectDir, posts, client, crosswalk, checks = [], transforms = {}, options = {} }) {
   validateClient(client);
   const originalClient = client;
   const measured = [];
@@ -705,7 +716,13 @@ async function runBlogBuild({ projectDir, posts, client, crosswalk, checks = [],
     return finalReport;
   });
 }
-async function reverify({ projectDir, post, client, crosswalk, checks = [], sampled, options = {} }) {
+async function runBlogBuild(args = {}) {
+  if (!args.projectDir) throw new Error('runBlogBuild: projectDir is required');
+  return local.withStateLock(args.projectDir, () => runBlogBuildUnlocked(args), {
+    script: 'blog-post-build.js', reentrant: true,
+  });
+}
+async function reverifyUnlocked({ projectDir, post, client, crosswalk, checks = [], sampled, options = {} }) {
   validateClient(client);
   return ledger.withLock(projectDir, async () => {
     const state = current(projectDir, stableKey(post));
@@ -714,6 +731,12 @@ async function reverify({ projectDir, post, client, crosswalk, checks = [], samp
       sampled === undefined ? state.snapshots.verify?.sampled === true : sampled, 'reverify', false);
     if (result.blocking) { await containPost(projectDir, post, client, crosswalk, [ledger.bodySha(bodyFrom(post))], options); }
     return (await reports.refreshBlogHandoff(projectDir)).report;
+  });
+}
+async function reverify(args = {}) {
+  if (!args.projectDir) throw new Error('reverify: projectDir is required');
+  return local.withStateLock(args.projectDir, () => reverifyUnlocked(args), {
+    script: 'blog-post-build.js', reentrant: true,
   });
 }
 

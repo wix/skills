@@ -9,6 +9,7 @@ const local = require('./local-state');
 const setup = require('./setup-verification');
 const { SETUP_CHECK_METHODS } = require('./setup-check-methods.js');
 const census = require('./census-reconciliation');
+const mappingPlanDigest = require('./mapping-plan-digest');
 const recovery = require('./dependency-recovery');
 const proofs = require('./dependency-proofs');
 const assessments = require('./operation-assessments');
@@ -60,25 +61,29 @@ function domain(ref) {
   for(const [dependency,paths] of Object.entries(supplement)) result.dependencyReferenceFields[dependency]=[...new Set([...(result.dependencyReferenceFields[dependency] || []),...paths])];
   return result;
 }
-function edgeMode(task, ref, producer) {
-  if (['setup-step', 'pending-setup'].includes(producer?.kind)) return 'task-complete';
-  const modes = task.entityRefs.map(entity => domain(entity).dependencyModes?.[ref] || 'task-complete');
-  return modes.every(mode => mode === 'per-record') ? 'per-record' : 'task-complete';
-}
+// The same rule the shared resolver uses (dependency-proofs edgeMode): per-record by default for an
+// import producer, task-complete for a setup step or where the entity file says so.
+function edgeMode(task, ref, producer) { return proofs.edgeMode(task.entityRefs, ref, producer); }
 // Target knowledge's `legacyTaskCompleteEdges`: refs that became per-record after manifests had
 // shipped them as task-complete. Such a manifest keeps its edge (from an import task, a disposition
 // or a proof): it waits for at least as much, so the import it already ran is never refused. Any
 // other stale mode is refused and regenerated. Secondary and child identities resolve
 // only per record, so those edges always match exactly.
 const PER_RECORD_ONLY = new Set(['secondary-output', 'child-output']);
-function keptTaskEdge(task, ref, emitted, derived, producer) {
+function legacyTaskEdge(task, ref, emitted, derived, producer) {
   return emitted === 'task-complete' && derived === 'per-record' && !PER_RECORD_ONLY.has(producer?.kind) && task.entityRefs.every(entity => (domain(entity).legacyTaskCompleteEdges || []).includes(ref));
+}
+// Likewise a manifest emitted before per-record became the default keeps its
+// task-complete edge for an import producer; its reference paths were already declared, so its
+// payloads are still checked at them.
+function keptTaskEdge(task, ref, emitted, derived, producer) {
+  return legacyTaskEdge(task, ref, emitted, derived, producer) || (emitted === 'task-complete' && producer?.kind === 'import-task' && proofs.perRecordByDefault(task.entityRefs, ref, producer));
 }
 function edgeModeAccepted(task, ref, emitted, derived, producer) { return emitted === derived || keptTaskEdge(task, ref, emitted, derived, producer); }
 // The reference paths of such a kept task-complete edge were declared after its manifest was
 // emitted, so its payloads are checked as they were then: not at those paths.
 function checkedRefs(task) {
-  return (task.dependencyRefs || []).filter(ref => { const edge = (task.dependencyEdges || []).find(row => row.ref === ref); return !(edge && keptTaskEdge(task, ref, edge.mode, edgeMode(task, ref, edge.producer), edge.producer)); });
+  return (task.dependencyRefs || []).filter(ref => { const edge = (task.dependencyEdges || []).find(row => row.ref === ref); return !(edge && legacyTaskEdge(task, ref, edge.mode, edgeMode(task, ref, edge.producer), edge.producer)); });
 }
 // Producer-independent: a stale emitted mode fails before producers or dispositions load.
 // Run with the project's mapping plan in scope: plan assessments can set dependencyModes.
@@ -95,15 +100,19 @@ function dependencyModeErrors(projectDir, manifest) {
 // variants), or -- for a transitive ref, or a child ref with no child producer -- the dependency that
 // carries it (`inherited`). The graph is resolved by the shared pure resolver the
 // mapper preflight also uses; this adapter supplies the manifest's real tasks and setup steps.
-function bindDependencyProducers({ manifest, setupPlan, dispositions = {}, proofs: validProofs = new Map(), scopeRefs = [], adoptOnlyRefs = [], adoptOnlyMixed = [] }) {
+function bindDependencyProducers({ manifest, setupPlan, dispositions = {}, proofs: validProofs = new Map(), scopeRefs = [], adoptOnlyRefs = [], adoptOnlyMixed = [], noRecordRefs = [] }) {
   const result = {}, errors = [], available = new Set(scopeRefs);
   for (const task of manifest.tasks || []) for (const ref of task.entityRefs || []) { available.add(ref); try { domain(ref); } catch (e) { errors.push(e.message); } }
   const imports = (manifest.tasks || []).filter(task => task.kind === 'import');
   for (const task of imports) if (task.writeOperations !== undefined && (!task.writeOperations || typeof task.writeOperations !== 'object' || Object.entries(task.writeOperations).some(([ref, op]) => !(task.entityRefs || []).includes(ref) || typeof op !== 'string' || !op))) errors.push(`task_write_operations_invalid:${task.id}`);
-  const graph = resolveManifestGraph({ manifest, setupPlan, dispositions, proofs: validProofs, adoptOnlyRefs, adoptOnlyMixed });
+  const graph = resolveManifestGraph({ manifest, setupPlan, dispositions, proofs: validProofs, adoptOnlyRefs, adoptOnlyMixed, noRecordRefs });
   errors.push(...graph.errors.filter(error => !error.startsWith('entity_ref_unknown:')));
+  // Errors one task owns (its resolver errors and its emitted-edge mismatches): readiness holds only
+  // that task (and, through its unfinished pass, its dependents), never every task.
+  const taskErrors = {};
   for (const task of imports) {
     const resolved = graph.tasks[task.id] || { refs: [], edges: [], dependsOn: [] };
+    const before = errors.length;
     if (!equal([...(task.dependencyRefs || [])].sort(), resolved.refs)) errors.push(`dependency_refs_mismatch:${task.id}`);
     for (const { ref, mode, producer } of resolved.edges) {
       result[ref] = producer;
@@ -114,23 +123,25 @@ function bindDependencyProducers({ manifest, setupPlan, dispositions = {}, proof
     }
     if ((task.dependencyEdges || []).length !== resolved.refs.length) errors.push(`dependency_edge_coverage:${task.id}`);
     if (!equal([...(task.dependsOn || [])].sort(), resolved.dependsOn)) errors.push(`task_depends_on_mismatch:${task.id}`);
+    taskErrors[task.id] = [...new Set([...(resolved.errors || []), ...errors.slice(before)])];
   }
-  return { ok: errors.length === 0, errors: [...new Set(errors)], producers: result };
+  const owned = new Set(Object.values(taskErrors).flat());
+  return { ok: errors.length === 0, errors: [...new Set(errors)], producers: result, taskErrors, globalErrors: [...new Set(errors)].filter(error => !owned.has(error)) };
 }
-function resolveManifestGraph({ manifest, setupPlan, dispositions = {}, proofs: validProofs = new Map(), adoptOnlyRefs = [], adoptOnlyMixed = [] }) {
+function resolveManifestGraph({ manifest, setupPlan, dispositions = {}, proofs: validProofs = new Map(), adoptOnlyRefs = [], adoptOnlyMixed = [], noRecordRefs = [] }) {
   const dependents = (manifest.tasks || []).filter(task => task.kind === 'import').map(task => ({ id: task.id, entityRefs: task.entityRefs || [], operations: task.writeOperations || {}, ...(task.adoptOnly === true ? { adoptOnly: true } : {}) }));
   // An entity an import task writes is owned by that import: a setup step may not also claim it.
   const importRefs = new Set(dependents.flatMap(task => task.entityRefs));
   const claims = (setupPlan.steps || []).flatMap(step => (step.entityRefs || []).filter(ref => importRefs.has(ref)).map(ref => `setup_step_claims_import_entity:${step.id}:${ref}`));
   const setupFor = ref => { if (importRefs.has(ref)) return null; const stepIds = (setupPlan.steps || []).filter(step => (step.entityRefs || []).includes(ref)).map(step => step.id).sort(); return stepIds.length ? { kind: 'setup-step', stepIds } : null; };
-  const graph = proofs.resolveDependencyGraph({ dependents, imports: dependents, setupFor, dispositions, proofs: validProofs, adoptOnlyRefs, adoptOnlyMixed });
+  const graph = proofs.resolveDependencyGraph({ dependents, imports: dependents, setupFor, dispositions, proofs: validProofs, adoptOnlyRefs, adoptOnlyMixed, noRecordRefs });
   return claims.length ? { ...graph, ok: false, errors: [...claims, ...graph.errors] } : graph;
 }
 // For codegen: the dependencyRefs/dependencyEdges/dependsOn each import task must emit, from the
 // same resolver the manifest validator uses, so a generated manifest never hand-derives a producer.
 async function deriveDependencyEdges(projectDir, manifest) {
   const adapter = await loadDependencyDispositions(projectDir);
-  const graph = resolveManifestGraph({ manifest, setupPlan: read(projectDir, 'setup/setup-plan.json'), dispositions: adapter.dispositions, proofs: adapter.proofs, adoptOnlyRefs: adapter.adoptOnlyRefs, adoptOnlyMixed: adapter.adoptOnlyMixed });
+  const graph = resolveManifestGraph({ manifest, setupPlan: read(projectDir, 'setup/setup-plan.json'), dispositions: adapter.dispositions, proofs: adapter.proofs, adoptOnlyRefs: adapter.adoptOnlyRefs, adoptOnlyMixed: adapter.adoptOnlyMixed, noRecordRefs: adapter.noRecordRefs });
   return { ok: graph.ok, errors: graph.errors, tasks: Object.fromEntries(Object.entries(graph.tasks).map(([id, task]) => [id, { dependencyRefs: task.refs, dependencyEdges: task.edges, dependsOn: task.dependsOn }])) };
 }
 function validateAssociations({ plan, reconciliation }) {
@@ -167,7 +178,7 @@ function pathMatches(template, concrete) {
 async function loadDependencyDispositions(projectDir, { stage = 'codegen' } = {}) {
   const plan = readRequired(projectDir, 'mapping/mapping-plan.json');
   const reconciliation = await census.readReconciliation(projectDir);
-  if (!reconciliation || reconciliation.reviewOnly || reconciliation.errors?.length || !(await census.censusReconciliationFreshness(projectDir, reconciliation)).ok) throw new Error('dependency_reconciliation_invalid');
+  if (!reconciliation || reconciliation.reviewOnly || require('./route-settlement').unsettledErrors(projectDir, 'census', reconciliation.errors)?.length || !(await census.censusReconciliationFreshness(projectDir, reconciliation)).ok) throw new Error('dependency_reconciliation_invalid');
   const validated = validateAssociations({ plan, reconciliation });
   if (!validated.ok) throw new Error(validated.errors.join(';'));
   const approved = await census.ownerApprovedCensusIds(projectDir), rows = new Map(reconciliation.rows.map(row => [row.censusId, row]));
@@ -180,7 +191,7 @@ async function loadDependencyDispositions(projectDir, { stage = 'codegen' } = {}
   const proven = proofs.validateProofs(plan.dependencyProofs, { rows, plan, readEntityMappings, projectDir, stage });
   if (proven.errors.length) throw new Error(proven.errors.join(';'));
   const adoption = proofs.adoptOnlyRefsOf(plan, readEntityMappings);
-  return { dispositions, proofs: proven.proofs, ...validated, rows, approved, reconciliationSha256, adoptOnlyRefs: adoption.refs, adoptOnlyMixed: adoption.mixed };
+  return { dispositions, proofs: proven.proofs, ...validated, rows, approved, reconciliationSha256, adoptOnlyRefs: adoption.refs, adoptOnlyMixed: adoption.mixed, noRecordRefs: proofs.noRecordRefsOf(plan, readEntityMappings) };
 }
 // A plugin entity with a current read plan is read in full before the mapping checkpoint, so its
 // row cannot stay pending for want of data. Pending stays legitimate only when a full read was
@@ -224,15 +235,18 @@ async function preflightMappingDependencies(projectDir, { write = true } = {}) {
   report.errors.push(...(await pluginInventoryErrors(projectDir, plan)));
   if (report.errors.length) report.structuralReady = false;
   if (errors.length) { report.errors.unshift(...errors.map(code => ({ code: code.split(':')[0], detail: code.split(':').slice(1).join(':'), next: 'Correct the mapping dependency bindings, then re-run the preflight.' }))); report.structuralReady = false; }
-  report.mappingPlanDigest = fileDigest(projectDir, 'mapping/mapping-plan.json');
+  report.mappingPlanDigest = mappingPlanDigest.current(projectDir);
   if (write) { const { work, ...persisted } = report; await require('./orchestration-state').writeJsonAtomic(inside(projectDir, 'mapping/review/dependency-preflight.json'), persisted); }
   return report;
 }
 function validateImportInputs(projectDir) {
-  const manifest = readRequired(projectDir, 'execution/execution-manifest.json'), setupPlan = readRequired(projectDir, 'setup/setup-plan.json');
+  let manifest = readRequired(projectDir, 'execution/execution-manifest.json');
+  const setupPlan = readRequired(projectDir, 'setup/setup-plan.json');
   const plan = readRequired(projectDir, 'mapping/mapping-plan.json');
   if (read(projectDir, 'orchestration/state.json', {})?.finalizedAt || read(projectDir, 'orchestration/website-handoff.json', {})?.finalizedAt) throw new Error('EXECUTION_REVIEW_ONLY');
-  if (manifest.mappingPlanDigest !== fileDigest(projectDir, 'mapping/mapping-plan.json')) throw new Error('mapping_plan_digest_mismatch');
+  if (!mappingPlanDigest.matches(projectDir, manifest.mappingPlanDigest)) throw new Error('mapping_plan_digest_mismatch');
+  // A derived contact binding with no key prefix gets the toolkit's fixed one in the file first.
+  if (require('./execution-manifest').writeDerivedKeyPrefixes(inside(projectDir, 'execution/execution-manifest.json'), manifest)) manifest = readRequired(projectDir, 'execution/execution-manifest.json');
   let validation = validatedManifests.get(manifest);
   if (!validation) { validation = require('./execution-manifest').validateManifest(manifest); validatedManifests.set(manifest, validation); }
   if (!validation.ok) throw new Error(validation.errors.join(';'));
@@ -266,8 +280,10 @@ function fingerprint(ctx) {
   files.push(...sources);
   // Held sets are readiness evidence: an inventory, its builder or the approval request changing
   // makes an earlier evaluation and its grants stale.
-  for (const entity of Object.keys(require('./read-back-contract').DOMAINS)) {
-    const inventory = `execution/read-back-inventory/${entity}.json`; files.push(inventory);
+  let inventories = [];
+  try { inventories = fs.readdirSync(path.join(ctx.projectDir, 'execution/read-back-inventory')).filter(name => name.endsWith('.json')).sort(); } catch { /* none yet */ }
+  for (const name of inventories) {
+    const inventory = `execution/read-back-inventory/${name}`; files.push(inventory);
     try { const builder = readCached(ctx.projectDir, inventory).builder?.path; if (builder) files.push(builder); } catch {}
   }
   try { const requestId = readCached(ctx.projectDir, 'orchestration/approvals.json').mapping?.requestId; if (/^uar_[0-9a-f-]+$/.test(requestId || '')) files.push(`orchestration/user-actions/${requestId}.json`); } catch {}
@@ -294,7 +310,7 @@ async function evidenceIndex(ctx) {
   let increment;
   try { increment = await local.readAttemptJournalSince(ctx.projectDir, index.offset); } catch (error) { if (error.code !== 'JOURNAL_MISSING' || index.offset) throw error; increment = { rows: [], nextOffset: 0, size: 0 }; }
   if (increment.truncated) { indexes.delete(key); return evidenceIndex(ctx); }
-  for (const row of increment.rows) { index.work.journalRowsApplied++; local.validateAttemptRow(row); index.attempts.set(row.sourceStableKey, row); recovery.applyRecoveryAttempt(index.recovery, row); index.changes.push(row.sourceStableKey); }
+  for (const row of increment.rows) { index.work.journalRowsApplied++; local.validateAttemptRow(row); if (local.supersedesAttempt(index.attempts.get(row.sourceStableKey), row)) index.attempts.set(row.sourceStableKey, row); recovery.applyRecoveryAttempt(index.recovery, row); index.changes.push(row.sourceStableKey); }
   index.offset = increment.nextOffset;
   if (increment.nextOffset !== increment.size) throw new Error('readiness_journal_incomplete_tail');
   if (!prior || index.crosswalkStamp !== crosswalkStamp) {
@@ -350,7 +366,8 @@ function snapshots(ctx, task) {
       if (client.eavExtractionIsReusable(read(ctx.projectDir, source.readPlanPath), extract, { planFile: source.readPlanPath, ndjsonDigest: fileDigest(ctx.projectDir, source.extractPath), ndjsonRowCount: records.length }).length) throw new Error('dependency_extract_incomplete');
       total = extract.rowsWritten; artifacts.readPlan = fileDigest(ctx.projectDir, source.readPlanPath);
     }
-    if (!Number.isInteger(extract.rowsWritten) || !Number.isInteger(total) || extract.rowsWritten !== total || extract.rowsWritten < 0) throw new Error('dependency_extract_incomplete');
+    // A finished extract whose count differs from the source's count is complete (lib/extract-count.js).
+    if (!require('./extract-count.js').extractCount({ ...extract, snapshotTotal: total }).finished) throw new Error('dependency_extract_incomplete');
     digests[identity] = artifacts;
     if (records.length !== extract.rowsWritten) throw new Error('dependency_extract_count_mismatch');
     for (const record of records) {
@@ -368,7 +385,7 @@ function snapshots(ctx, task) {
 function currentPass(ctx, task, snapshot, pass) {
   return pass.taskId === task.id && pass.siteId === ctx.siteId && pass.dryRun === ctx.dryRun &&
     pass.planVersion === ctx.manifest.planVersion && pass.manifestDigest === fileDigest(ctx.projectDir, 'execution/execution-manifest.json') &&
-    pass.setupPlanDigest === fileDigest(ctx.projectDir, 'setup/setup-plan.json') && pass.mappingPlanDigest === fileDigest(ctx.projectDir, 'mapping/mapping-plan.json') &&
+    pass.setupPlanDigest === fileDigest(ctx.projectDir, 'setup/setup-plan.json') && mappingPlanDigest.matches(ctx.projectDir, pass.mappingPlanDigest) &&
     equal(pass.sourceSnapshotDigests, snapshot.digests) && pass.selection.mode === 'full';
 }
 function finishedThisRun(ctx, index, task) {
@@ -414,6 +431,9 @@ function failedForGood(ctx, index, key, dep, inSource) {
   if (attempt && attempt.siteId !== ctx.siteId) return null;
   if (dep.state === 'in-progress') return attempt?.runId === ctx.runId && attempt.status === 'failed_terminal' ? attempt.status : null;
   if (!inSource) return 'not-in-source';
+  // The completion's note that a stopped or filtered pass never reached it (and no earlier real row):
+  // not final; it waits for the resumed pass that tries it.
+  if (local.isNotAttempted(attempt)) return null;
   return attempt?.status || 'not-attempted';
 }
 // An id the gate never resolved is never sent. For a ref the record can go without
@@ -455,7 +475,8 @@ async function heldKeys(ctx, task, snapshot) {
   const keys = new Map(), errors = [], stamp = [];
   const readBack = require('./read-back-contract'), plan = read(ctx.projectDir, 'mapping/mapping-plan.json');
   for (const source of task.sourceBindings || []) {
-    const entity = Object.keys(readBack.DOMAINS).find(name => `${readBack.DOMAINS[name]}/${name}` === source.ref);
+    const domain = Object.keys(readBack.DOMAINS).find(name => `${readBack.DOMAINS[name]}/${name}` === source.ref);
+    const entity = domain && require('./mapping-field-contract').readBackKeyFor(plan || {}, domain, source.sourceEntity);
     if (!entity) continue;
     const held = await readBack.approvedHeldRecords(ctx.projectDir, entity, plan);
     stamp.push([entity, held.ok, held.inventorySha256 || null]);
@@ -568,6 +589,20 @@ function installReadBack(receipt, stepId, app) {
   const check = (receipt?.requirements || []).find(row => row?.id === stepId)?.verification;
   return check?.method === SETUP_CHECK_METHODS.INSTALLED_APPS_READ && check.observed?.appDefId === app.appDefId && check.observed.installed === true;
 }
+// A task whose generated code still wires a composite entity by hand when the import runs
+// (import-contract-verify codegenFindings `composite_entity_hand_wired`, after codegen's one fix
+// attempt) is held: no batch of it is admitted, its records wait with a named blocker, and every
+// other task runs. The findings file is rewritten by every verify, so it is the current code's.
+function codegenHolds(ctx) {
+  let document;
+  try { document = JSON.parse(fs.readFileSync(inside(ctx.projectDir, 'execution/codegen-findings.json'), 'utf8')); } catch (error) { if (error.code !== 'ENOENT') throw error; document = null; }
+  const rows = (document?.findings || []).filter(row => row?.code === 'composite_entity_hand_wired' && Array.isArray(row.taskIds) && row.taskIds.includes(ctx.taskId));
+  const holds = rows.length ? [{ ref: 'codegen/composite-entity-hand-wired', state: 'codegen-findings-unfixed', reasons: rows.map(row => `${row.file}:${row.line}`).sort(), recovery: 'fix-codegen-findings-then-rerun' }] : [];
+  // A task codegen could not fix within the repair passes (lib/route-settlement.js): held, reported, the rest runs.
+  const settled = require('./route-settlement').heldImportTasks(ctx.projectDir).get(ctx.taskId);
+  if (settled) holds.push({ ref: 'codegen/import-repair-exhausted', state: 'codegen-repair-exhausted', reasons: [settled.handoff || 'execution/route-settlements.json'], recovery: 'fix-import-task-then-rerun' });
+  return holds;
+}
 async function evaluateTask({ taskBinding }) {
   const ctx = capability.requireKind(taskBinding, 'import-task');
   const current = validateImportInputs(ctx.projectDir);
@@ -577,8 +612,11 @@ async function evaluateTask({ taskBinding }) {
   let adapter, index, inputError;
   try {
     adapter = await loadDependencyDispositions(ctx.projectDir, { stage: 'runtime' });
-    const binding = bindDependencyProducers({ manifest: ctx.manifest, setupPlan: ctx.setupPlan, dispositions: adapter.dispositions, proofs: adapter.proofs, adoptOnlyRefs: adapter.adoptOnlyRefs, adoptOnlyMixed: adapter.adoptOnlyMixed });
-    if (!binding.ok) throw new Error(binding.errors.join(';'));
+    const binding = bindDependencyProducers({ manifest: ctx.manifest, setupPlan: ctx.setupPlan, dispositions: adapter.dispositions, proofs: adapter.proofs, adoptOnlyRefs: adapter.adoptOnlyRefs, adoptOnlyMixed: adapter.adoptOnlyMixed, noRecordRefs: adapter.noRecordRefs });
+    // Only this task's own binding errors (and manifest-wide ones) concern it: another task's unbound
+    // or mismatched dependency holds that task, not this one.
+    const own = [...(binding.globalErrors || []), ...(binding.taskErrors?.[ctx.taskId] || [])];
+    if (own.length) throw Object.assign(new Error(own.join(';')), { taskBindingErrors: own });
     index = await evidenceIndex(ctx);
   } catch (error) { inputError = error; }
   const dependencies = [];
@@ -598,12 +636,16 @@ async function evaluateTask({ taskBinding }) {
     if (dep.state === 'setup-passed' && !installReadBack(dep.receipt, stepId, app)) { dependencies.push({ ref, producer, state: 'unknown', reasons: [`app_install_not_read_back:${app.app}`], recovery: `run-setup:${stepId}`, mode: 'task-complete' }); continue; }
     dependencies.push(dep);
   }
+  // This task's own dependency binding is invalid (an AI-added task naming a dependency nothing in the
+  // run produces, or edges that disagree with the resolver): the task is held with that named cause
+  // and a cutover item; every other task runs, and its dependents wait on its unfinished pass.
+  if (inputError?.taskBindingErrors) dependencies.push({ ref: 'manifest/task-binding', state: 'binding-invalid', reasons: inputError.taskBindingErrors, recovery: 'fix-task-dependency-binding', mode: 'task-complete' });
   if (inputError && !dependencies.length) throw inputError;
   const blocked = dependencies.filter(dep => !SETTLED.has(dep.state) && !(['in-progress', 'proof-contradicted'].includes(dep.state) && dep.mode === 'per-record'));
   // Every other entity builds on the regional setup step (files only; the step already read the site).
   const regional = require('./site-regional').regionalDependency({ projectDir: ctx.projectDir, siteId: ctx.siteId, entityRefs: ctx.task.entityRefs || [] });
   if (regional.gated && !regional.ok) blocked.push({ ref: 'site/locale', state: 'locale-refused', reasons: [regional.code], recovery: 'site-locale-gate' });
-  blocked.push(...sourceBlocks);
+  blocked.push(...sourceBlocks, ...codegenHolds(ctx));
   const waiting = projectWaiting(ctx, index);
   const evaluation = Object.freeze({ taskId: ctx.taskId, blocked: blocked.map(({ receipt, snapshot, held, ...row }) => row), ok: blocked.length === 0, work: Object.freeze({ ...index?.work }) });
   const generation = (evaluationGenerations.get(taskBinding) || 0) + 1; evaluationGenerations.set(taskBinding, generation);
@@ -650,7 +692,9 @@ async function persistReferenceGap(ctx, sourceStableKey, code, { action = REFERE
     const rows = task.referenceGaps || (task.referenceGaps = []);
     let row = rows.find(row => row.code === code);
     if (!row) rows.push(row = { code, taskId: ctx.taskId, siteId: ctx.siteId, severity, written, affectedSourceKeys: [], records: [], operatorRole, action });
-    row.records = [...(row.records || []).filter(entry => entry.sourceStableKey !== sourceStableKey), { sourceStableKey, ...detail }].sort((a, b) => a.sourceStableKey.localeCompare(b.sourceStableKey));
+    // One key, or several sharing this code and detail (a task-wide hold), in one write.
+    const keys = new Set(Array.isArray(sourceStableKey) ? sourceStableKey : [sourceStableKey]);
+    row.records = [...(row.records || []).filter(entry => !keys.has(entry.sourceStableKey)), ...[...keys].map(key => ({ sourceStableKey: key, ...detail }))].sort((a, b) => a.sourceStableKey.localeCompare(b.sourceStableKey));
     row.affectedSourceKeys = row.records.map(entry => entry.sourceStableKey);
     rows.sort((a, b) => a.code.localeCompare(b.code));
   });
@@ -660,9 +704,26 @@ async function persistReferenceGap(ctx, sourceStableKey, code, { action = REFERE
 function assertTaskGap(code, action, detail) {
   if (typeof code !== 'string' || !/^[a-z0-9-]+$/.test(code) || typeof action !== 'string' || !action.trim() || !detail || typeof detail !== 'object') throw new Error('TASK_GAP_INVALID');
 }
-async function recordTaskGap({ taskBinding, sourceStableKey, code, action, detail = {}, operatorRole, severity }) {
+// `sourceStableKeys` records several keys at once; `written: false` marks records that were held
+// and not written (the default is a landed record with a recorded loss).
+async function recordTaskGap({ taskBinding, sourceStableKey, sourceStableKeys, code, action, detail = {}, operatorRole, severity, written = true }) {
   assertTaskGap(code, action, detail);
-  return persistReferenceGap(capability.requireKind(taskBinding, 'import-task'), sourceStableKey, code, { action, written: true, detail, operatorRole, severity });
+  const keys = sourceStableKeys || sourceStableKey;
+  if (Array.isArray(keys) ? !keys.length || keys.some(key => typeof key !== 'string' || !key) : typeof keys !== 'string' || !keys) throw new Error('TASK_GAP_INVALID');
+  return persistReferenceGap(capability.requireKind(taskBinding, 'import-task'), keys, code, { action, written: written !== false, detail, operatorRole, severity });
+}
+// A recorded gap the shared runner closed on a later pass (a composite step that now succeeded):
+// the record leaves that code's row, and an empty row is removed, so the cutover list stays current.
+async function resolveTaskGap({ taskBinding, sourceStableKey, code }) {
+  const ctx = capability.requireKind(taskBinding, 'import-task');
+  await updateDiagnostic(ctx.projectDir, diagnostic => {
+    const task = diagnostic.tasks[ctx.taskId], row = task?.referenceGaps?.find(gap => gap.code === code);
+    if (!row || !row.affectedSourceKeys.includes(sourceStableKey)) return false;
+    row.records = (row.records || []).filter(entry => entry.sourceStableKey !== sourceStableKey);
+    row.affectedSourceKeys = row.affectedSourceKeys.filter(key => key !== sourceStableKey);
+    task.referenceGaps = task.referenceGaps.filter(gap => gap.affectedSourceKeys.length);
+    if (!task.referenceGaps.length) delete task.referenceGaps;
+  });
 }
 // The same, for a writer holding only the import client its task was bound to (createWixClient
 // registers it; nothing else can produce one). Used by toolkit composites such as importOrderHistory.
@@ -733,8 +794,43 @@ function sameTaskFields(entityRefs) {
     .filter(([ref]) => entityRefs.includes(ref))
     .flatMap(([ref, templates]) => templates.map(template => ({ ref, template }))));
 }
-function declaresPath(entityRefs, ref, concrete) { return entityRefs.some(entityRef => (domain(entityRef).dependencyReferenceFields?.[ref] || []).some(template => pathMatches(template, concrete))); }
+// The one source of truth for "a reference the builder must not write": target knowledge's
+// `dependencyReferenceFields` (the gate resolves and writes it) and `auxiliaryReferenceFields` (a
+// reviewed auxiliary operation writes it after create, e.g. Stores category membership). verifyGrant
+// and the read-back canary (read-back-contract outputApplicability) both read it here. `concrete`
+// may be a concrete path (`lineItems[0]...`) or a template (`lineItems[]...`).
+function gateSuppliedReferences(entityRefs, concrete) {
+  const found = [];
+  for (const entityRef of entityRefs) {
+    const d = domain(entityRef);
+    for (const [kind, fields] of [['dependency', d.dependencyReferenceFields], ['auxiliary', d.auxiliaryReferenceFields]])
+      for (const [ref, templates] of Object.entries(fields || {})) if (templates.some(template => template === concrete || pathMatches(template, concrete))) found.push({ entityRef, ref, kind });
+  }
+  return found;
+}
+function declaresPath(entityRefs, ref, concrete) { return gateSuppliedReferences(entityRefs, concrete).some(r => r.kind === 'dependency' && r.ref === ref); }
+function auxiliaryPath(entityRefs, ref, concrete) { return gateSuppliedReferences(entityRefs, concrete).some(r => r.kind === 'auxiliary' && r.ref === ref); }
 function valueAt(payload, concrete) { return concrete.replace(/\[(\d+)\]/g, '.$1').split('.').reduce((value, key) => value?.[key], payload); }
+// Mapping builders return the reviewed writer namespace (`{ product: {...} }`, `{ order: {...} }`),
+// while target dependency paths are relative to the entity. The gate and the send-time verifier
+// must inspect the same record body or a resolved reference can be discarded before the grant is
+// issued and then refused when the writer unwraps it.
+function targetPayload(task, targetRef, payload) {
+  const operation = task.writeOperations?.[targetRef];
+  const shape = require('./writer-request-shape.js').shape(targetRef, operation);
+  if (shape?.requestInput && shape.requestInput !== '$' && payload?.[shape.requestInput] && typeof payload[shape.requestInput] === 'object') return payload[shape.requestInput];
+  return payload;
+}
+function referenceValue(task, payload, reference) {
+  const direct = valueAt(payload, reference.path);
+  if (direct !== undefined) return direct;
+  for (const targetRef of task.entityRefs) {
+    if (!(domain(targetRef).dependencyReferenceFields?.[reference.ref] || []).some(template => pathMatches(template, reference.path))) continue;
+    const value = valueAt(targetPayload(task, targetRef, payload), reference.path);
+    if (value !== undefined) return value;
+  }
+  return undefined;
+}
 function isCustomOrderLine(payload, concrete) {
   const match = /^lineItems\[(\d+)\]\.catalogReference\.catalogItemId$/.exec(concrete);
   if (!match) return false;
@@ -742,7 +838,10 @@ function isCustomOrderLine(payload, concrete) {
   return Boolean(line?.itemType?.custom) && !Object.hasOwn(line, 'catalogReference');
 }
 function omitAt(payload, concrete) { const keys = concrete.replace(/\[(\d+)\]/g, '.$1').split('.'); const key = keys.pop(); const parent = keys.reduce((value, part) => value?.[part], payload); if (parent) delete parent[key]; }
-async function gateBatch({ evaluation, records }) {
+// `probe: true` asks the same question for records the task has not reached yet (the read-back
+// gate picks its canaries only among records this check would send now) and changes nothing: no
+// attempt rows, no reference gaps, no diagnostic, no grant.
+async function gateBatch({ evaluation, records, probe = false }) {
   const state = evaluations.get(evaluation);
   if (!state || state.stamp !== fingerprint(state.ctx) || evaluationGenerations.get(state.taskBinding) !== state.generation) throw new Error('DEPENDENCY_EVALUATION_STALE');
   if (!evaluation.ok) throw Object.assign(new Error('DEPENDENCY_NOT_READY'), { diagnostic: evaluation });
@@ -915,32 +1014,40 @@ async function gateBatch({ evaluation, records }) {
       const held = require('./read-back-contract').builderHold(payload);
       if (held) { defer.push({ ...record, deferral: { reason: 'builder-held', holds: held } }); continue; }
       require('./mapping-recovery').assertPayload(ctx.projectDir, assessments.current()?.plan || {}, ctx.task.entityRefs, payload, {sourceStableKey:record.sourceStableKey});
-      if (payload?.deferred && typeof payload.reason === 'string') { blocker = { reason: payload.reason, dependencyState: 'unknown' }; await persistReferenceGap(ctx, record.sourceStableKey, payload.reason); }
+      if (payload?.deferred && typeof payload.reason === 'string') { blocker = { reason: payload.reason, dependencyState: 'unknown' }; if (!probe) await persistReferenceGap(ctx, record.sourceStableKey, payload.reason); }
       for (const concrete of omissions) if (valueAt(payload, concrete) !== undefined) throw new Error('dependency-excluded-reference-present');
       // Guarded paths come from the current reviewed operation contract: a payload that writes one
       // contradicts the proof (including a source catch-up record that now references the ref).
+      // A within-write dependency whose contract names a pending id prefix (product modifiers:
+      // pending-customization:<n>) is still unwritten in the built payload; the task writes it
+      // in-task before the send, and verifyGrant admits only the ids that write returned.
       for (const dep of dependencies.filter(dep => dep.producer.kind === 'no-producer')) for (const row of dep.producer.proofs) {
-        const guards = proofs.operationContract(row.entityRef, row.operation)?.contract.dependencies?.[dep.ref]?.guardedPaths;
-        if (!guards?.length || proofs.guardHits(payload, guards).length) throw new Error('dependency-proof-contradicted');
+        const declared = proofs.operationContract(row.entityRef, row.operation)?.contract.dependencies?.[dep.ref], guards = declared?.guardedPaths;
+        const prefix = row.reason === 'within-write' ? declared?.withinWrite?.pendingIdPrefix : null;
+        const accept = typeof prefix === 'string' && prefix ? value => typeof value === 'string' && value.startsWith(prefix) : null;
+        if (!guards?.length || proofs.guardHits(targetPayload(ctx.task, row.entityRef, payload), guards, { accept }).length) throw new Error('dependency-proof-contradicted');
       }
       // A ref the task's operation does not depend on (declared inapplicable) has no reference template here.
       for (const targetRef of ctx.task.entityRefs) for (const [ref, templates] of Object.entries(domain(targetRef).dependencyReferenceFields || {})) if (checked.includes(ref)) for (const template of templates) {
-        const unresolved = expandPaths(payload, template).filter(concrete => valueAt(payload, concrete) !== undefined && !references.some(reference => reference.path === concrete && !reference.action && declaresPath(ctx.task.entityRefs, reference.ref, concrete)));
-        if (unresolved.length && !dropUnchecked(payload, references, ctx.task.entityRefs, ref, template, unresolved, lookup)) throw new Error('dependency-reference-unresolved');
+        const body = targetPayload(ctx.task, targetRef, payload);
+        const unresolved = expandPaths(body, template).filter(concrete => valueAt(body, concrete) !== undefined && !references.some(reference => reference.path === concrete && !reference.action && declaresPath(ctx.task.entityRefs, reference.ref, concrete)));
+        if (unresolved.length && !dropUnchecked(body, references, ctx.task.entityRefs, ref, template, unresolved, lookup)) throw new Error('dependency-reference-unresolved');
       }
       // A same-task parent id comes only from resolveSameTaskReference, never from local evidence.
       for (const field of ownFields) for (const concrete of expandPaths(payload, field.template)) if (valueAt(payload, concrete) !== undefined && !references.some(reference => reference.producerKind === 'same-task' && reference.path === concrete)) throw new Error('dependency-reference-unresolved');
       // A reference resolved but not written (a buyer link dropped after corroboration) sends nothing.
-      const used = references.filter(reference => reference.action || valueAt(payload, reference.path) !== undefined);
-      for (const ref of used.filter(ref => !ref.action)) if (valueAt(payload, ref.path) !== ref.targetId) throw new Error('dependency-reference-payload-mismatch');
-      if (identityPairMismatch(payload, used, ctx.task.entityRefs)) throw new Error('dependency-identity-pair-mismatch');
+      const used = references.filter(reference => reference.action || referenceValue(ctx.task, payload, reference) !== undefined);
+      for (const ref of used.filter(ref => !ref.action)) if (referenceValue(ctx.task, payload, ref) !== ref.targetId) throw new Error('dependency-reference-payload-mismatch');
+      if (ctx.task.entityRefs.some(targetRef => identityPairMismatch(targetPayload(ctx.task, targetRef, payload), used, [targetRef]))) throw new Error('dependency-identity-pair-mismatch');
       const heldFinal = holds.filter(hold => !finals.some(row => row.ref === hold.ref && row.sourceStableKey === hold.sourceStableKey));
       if (blocker || heldFinal.length) defer.push({ ...record, deferral: { reason: blocker ? 'dependency-not-ready' : 'dependency-held', ...(blocker || heldFinal[0]), ...(holds.length ? { holdCauses: holds } : {}) } });
       else if (finals.length) defer.push({ ...record, deferral: { reason: 'dependency-parent-final', final: true, ...finals[0], finalCauses: finals, ...(holds.length ? { holdCauses: holds } : {}) } });
       else { allowed.add(record.sourceStableKey); send.push({ ...record, payload, references: used }); }
     } catch (error) { defer.push({ ...record, deferral: { ...(holds.length ? { holdCauses: holds } : {}), reason: ['REFERENCE_UNDECLARED', 'dependency-excluded-reference-present', 'dependency-reference-payload-mismatch', 'dependency-reference-unresolved', 'dependency-proof-contradicted', 'dependency-identity-pair-mismatch'].includes(error.message) ? error.message : 'dependency-transform-failed' } }); }
   }
-  for (const record of defer) await local.appendAttempt(ctx.projectDir, { schemaVersion: 1, attemptId: crypto.randomUUID(), sourceStableKey: record.sourceStableKey, writeSpecId: ctx.taskId, operation: 'create', targetEntityType: ctx.task.entityRefs[0], status: 'deferred', runId: ctx.runId, phase: 'import', ts: new Date().toISOString(), deferral: record.deferral });
+  if (probe) return { send: send.map(record => ({ sourceStableKey: record.sourceStableKey })), defer: defer.map(({ sourceStableKey, deferral }) => ({ sourceStableKey, deferral })) };
+  // A dry run's rows go to the sample journal: live readiness must never read a rehearsal deferral.
+  for (const record of defer) await local.appendAttempt(ctx.projectDir, { schemaVersion: 1, attemptId: crypto.randomUUID(), sourceStableKey: record.sourceStableKey, writeSpecId: ctx.taskId, operation: 'create', targetEntityType: ctx.task.entityRefs[0], status: 'deferred', runId: ctx.runId, phase: 'import', ts: new Date().toISOString(), deferral: record.deferral }, { sample: ctx.dryRun === true });
   const omitted = send.flatMap(record => record.references.filter(reference => reference.action === 'omit-failed').map(reference => ({ ref: reference.ref, dependencySourceKey: reference.sourceStableKey ?? `unchecked:${reference.uncheckedTargetId}`, dependencyStatus: reference.dependencyStatus, sourceStableKey: record.sourceStableKey })));
   await updateDiagnostic(ctx.projectDir, async projection => {
     if (!projection.tasks[ctx.taskId]) return false;
@@ -955,8 +1062,13 @@ async function gateBatch({ evaluation, records }) {
   });
   const payloads = new Map(send.map(record => [record.sourceStableKey, record.references.map(reference => Object.freeze({ ...reference }))]));
   const grant = Object.freeze({ taskId: ctx.taskId, runId: ctx.runId, siteId: ctx.siteId });
-  const proofGuards = dependencies.filter(dep => dep.producer.kind === 'no-producer').flatMap(dep => dep.producer.proofs.flatMap(row => proofs.operationContract(row.entityRef, row.operation)?.contract.dependencies?.[dep.ref]?.guardedPaths || []));
-  grants.set(grant, { ctx, index, allowed, payloads, proofGuards, stamp: state.stamp, taskBinding: state.taskBinding, generation: state.generation, crosswalkPublishedOffset: (index.crosswalkPublished || []).length });
+  // Each guard keeps its ref and whether a within-write proof binds it: such a guard admits the ids
+  // this record's own in-task write returned (recordWithinWriteIdentity), and nothing else.
+  const proofGuards = dependencies.filter(dep => dep.producer.kind === 'no-producer').flatMap(dep => dep.producer.proofs.flatMap(row => {
+    const declared = proofs.operationContract(row.entityRef, row.operation)?.contract.dependencies?.[dep.ref];
+    return (declared?.guardedPaths || []).map(guard => ({ guard, ref: dep.ref, withinWrite: row.reason === 'within-write' && Boolean(declared.withinWrite) }));
+  }));
+  grants.set(grant, { ctx, index, allowed, payloads, proofGuards, withinWriteIds: new Map(), stamp: state.stamp, taskBinding: state.taskBinding, generation: state.generation, crosswalkPublishedOffset: (index.crosswalkPublished || []).length });
   return { send, defer, grant };
 }
 // One row per dependent record and dependency key it was sent without. A record admitted again
@@ -1028,12 +1140,22 @@ function verifyGrant(grant, clientContext, sourceStableKey, request, { auxiliary
     try { require('./mapping-recovery').assertPayload(stored.ctx.projectDir, assessments.current()?.plan || {}, stored.ctx.task.entityRefs, bulkProduct || request.body, {sourceStableKey}); } catch { return false; }
   }
   if (stored && request && !auxiliary) {
-    const body = bulkProduct || request.body?.order || request.body?.product || request.body?.member || request.body?.contact || request.body?.specification || request.body?.discountRule || request.body?.category || request.body;
+    const body = bulkProduct || request.body?.order || request.body?.product || request.body?.member || request.body?.contact || request.body?.specification || request.body?.discountRule || request.body?.category || request.body?.draftPost || request.body?.manualTaxMapping || request.body;
     // A partial write (a product PATCH) is checked on the top-level fields it actually sends.
-    const guards = partial ? stored.proofGuards.filter(guard => Object.hasOwn(body || {}, proofs.guardPath(guard).split(/[.\[]/)[0])) : stored.proofGuards;
-    if (proofs.guardHits(body, guards).length) return false;
+    const guards = partial ? stored.proofGuards.filter(row => Object.hasOwn(body || {}, proofs.guardPath(row.guard).split(/[.\[]/)[0])) : stored.proofGuards;
+    const created = stored.withinWriteIds.get(sourceStableKey);
+    for (const row of guards) {
+      const accept = row.withinWrite ? value => Boolean(created?.get(row.ref)?.has(value)) : null;
+      if (proofs.guardHits(body, [row.guard], { accept }).length) return false;
+    }
     if (identityPairMismatch(body, stored.payloads.get(sourceStableKey) || [], stored.ctx.task.entityRefs, { partial })) return false;
-    for (const reference of stored.payloads.get(sourceStableKey) || []) { if (partial && !Object.hasOwn(body || {}, reference.path.split(/[.\[]/)[0])) continue; if (reference.action === 'omit-failed') continue; const value = valueAt(body, reference.path); if (reference.action === 'omit' ? value !== undefined : value !== reference.targetId) return false; }
+    for (const reference of stored.payloads.get(sourceStableKey) || []) { if (partial && !Object.hasOwn(body || {}, reference.path.split(/[.\[]/)[0])) continue; if (reference.action === 'omit-failed') continue;
+      // Target knowledge names the few references written only by a reviewed auxiliary operation.
+      // They remain in the grant for that writer's exact-ID check, but a principal create body
+      // that has no such path must not be required to carry them.
+      const value = valueAt(body, reference.path);
+      if (!reference.action && value === undefined && auxiliaryPath(stored.ctx.task.entityRefs, reference.ref, reference.path)) continue;
+      if (reference.action === 'omit' ? value !== undefined : value !== reference.targetId) return false; }
     // Every reference the outgoing body carries must be one the gate resolved at that exact path:
     // a line added or reordered after gating cannot carry an unchecked ID.
     const granted = stored.payloads.get(sourceStableKey) || [];
@@ -1095,6 +1217,22 @@ function currentRecordTargetId(grant, clientContext, sourceStableKey) {
   const source = snapshots(stored.ctx, stored.ctx.task).sourceByKey.get(sourceStableKey);
   return source?.ref === 'stores/product' && rowMatchesSource(row, source) && ref?.storage === 'write-verification' && ref.kind === 'product'
     && ref.sourceKey === sourceStableKey && ref.targetId === row.targetId && ref.siteId === stored.ctx.siteId ? row.targetId : null;
+}
+// The id a record's own in-task write returned for a within-write dependency (a product's
+// customization: created, or reused by name and settings). Only that id may then appear at the
+// dependency's guarded path in the same record's write. The grant must have admitted the record,
+// and the task's edge for the ref must be bound by a within-write proof.
+function recordWithinWriteIdentity(grant, sourceStableKey, ref, id) {
+  const stored = grants.get(grant);
+  if (!stored || !stored.allowed.has(sourceStableKey)) throw new Error('DEPENDENCY_READINESS_REQUIRED');
+  const edge = (stored.ctx.task.dependencyEdges || []).find(edge => edge.ref === ref);
+  if (!edge || edge.producer.kind !== 'no-producer' || !edge.producer.proofs.some(row => row.reason === 'within-write')) return false;
+  if (typeof id !== 'string' || !id) throw new Error('WITHIN_WRITE_IDENTITY_INVALID');
+  if (!stored.withinWriteIds.has(sourceStableKey)) stored.withinWriteIds.set(sourceStableKey, new Map());
+  const byRef = stored.withinWriteIds.get(sourceStableKey);
+  if (!byRef.has(ref)) byRef.set(ref, new Set());
+  byRef.get(ref).add(id);
+  return true;
 }
 // A within-write dependency the containing write initiated but could not yet verify
 // (late or dropped product media) stays visible against the landed parent's target ID, in the
@@ -1173,7 +1311,7 @@ async function finishTaskPass({ taskBinding, selection = { mode: 'full' } }) {
   const snapshot = snapshots(ctx, ctx.task);
   const row = { schemaVersion: 1, taskId: ctx.taskId, entityRefs: ctx.task.entityRefs, runId: ctx.runId, planVersion: ctx.manifest.planVersion,
     manifestDigest: fileDigest(ctx.projectDir, 'execution/execution-manifest.json'), setupPlanDigest: fileDigest(ctx.projectDir, 'setup/setup-plan.json'),
-    mappingPlanDigest: fileDigest(ctx.projectDir, 'mapping/mapping-plan.json'), siteId: ctx.siteId, sourceSnapshotDigests: snapshot.digests,
+    mappingPlanDigest: mappingPlanDigest.current(ctx.projectDir), siteId: ctx.siteId, sourceSnapshotDigests: snapshot.digests,
     selection, dryRun: ctx.dryRun, finishedAt: new Date().toISOString() };
   validatePass(row); const passPath = inside(ctx.projectDir, PASS_FILE); await fsp.mkdir(path.dirname(passPath), { recursive: true }); await fsp.appendFile(passPath, JSON.stringify(row) + '\n'); return row;
 }
@@ -1187,12 +1325,12 @@ async function reconcileSiteEvidence({ taskBinding, readBack }) {
     if (!matched || matched.matchesRecordedWrite !== true || !require('../resources/rp-target-wix/lib/wix-writers').validReadBackEvidence(matched.result, { siteId: ctx.siteId, targetId: row.targetId })) continue;
     await local.updateCrosswalkRows(ctx.projectDir, [{ ...row, siteId: ctx.siteId, evidence: 'site-reconciled' }]);
     const previous = index.attempts.get(key);
-    await local.appendAttempt(ctx.projectDir, { ...(previous || { schemaVersion: 1, sourceStableKey: key, writeSpecId: ctx.taskId, operation: 'create', targetEntityType: row.targetEntityType, runId: ctx.runId, phase: 'import' }), attemptId: crypto.randomUUID(), siteId: ctx.siteId, status: 'imported', evidence: 'site-reconciled', ts: new Date().toISOString() });
+    await local.appendAttempt(ctx.projectDir, { ...(previous || { schemaVersion: 1, sourceStableKey: key, writeSpecId: ctx.taskId, operation: 'create', targetEntityType: row.targetEntityType, runId: ctx.runId, phase: 'import' }), attemptId: crypto.randomUUID(), siteId: ctx.siteId, status: 'imported', evidence: 'site-reconciled', ts: new Date().toISOString() }, { sample: ctx.dryRun === true });
   }
 }
-module.exports = { startImportRun: capability.startImportRun, bindTask: capability.bindTask, bindDependencyProducers, resolveManifestGraph, dependencyModeErrors,
+module.exports = { startImportRun: capability.startImportRun, bindTask: capability.bindTask, heldKeys, bindDependencyProducers, resolveManifestGraph, dependencyModeErrors,
   validateImportInputs, validateAssociations, loadDependencyDispositions, preflightMappingDependencies, pluginInventoryErrors, deriveDependencyEdges, evaluateTask, gateBatch,
-  verifyGrant, verifyBulkGrant, sameTaskReferenceFields: sameTaskFields, recordTaskGap, recordClientTaskGap, verifyReferenceTargets, verifyReferenceMember, holdCausesOf, finalDeferrals, linkChoice, linkRequired, currentRecordTargetId, recordWithinWriteGap, omittedReady, recordOmissionsResolved, finishTaskPass, reconcileSiteEvidence, validatePass, PASS_FILE, pathMatches, valueAt, expandPaths };
+  verifyGrant, verifyBulkGrant, gateSuppliedReferences, sameTaskReferenceFields: sameTaskFields, recordTaskGap, resolveTaskGap, recordClientTaskGap, verifyReferenceTargets, verifyReferenceMember, holdCausesOf, finalDeferrals, linkChoice, linkRequired, currentRecordTargetId, recordWithinWriteGap, recordWithinWriteIdentity, omittedReady, recordOmissionsResolved, finishTaskPass, reconcileSiteEvidence, validatePass, PASS_FILE, pathMatches, valueAt, expandPaths };
 for (const name of ['deriveDependencyEdges', 'dependencyModeErrors', 'loadDependencyDispositions', 'preflightMappingDependencies', 'validateImportInputs']) {
   const run = module.exports[name];
   module.exports[name] = (projectDir, ...args) => assessments.withProject(projectDir, () => run(projectDir, ...args));

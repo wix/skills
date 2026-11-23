@@ -18,6 +18,7 @@ const { buildProduct, toWixSlug } = require(path.join(ADAPTER_DIR, '..', 'rp-tar
 const inventory = require(path.join(ADAPTER_DIR, '..', 'rp-target-wix', 'lib', 'stores-inventory.js'));
 const recovery = require(path.join(ADAPTER_DIR, '..', 'rp-quick-runtime', 'lib', 'limit-recovery.js'));
 const importProgress = require(path.join(ADAPTER_DIR, '..', 'rp-quick-runtime', 'lib', 'import-progress.js'));
+const quickHandoff = require(path.join(ADAPTER_DIR, '..', 'rp-quick-runtime', 'lib', 'quick-handoff.js'));
 
 const verification = require('../../rp-target-wix/lib/write-verification');
 const verificationState = require('../../../lib/write-verification-state');
@@ -198,7 +199,7 @@ function storefrontLanguage(code) {
   const [language, region] = code.toLowerCase().split('_');
   return { value: language, locale: region ? `${language}-${region.toUpperCase()}` : undefined, evidence: 'storefront localization.language.isoCode' };
 }
-// Writes discovery/source-locale.json from the capture `preflight` stored. Time zone is not on the storefront.
+// Writes discovery/source-locale.json from the capture `preflight` stored.
 async function writeQuickRegional(projectDir, generatedAt) {
   const capture = await readJsonIfPresent(path.join(projectDir, 'quick-mode', 'preflight-capture.json'));
   const read = capture && capture.data ? capture.data.localization : null;
@@ -207,7 +208,8 @@ async function writeQuickRegional(projectDir, generatedAt) {
     adapter: 'quick-shopify',
     generatedAt,
     currency: read && read.currencyCode ? { value: read.currencyCode, evidence: 'storefront localization.country.currency.isoCode' } : gap('storefront localization'),
-    timeZone: { reason: 'not-exposed', evidence: 'the storefront API has no time zone' },
+    // The storefront API has no time zone, and its localization country is the storefront's market, not where the store is: the site keeps its own zone and it is confirmed at cutover.
+    timeZone: sourceRegional.inferTimeZone({ country: null, gmtOffset: null, evidence: 'storefront localization (the storefront API has no time zone; its country is the market, not the store location)' }),
     primaryLanguage: (read && storefrontLanguage(read.languageCode)) || gap('storefront localization'),
     country: read && read.countryCode ? { value: read.countryCode, evidence: 'storefront localization.country.isoCode' } : gap('storefront localization'),
   });
@@ -259,20 +261,35 @@ async function loadWixEnv(projectDir) { const values = {}; try { for (const line
 // A token from config/wix.env renews itself for this site; a process-env override is used as given.
 function wixCredentials(projectDir, env, dryRun) { return dryRun || process.env.WIX_AUTH_TOKEN ? { authToken: env.WIX_AUTH_TOKEN } : { tokenSource: wixAuth.createWixTokenSource({ projectDir, siteId: env.WIX_SITE_ID }) }; }
 async function loadCrosswalk(projectDir) { try { return await readJson(path.join(projectDir, 'state', 'crosswalk', 'quick-shopify.json')); } catch (error) { if (error.code === 'ENOENT') return {}; throw error; } }
+// Over the Wix cap: trim (never ask or skip); a half-cut tag is dropped. Reported via recoveries.
+// LIVE-VERIFIED (2026-11-15): Wix also caps the description's text at 10,000 bytes
+// ("plainDescription as text ... cannot exceed 10000 bytes"), tighter than the 16,000-character HTML cap.
+const MAX_DESCRIPTION_TEXT_BYTES = 9900;
+const textBytes = (html) => Buffer.byteLength(html.replace(/<[^>]*>/g, ''), 'utf8');
+function trimDescription(html) {
+  let cut = html.slice(0, MAX_DESCRIPTION_LENGTH);
+  while (textBytes(cut) > MAX_DESCRIPTION_TEXT_BYTES) cut = cut.slice(0, Math.floor(cut.length * MAX_DESCRIPTION_TEXT_BYTES / textBytes(cut) * 0.99));
+  if (cut.length === html.length) return html;
+  return cut.lastIndexOf('<') > cut.lastIndexOf('>') ? cut.slice(0, cut.lastIndexOf('<')) : cut;
+}
 function canonicalProduct(row) {
   if (!text(row.id) || !text(row.title) || !text(row.handle)) throw new Error('missing product id, title, or handle');
-  if (text(row.body_html).length > MAX_DESCRIPTION_LENGTH) throw new Error('description exceeds Wix limit');
   const names = (row.options || []).map((option) => text(option.name)).filter((name) => name && name.toLowerCase() !== 'title');
   if (names.length > 3) throw new Error('more than three options');
+  const stockAssumed = [];
   const variants = (row.variants || []).map((variant) => {
     if (!text(variant.id) || !validPrice(variant.price)) throw new Error('invalid variant id or price');
-    if (typeof variant.available !== 'boolean') throw new Error('variant availability must be explicit true or false');
+    // A variant is in stock unless the source says it is sold out. Unstated availability is imported in stock
+    // and listed (`stock-assumed-in-stock`) so the merchant can check it; an explicit `false` stays out of stock.
+    const stated = typeof variant.available === 'boolean';
+    if (!stated) stockAssumed.push(String(variant.id));
+    const available = stated ? variant.available : true;
     const choices = names.map((optionName, index) => ({ optionName, choiceName: text(variant[`option${index + 1}`]) })).filter((choice) => choice.choiceName);
     if (choices.length !== names.length) throw new Error('variant option values do not match product options');
-    return { sku: text(variant.sku) || undefined, price: variant.price, compareAtPrice: validPrice(variant.compare_at_price) ? variant.compare_at_price : undefined, visible: variant.available !== false, inStock: variant.available, inventoryTracked: false, choices };
+    return { sku: text(variant.sku) || undefined, price: variant.price, compareAtPrice: validPrice(variant.compare_at_price) ? variant.compare_at_price : undefined, visible: available !== false, inStock: available, inventoryTracked: false, choices };
   });
   if (!variants.length) throw new Error('product has no variants');
-  return { name: text(row.title), slug: toWixSlug(row.handle), description: text(row.body_html) || undefined, visible: Boolean(row.published_at), optionNames: names, variants, images: (row.images || []).map((image) => ({ url: image.src, altText: image.alt || undefined })).filter((image) => text(image.url)) };
+  return { name: text(row.title), slug: toWixSlug(row.handle), description: trimDescription(text(row.body_html)) || undefined, visible: Boolean(row.published_at), optionNames: names, variants, stockAssumed, images: (row.images || []).map((image) => ({ url: image.src, altText: image.alt || undefined })).filter((image) => text(image.url)) };
 }
 // Correlate by option/choice names resolved through target IDs, never response position or SKU.
 const { resolveInventoryRows } = require('../../rp-target-wix/lib/variant-correlation');
@@ -290,6 +307,39 @@ async function readCreatedProduct(writers, wix, id, delays = READ_AFTER_CREATE_D
   }
 }
 
+// The most categories one add-item call carries. The Wix limit is not documented; a conservative chunk keeps a call valid.
+const MEMBERSHIP_CATEGORIES_PER_CALL = 50;
+// Product-to-collection links, grouped by the product's Wix id. `total` counts every link whose collection and product
+// both exist on Wix (including links already made); `pending` holds only the links not yet remembered, one per category.
+function groupMembershipEdges(edges, { categoryIds, productTarget, seen }) {
+  const byProduct = new Map();
+  let total = 0;
+  for (const edge of edges) {
+    const categoryId = categoryIds.get(edge.collectionId);
+    const productId = productTarget(edge.productId);
+    if (!categoryId || !productId) continue;
+    total += 1;
+    const edgeId = `${edge.collectionId}:${edge.productId}`;
+    if (seen(edgeId)) continue;
+    if (!byProduct.has(productId)) byProduct.set(productId, new Map());
+    // Two source collections can map to one Wix category (same slug): one link in the call, every edge remembered with it.
+    const links = byProduct.get(productId);
+    if (!links.has(categoryId)) links.set(categoryId, { categoryId, edgeIds: [] });
+    links.get(categoryId).edgeIds.push(edgeId);
+  }
+  return { groups: [...byProduct].map(([productId, links]) => ({ productId, pending: [...links.values()] })), total };
+}
+
+// The outcome of one add-item call, per category: `error` is null for a link that was made or already existed. A response
+// with no per-category results (nothing to check) counts every link in the call as made.
+function membershipOutcomes(response, chunk) {
+  const results = new Map((Array.isArray(response && response.results) ? response.results : []).map((entry) => [entry.itemMetadata && entry.itemMetadata.id, entry.itemMetadata]));
+  return chunk.map((link) => {
+    const meta = results.get(link.categoryId);
+    const failed = meta && meta.success === false && !(meta.error && meta.error.code === 'ALREADY_EXISTS');
+    return { link, error: failed ? String((meta.error && meta.error.code) || 'unknown error') : null };
+  });
+}
 // Category capacity. Pure: callers decide where the answer is written.
 // `existingCount` already includes the undeletable All Products category.
 function categoryCapacity({ existingCount, rows, seen, existingSlugs }) {
@@ -313,8 +363,10 @@ function buildProductPayload(row, tagIds) {
   const normalized = recovery.normalizeProduct({ sourceId: row.id, sku: payload.variantsInfo.variants[0]?.sku || '', tagIds: (row.tags || []).map((name) => tagIds.get(text(name).toLowerCase())).filter(Boolean) });
   payload.variantsInfo.variants.forEach((variant) => { if (variant.sku) variant.sku = recovery.truncate(variant.sku, recovery.STORES_SKU_MAX, `${row.id}:${variant.sku}`); });
   payload.tags = { publicTags: { tagIds: normalized.tagIds } };
+  for (const variantId of canonical.stockAssumed) normalized.recoveries.push({ code: 'stock-assumed-in-stock', field: 'variants.inStock', action: 'defaulted_in_stock', variantId });
   // This endpoint creates only the product. Stock is written by the reconciler.
   for (const variant of payload.variantsInfo.variants) delete variant.inventoryItem;
+  if (trimDescription(text(row.body_html)) !== text(row.body_html)) normalized.recoveries.push({ code: 'stores_product_description_length', field: 'description', action: 'trimmed', originalLength: text(row.body_html).length });
   return { canonical, payload, normalized };
 }
 function verifyWrittenProduct(writers, { row, canonical, payload, fullTarget, targetId, siteId }) {
@@ -380,6 +432,8 @@ async function finalizeReverification(projectDir, staged, hooks = {}) {
   if (hooks.afterCompletionReport) await hooks.afterCompletionReport();
   await recovery.writeFinalReport(projectDir, completion, { dryRun: false });
   if (hooks.afterFinalReport) await hooks.afterFinalReport();
+  // The re-check can change the final status, so the handoff is rewritten from it (best effort).
+  await quickHandoff.finish(projectDir, completion);
   await writeJsonAtomic(path.join(projectDir, REVERIFY_RECEIPT), { schemaVersion: 1, requestId: staged.requestId, completedAt: staged.completedAt, checked: staged.checked, cleared: staged.cleared, remaining: staged.remaining, errors: staged.errors });
   if (hooks.afterReceipt) await hooks.afterReceipt();
   await removeIfPresent(path.join(projectDir, REVERIFY_STAGED));
@@ -589,15 +643,40 @@ async function importData(projectDir) {
   wix = await clientFor('collection_product');
   let memberships = 0;
   if (wix) {
-    for (const edge of await readNdjson(file(projectDir, 'collection_product'))) { const categoryId = categoryIds.get(edge.collectionId); const productId = productIds.get(edge.productId) || unverifiedTargets.get(edge.productId)?.targetId; if (!categoryId || !productId) continue; const edgeId = `${edge.collectionId}:${edge.productId}`; if (!seen('collection_product', edgeId)) { await writers.bulkAddItemToCategories(wix, { productId, categoryIds: [categoryId] }); remember('collection_product', edgeId, productId); await checkpoint(); } memberships += 1; }
+    // One call adds a product to many categories, so links are grouped by product and sent in chunks; each
+    // link is still remembered on its own, so a resume sends only the links that were not confirmed.
+    const { groups, total } = groupMembershipEdges(await readNdjson(file(projectDir, 'collection_product')), { categoryIds, productTarget: (sourceId) => productIds.get(sourceId) || unverifiedTargets.get(sourceId)?.targetId, seen: (edgeId) => seen('collection_product', edgeId) });
+    let notLinked = 0;
+    for (const { productId, pending } of groups) {
+      for (let at = 0; at < pending.length; at += MEMBERSHIP_CATEGORIES_PER_CALL) {
+        const chunk = pending.slice(at, at + MEMBERSHIP_CATEGORIES_PER_CALL);
+        const response = await writers.bulkAddItemToCategories(wix, { productId, categoryIds: chunk.map((link) => link.categoryId) });
+        // Wix answers 200 with one result per category. A failed category is not remembered and is reported; one that
+        // is already linked (a resume after a stop) counts as done.
+        const outcome = membershipOutcomes(response, chunk);
+        for (const { link, error } of outcome) {
+          if (!error) { for (const edgeId of link.edgeIds) remember('collection_product', edgeId, productId); continue; }
+          notLinked += link.edgeIds.length;
+          summary.skipped.collection_product ||= [];
+          for (const edgeId of link.edgeIds) summary.skipped.collection_product.push({ sourceId: edgeId, reason: `category link refused: ${error}` });
+        }
+        await checkpoint();
+      }
+    }
+    memberships = total - notLinked;
+    if (notLinked && !dryRun) summary.status = 'partial'; // the status was derived before the links were written
     capabilities.finishQuickEntity(quickRun, 'collection_product');
     summary.imported.collection_product = memberships;
   }
   // A refusal means the run did not import everything: it is never reported complete.
   if (!summary.status) summary.status = deriveStatus(summary); else if (!dryRun && Object.keys(regionalRefused).length) summary.status = 'partial';
-  if (!dryRun) await checkpoint(); Object.assign(summary, await sourceCoverage.quickSummaryCoverage(projectDir)); catalogBaseline.quickReport(projectDir, summary); await recovery.writeFinalReport(projectDir, summary, { dryRun }); await writeJson(path.join(projectDir, 'execution', dryRun ? 'dry-run-completion-report.json' : 'completion-report.json'), summary); return summary;
+  if (!dryRun) await checkpoint(); Object.assign(summary, await sourceCoverage.quickSummaryCoverage(projectDir)); catalogBaseline.quickReport(projectDir, summary);
+  if (!dryRun) { summary.onSite = quickHandoff.onSiteProducts(productRows, (row) => seen('product', row.id) || seen('product_candidate', row.id), (row) => text(row.title)); quickHandoff.stampLastWrite(summary); }
+  await recovery.writeFinalReport(projectDir, summary, { dryRun }); await writeJson(path.join(projectDir, 'execution', dryRun ? 'dry-run-completion-report.json' : 'completion-report.json'), summary);
+  await quickHandoff.finish(projectDir, summary, { dryRun });
+  return summary;
 }
-async function main() { const [command, projectDirArg] = process.argv.slice(2); if (!command || !projectDirArg || !['preflight', 'plan', 'extract', 'import', 'request-reverify', 'reverify'].includes(command)) throw new Error('Usage: quick-mode.js <preflight|plan|extract|import|request-reverify|reverify> <projectDir>'); const fn = { preflight, plan, extract, import: importData, 'request-reverify': requestReverify, reverify }[command]; const result = await fn(path.resolve(projectDirArg)); process.stdout.write(`${JSON.stringify({ ok: true, command, status: result.status || 'completed' })}\n`); }
+async function main() { const [command, projectDirArg] = process.argv.slice(2); if (!command || !projectDirArg || !['preflight', 'plan', 'extract', 'import', 'request-reverify', 'reverify'].includes(command)) throw new Error('Usage: quick-mode.js <preflight|plan|extract|import|request-reverify|reverify> <projectDir>'); const fn = { preflight, plan, extract, import: importData, 'request-reverify': requestReverify, reverify }[command]; const result = await fn(path.resolve(projectDirArg)); process.stdout.write(`${JSON.stringify({ ok: true, command, status: result.status || 'completed', ...(result.handoffWarning ? { warning: result.handoffWarning } : {}) })}\n`); }
 if (require.main === module) main().catch(async (error) => { process.stderr.write(`${error.message}\n`); process.exit(await wixAuth.stopExitCode(error, process.argv[3] && path.resolve(process.argv[3]))); });
 
-module.exports = { canonicalProduct, resolveInventoryRows, assertCategoryCapacity, categoryCapacity, readCreatedProduct, importData, storefrontQuery, retryWaitMs, captureSource, preflight, extract, plan, requestReverify, reverify, finalizeReverification, deriveStatus };
+module.exports = { membershipOutcomes, groupMembershipEdges, MEMBERSHIP_CATEGORIES_PER_CALL, canonicalProduct, resolveInventoryRows, assertCategoryCapacity, categoryCapacity, readCreatedProduct, importData, storefrontQuery, retryWaitMs, captureSource, preflight, extract, plan, requestReverify, reverify, finalizeReverification, deriveStatus };

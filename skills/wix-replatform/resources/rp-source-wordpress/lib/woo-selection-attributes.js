@@ -39,9 +39,12 @@ function menuOrder(variations) {
   return [...(variations || [])].sort((a, b) => (Number(a.menu_order) || 0) - (Number(b.menu_order) || 0) || (Number(a.id) || 0) - (Number(b.id) || 0));
 }
 
-// WooCommerce's term slug shape: lower case, quotes dropped, spaces and underscores to one dash.
+// WooCommerce's term slug shape (WordPress sanitize_title): lower case, quotes dropped, "/", "." and
+// en/em dashes to a dash, other punctuation ("(", ")", "+", ...) dropped, spaces and underscores to
+// one dash, no dash at either end. Letters of any script and digits are kept.
 function termSlug(text) {
-  return String(text).trim().toLowerCase().replace(/["'״׳`]/g, '').replace(/[\s_]+/g, '-').replace(/-+/g, '-');
+  return String(text).trim().toLowerCase().replace(/["'״׳`]/g, '').replace(/[/.\u2013\u2014]/g, '-')
+    .replace(/[^\p{L}\p{N}\p{M}\s_-]/gu, '').replace(/[\s_]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
 }
 
 function resolveChoice(value, choices) {

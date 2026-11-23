@@ -33,6 +33,7 @@
     "surface": "Tax Groups",
     "endpoint": "POST /billing/v1/tax-groups",
     "writerId": "createTaxGroup",
+    "requestInput": "taxGroup",
     "verification": "verified-live",
     "importSafe": true,
     "bulk": false

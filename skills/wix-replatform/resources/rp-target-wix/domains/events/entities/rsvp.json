@@ -124,7 +124,8 @@
   ],
   "notes": "Authored 2026-08-11 from the docs-survey gap (RSVP V2). The write shape was promoted to verified-live on 2026-08-16. importSafe is true: guest email is covered by the site mute. The same probe found two contradictions in the original entry: draft events reject RSVPs, and RSVP creation does create a CRM contact.",
   "dependencyModes": {
-    "events/event": "per-record"
+    "events/event": "per-record",
+    "crm/contact": "task-complete"
   },
   "dependencyReferenceFields": {
     "events/event": [

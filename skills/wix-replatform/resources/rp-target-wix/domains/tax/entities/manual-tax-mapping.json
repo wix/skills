@@ -12,8 +12,7 @@
     "crosswalkRequired": true
   },
   "dependsOn": [
-    "tax/tax-group",
-    "tax/tax-region"
+    "tax/tax-group"
   ],
   "sourceAliases": [
     {
@@ -32,7 +31,47 @@
     "writerId": "createManualTaxMapping",
     "verification": "verified-live",
     "importSafe": true,
-    "bulk": false
+    "bulk": false,
+    "requestInput": "manualTaxMapping"
+  },
+  "operationContracts": {
+    "createManualTaxMapping": {
+      "endpoint": "POST /billing/v1/manual-tax-mappings",
+      "dependencies": {
+        "tax/tax-region": {
+          "inapplicable": {
+            "reason": "The toolkit's tax composite (lib/import-composites-tax.js) finds the rate's region by country and subdivision, or creates it with the site's manual calculator appId read live, inside the same record write; no other task produces it."
+          }
+        }
+      },
+      "recovery": {
+        "idempotent": false,
+        "reconciliationKeys": [
+          {
+            "path": "taxRegionId"
+          },
+          {
+            "path": "taxGroupId"
+          },
+          {
+            "path": "taxName"
+          },
+          {
+            "path": "taxType"
+          },
+          {
+            "path": "jurisdiction"
+          },
+          {
+            "path": "jurisdictionType"
+          }
+        ]
+      },
+      "evidence": [
+        "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/manual-tax-mappings/query-manual-tax-mappings: the query example filters by taxRegionId.",
+        "duplicate-mapping-rejected-on-a-6-field-key pitfall below (LIVE 2026-08-15)."
+      ]
+    }
   },
   "fallbacks": [
     {
@@ -92,9 +131,10 @@
     }
   ],
   "mappingGuidance": [
+    "The WooCommerce tax-rate import finds or creates the rate's tax region inside its own task (lib/import-composites-tax.js; the region's appId is the site's manual calculator, read live), so tax/tax-region is not a dependency of this write and needs no producer or setup step.",
     "Convert WooCommerce percentage `rate` to a Wix fraction string: rate / 100, formatted with no more than 6 decimal places, e.g. \"7.5\" -> \"0.075\".",
-    "Resolve `taxGroupId` from the source row's `class` via tax-group.json's crosswalk, and `taxRegionId` from (country, state) via tax-region.json's crosswalk -- never invent either id.",
-    "A `class: \"standard\"` (or blank) rate creates ONE Manual Tax Mapping PER DEFAULT GROUP (Products, Shipping and delivery, Services, Cancellation fees), all with the same taxRate/taxRegionId -- use tax-build.js's `groupsForRate` rather than hardcoding 'Products'. A non-standard class targets only its own custom group instead (never the defaults, never Tax Exempt).",
+    "Resolve a custom class's `taxGroupId` from the source row's `class` via tax-group.json's crosswalk (per record) -- never invent it. `taxRegionId` is not mapped: the tax composite finds the region by (country, subdivision) or creates it at send time, and fills the id into each mapping.",
+    "A `class: \"standard\"` (or blank) rate creates one Manual Tax Mapping on each of the store's default groups, by name: Products, Additional fees (when the site has it) and Shipping and delivery only when the source rate's `shipping` is true -- never Form payments or another app's group (LIVE 2026-11-21: a Stores-only site lists Form payments, Products, Shipping and delivery and Additional fees). The tax composite reads the groups live (List Default Tax Groups); a site where Products (or the shipping group for a shipping-yes rate) has another name gets a cutover item. A non-standard class targets only its own custom group instead (never the defaults, never Tax Exempt).",
     "Leave `taxName`/`taxType`/`jurisdiction`/`jurisdictionType` populated from the source `name`/country-state display info where available; they are cosmetic (shown at checkout) and don't affect the calculated amount, but a blank `taxName` shows a default 'Sales Tax' label which may not match a non-US source's terminology (VAT/GST)."
   ],
   "setupRequirements": [],

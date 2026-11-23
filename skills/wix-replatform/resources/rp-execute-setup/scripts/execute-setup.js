@@ -7,20 +7,26 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const {assertCollectionCompatibility}=require('../../../lib/cms-collection-compatibility.js');
 const { normalizeCmsCollectionDefinition } = require('../../../lib/cms-collection-request.js');
+const { withPackedArchiveFields } = require('../../rp-target-wix/lib/source-archive.js');
 const REAL_WRITERS = require('../../rp-target-wix/lib/wix-writers.js');
 const { SCHEMA_KIND: CONTACT_V4_SCHEMA_KIND } = require('../../rp-target-wix/lib/contact-extended-fields.js');
 const { hashArtifact } = require('../../../lib/artifact-freshness.js');
 const { validatePlanShape, validateSetupVerification } = require('../../../lib/setup-verification.js');
 const { SETUP_CHECK_METHODS } = require('../../../lib/setup-check-methods.js');
+const { setAsideOnlyStep, importOwnedStep } = require('../../../lib/setup-set-aside.js');
 const siteRegional = require('../../../lib/site-regional.js');
+const businessContactSetup = require('../../../lib/business-contact-setup.js');
 const catalogBaseline = require('../../../lib/catalog-baseline.js');
 const wixAuth = require('../../../lib/wix-auth.js');
-const { HARMONY_EDITOR_TYPE } = require('../../../lib/editor-type.js');
+const { HARMONY_EDITOR_TYPE, STUDIO_TWO_EDITOR_TYPE } = require('../../../lib/editor-type.js');
 
 // 'wix-stores' is the quick-mode step id; it is Wix Stores (215238eb-...), the same app as
 // `install-wix-stores` below. 1380b703-... is Wix eCommerce, which Stores installs as its own
 // dependency: installing it alone leaves the site without Stores.
 const APPS = { 'wix-stores': '215238eb-22a5-4c36-9e7b-e7c08025e04e', 'wix-blog': '14bcded7-0066-7c35-14d7-466cb3f09103' };
+// Apps proven to install through the editor installation service on a Studio 2 site (with their
+// companions). Any other app on Studio 2 takes the generic installer and is read back.
+const STUDIO_TWO_EDITOR_APPS = new Set([APPS['wix-stores'], APPS['wix-blog']]);
 
 // Additional app-install step ids, added for projects whose setup plan needs apps this
 // executor previously had no executor for at all (a plan naming any of these used to fail
@@ -104,7 +110,8 @@ async function createCmsCollectionsStep({ dir, wix, writers }) {
   const fieldSchema = requirement.fieldSchemaPerCollection;
   const fields = Array.isArray(fieldSchema) ? fieldSchema.map((f) => ({
     key: f?.key,
-    type: f?.type,
+    ...(f?.type !== undefined ? { type: f.type } : {}),
+    ...(f?.fieldType !== undefined ? { fieldType: f.fieldType } : {}),
     displayName: f?.displayName,
     ...(f?.required ? { required: true } : {}),
     ...(f?.typeMetadata ? {typeMetadata:f.typeMetadata} : {}),
@@ -116,12 +123,15 @@ async function createCmsCollectionsStep({ dir, wix, writers }) {
   // Normalize and validate every definition before the first create request. In
   // particular, mapping permission presets are expanded to the object required by
   // Wix Data, while malformed field/permission values fail with their exact path.
+  // A source-archive collection (ImportArchive_*) always carries the packed archive fields the
+  // importer writes (rp-target-wix/lib/source-archive.js), whatever columns the mapping
+  // proposed.
   const expectedCollections = requirement.collections.map((collection, index) => normalizeCmsCollectionDefinition({
     id: collection?.id,
     displayName: collection?.displayName,
-    fields: collection?.fields || fields,
+    fields: withPackedArchiveFields(collection?.id, collection?.fields || fields),
     permissions: collection?.permissions || requirement.permissions,
-  }, { path: `collections[${index}]` }));
+  }, { path: `collections[${index}]`, sourceEntity: collection?.sourceEntity }));
 
   const existing = await wix.send(writers.buildListCmsCollectionsRequest());
   const existingIds = new Set((existing.collections || []).map((c) => c.id));
@@ -399,7 +409,7 @@ async function clearUnconfirmed(dir, siteId, prior, appDefIds) {
 // run sent through the editor route and the service reported as installed), `noEditorPart` (apps
 // the service says have no editor part) and `refused` (apps it refused for a known reason); the caller
 // installs both the ordinary way and reads the list back.
-async function installOnHarmony({ stepId, wanted, siteId, dir, pages, wix, writers, timing }) {
+async function installOnHarmony({ stepId, wanted, siteId, dir, pages, wix, writers, timing, recordPages = true }) {
   const sleep = timing.sleep || realSleep;
   const deadlineMs = timing.installDeadlineMs ?? EDITOR_INSTALL_DEADLINE_MS;
   const sent = new Set();
@@ -415,6 +425,8 @@ async function installOnHarmony({ stepId, wanted, siteId, dir, pages, wix, write
   // that cannot be written means the call is not sent.
   const unconfirmed = new Set(pages.record.unconfirmed.map((row) => row.appDefId));
   const writeAhead = async (apps) => {
+    // The record is Harmony's: on Studio 2 the call is made without it, and the list read-back decides.
+    if (!recordPages) { for (const id of apps) unconfirmed.add(id); return; }
     try {
       pages.record = await markUnconfirmed(dir, siteId, pages.record, apps, stepId, 'the install call was sent and is not proven yet');
     } catch (writeError) {
@@ -547,6 +559,8 @@ async function installAndVerifyApp(stepId, appDefId, { dir, env, wix, writers, c
     editorType = null;
   }
   const harmony = editorType === HARMONY_EDITOR_TYPE;
+  // Studio 2 uses the same editor install call for the proven apps, without Harmony's record.
+  const studioTwoEditor = editorType === STUDIO_TWO_EDITOR_TYPE && STUDIO_TWO_EDITOR_APPS.has(appDefId);
   // The record is Harmony's: other editors never read or write it.
   if (harmony) pages.record = await readAppPages(dir, env.WIX_SITE_ID);
   const recorded = pages.record.unconfirmed.some((row) => row.appDefId === appDefId);
@@ -573,7 +587,7 @@ async function installAndVerifyApp(stepId, appDefId, { dir, env, wix, writers, c
   let refused = [];
   const harmonyInstall = async () => {
     const wanted = [...companions, appDefId];
-    const result = await installOnHarmony({ stepId, wanted, siteId: env.WIX_SITE_ID, dir, pages, wix, writers, timing: catalogSettle });
+    const result = await installOnHarmony({ stepId, wanted, siteId: env.WIX_SITE_ID, dir, pages, wix, writers, timing: catalogSettle, recordPages: harmony });
     sentViaEditor = result.sent;
     noEditorPart = result.noEditorPart;
     refused = result.refused;
@@ -581,15 +595,15 @@ async function installAndVerifyApp(stepId, appDefId, { dir, env, wix, writers, c
     for (const id of refused) await genericInstall(id, { poll: true });
     // Every app of this call is now proven (Wix's answer or the ordinary installer, and the list), so none is
     // unconfirmed any more, whatever the rest of the step does. The step's own app is filed below.
-    pages.record = await clearUnconfirmed(dir, env.WIX_SITE_ID, pages.record, wanted);
+    if (harmony) pages.record = await clearUnconfirmed(dir, env.WIX_SITE_ID, pages.record, wanted);
   };
-  const install = harmony ? harmonyInstall : () => genericInstall(appDefId);
+  const install = harmony || studioTwoEditor ? harmonyInstall : () => genericInstall(appDefId);
   // On a Harmony site that already lists the app, only the missing companions are installed, and
   // before the catalog baseline is read so the baseline sees the final catalog.
   // An app written down as unconfirmed is sent again even though the list shows it, and the catalog
   // baseline is told it was not installed before this step, so it reuses the first attempt's record.
   const unconfirmedSelf = harmony && recorded;
-  if (harmony && installed && !unconfirmedSelf && companions.length) await harmonyInstall();
+  if ((harmony || studioTwoEditor) && installed && !unconfirmedSelf && companions.length) await harmonyInstall();
   // Wix Stores adds sample products when it installs. The catalog is read around the install, the
   // items it added are deleted, and the rest is recorded so no importer takes them over.
   let catalog = {};
@@ -620,6 +634,13 @@ async function installAndVerifyApp(stepId, appDefId, { dir, env, wix, writers, c
     await recordAppPages(dir, env.WIX_SITE_ID, prior, { appDefId, stepId, outcome: viaEditor ? 'apps' : 'noEditorPart' });
     if (wasRefused) return { method: SETUP_CHECK_METHODS.INSTALLED_APPS_READ, observed: { appDefId, installed: true, installCall: 'succeeded', ...catalog, route: 'app-installer', reason: 'editor_refused' } };
   }
+  // Studio 2 keeps no record: the route is what this run's own call did. An app it did not send (already
+  // listed) is reported below like any other editor's, with no install call.
+  const studioTwoRan = !studioTwoEditor ? null
+    : sentViaEditor.includes(appDefId) ? { route: 'editor-installation' }
+      : refused.includes(appDefId) ? { route: 'app-installer', reason: 'editor_refused' }
+        : noEditorPart.includes(appDefId) ? { route: 'app-installer', reason: 'no_editor_part' } : null;
+  if (studioTwoRan) return { method: SETUP_CHECK_METHODS.INSTALLED_APPS_READ, observed: { appDefId, installed: true, installCall: 'succeeded', ...catalog, ...studioTwoRan } };
   // `installCall` only when this run installed the app itself.
   const ranInstall = harmony ? [...sentViaEditor, ...noEditorPart].includes(appDefId) : !installed;
   const route = viaEditor ? { route: 'editor-installation', appPages: 'not-read' }
@@ -636,6 +657,10 @@ async function runStep(step, { dir, env, wix, writers, priorExtendedFieldVerific
     const regional = await siteRegional.executeRegionalStep({ projectDir: dir, wix, writers, siteId: env.WIX_SITE_ID, requirement });
     // The receipt's fields are the read-back this step performed; the check records what was observed.
     return { method: SETUP_CHECK_METHODS.SITE_PROPERTIES_READ, observed: { fields: Object.fromEntries(Object.entries(regional.fields || {}).map(([field, row]) => [field, row.action])) }, regional };
+  }
+  if (businessContactSetup.stepConfiguresBusinessContact(step)) {
+    const observed = await businessContactSetup.executeBusinessContactStep({ projectDir: dir, wix, writers });
+    return { method: SETUP_CHECK_METHODS.SITE_PROPERTIES_READ, observed };
   }
   if (step.id === 'mute-site-notifications') {
     const state = await writers.muteSiteNotifications(wix, { reason: `RePlatform migration — ${path.basename(dir)}` });
@@ -705,7 +730,7 @@ async function regionalDryRunIntent(dir) {
 async function appDryRunIntent(dir, siteId, appDefId) {
   const recorded = await recordedEditorType(dir, siteId);
   const route = !recorded ? { route: 'decided-at-run-time', routeBasis: 'no destination record' }
-    : recorded === HARMONY_EDITOR_TYPE ? { route: 'editor-installation', routeBasis: 'destination record; the live run reads the site again' }
+    : recorded === HARMONY_EDITOR_TYPE || (recorded === STUDIO_TWO_EDITOR_TYPE && STUDIO_TWO_EDITOR_APPS.has(appDefId)) ? { route: 'editor-installation', routeBasis: 'destination record; the live run reads the site again' }
       : { route: 'app-installer', routeBasis: 'destination record; the live run reads the site again' };
   if (appDefId !== catalogBaseline.STORES_APP_DEF_ID) return route;
   const prior = catalogBaseline.loadBaseline(dir);
@@ -868,9 +893,24 @@ async function executeSetup({ dir, dryRun = false, writers = REAL_WRITERS, catal
   const tokenSource = dryRun ? null : wixAuth.createWixTokenSource({ projectDir: dir, siteId: env.WIX_SITE_ID });
 
   for (const step of plan.steps) {
+    // A step that only serves set-aside entities is not run; its cutover task already exists.
+    const aside = setAsideOnlyStep(step, dir);
+    if (aside) {
+      requirements.push(dryRun ? { id: step.id, status: 'planned_dry_run', intent: { skip: SETUP_CHECK_METHODS.SET_ASIDE_NOT_NEEDED, ...aside } }
+        : { id: step.id, status: 'passed', verification: { method: SETUP_CHECK_METHODS.SET_ASIDE_NOT_NEEDED, checkedAt: new Date().toISOString(), observed: aside } });
+      continue;
+    }
+    // A step whose refs an import task writes itself (a tax rate's region) is not run either.
+    const owned = importOwnedStep(step, dir);
+    if (owned) {
+      requirements.push(dryRun ? { id: step.id, status: 'planned_dry_run', intent: { skip: SETUP_CHECK_METHODS.IMPORT_TASK_WRITES_IT, ...owned } }
+        : { id: step.id, status: 'passed', verification: { method: SETUP_CHECK_METHODS.IMPORT_TASK_WRITES_IT, checkedAt: new Date().toISOString(), observed: owned } });
+      continue;
+    }
     if (dryRun) {
       const intent = siteRegional.stepConfiguresSiteRegional(step, declaredList) ? await regionalDryRunIntent(dir)
-        : appIdForStep(step) ? await appDryRunIntent(dir, env.WIX_SITE_ID, appIdForStep(step)) : null;
+        : appIdForStep(step) ? await appDryRunIntent(dir, env.WIX_SITE_ID, appIdForStep(step))
+          : businessContactSetup.stepConfiguresBusinessContact(step) ? { write: 'updateBusinessContact only when the address differs', readBack: 'getSiteProperties properties.address' } : null;
       requirements.push({ id: step.id, status: 'planned_dry_run', ...(intent ? { intent } : {}) });
       continue;
     }
@@ -938,10 +978,11 @@ async function executeSetup({ dir, dryRun = false, writers = REAL_WRITERS, catal
   return { ok: true, dryRun: false, requirements, blocker: null };
 }
 
-async function main() {
-  const dir = process.argv[2] && path.resolve(process.argv[2]);
+// The setup command: `node execute-setup.js <projectDir> [--dry-run]`, or the project's scaffolded
+// `node src/setup/run-setup.js [--dry-run]` (lib/codegen-scaffold.js), which calls runCli.
+async function main(dir = process.argv[2] && path.resolve(process.argv[2]), args = process.argv.slice(3)) {
   if (!dir) throw new Error('Usage: execute-setup.js <projectDir> [--dry-run]');
-  const dryRun = process.argv.includes('--dry-run');
+  const dryRun = args.includes('--dry-run');
   const result = await executeSetup({ dir, dryRun });
   if (result.blocker?.code === wixAuth.WIX_AUTH_EXPIRED) {
     console.error(result.blocker.description);
@@ -958,4 +999,11 @@ if (require.main === module) {
   });
 }
 
-module.exports = { executeSetup, runStep };
+function runCli(dir, args) {
+  return main(path.resolve(dir), args).catch((error) => {
+    console.error(error.message);
+    process.exit(1);
+  });
+}
+
+module.exports = { executeSetup, runStep, runCli };

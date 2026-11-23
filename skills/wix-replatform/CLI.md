@@ -72,11 +72,12 @@ progress exists. Detached runs default to no heartbeat. Set `--status-interval o
 foreground heartbeats, or choose a value from `10s` to `5m`. `--events-file <path>` mirrors
 normalized JSONL events to a file. Raw adapter JSONL is retained at
 `state/runner/vendor-events.ndjson` by default; `--vendor-events <path>` overrides that
-diagnostic path. Codex collaboration events are decoded into the durable worker topology. A
-reported `pending_init` state is reconciled against the child's own Codex session output and
-terminal event, plus a newly written `state/handoffs/*.json` file. The runner emits
-`worker_start_timeout` and retries only when the child has produced none of those signals for
-the configured bound; tune the bound with `--worker-startup-timeout <duration>`.
+diagnostic path. A Codex-hosted run executes each routed stage in its top-level worker and
+does not create nested Codex sub-workers, so migration progress does not depend on a stale
+`pending_init` stream status. If an adapter nevertheless reports a structured child, Codex
+events are decoded into the durable worker topology and the compatibility watchdog reconciles
+the child's own session output, terminal event, or newly written `state/handoffs/*.json` file
+before applying its configured bound.
 
 ## Human checkpoints
 
@@ -110,10 +111,12 @@ byte counts.
 - `--delivery-mode management` migrates backend data; `website` migrates the frontend only;
   `management_and_website` performs both.
 - `--management-import-mode standard` uses the full discovery and mapping flow; `quick` uses a
-  bounded public adapter and plan.
-- `--site-type headless|studio|harmony` chooses the type of a new destination site (with
-  `--destination new`). Headless is a website developed in code; Studio and Harmony are
-  websites designed in a Wix editor. There is no default: without it, a new-site run raises a
+  bounded public adapter and plan. A quick import of a Shopify or WooCommerce store into a new site runs
+  as one command: `node scripts/quick-run.js <projectDir> --source-url <url> --platform shopify|woocommerce --site-type <type>`.
+- `--site-type headless|studio|harmony|studio2` chooses the type of a new destination site (with
+  `--destination new`). Headless is a website developed in code; Studio, Studio 2 and Harmony are
+  websites designed in a Wix editor. A Studio 2 website is copied after the backend with the
+  `wix-studio2-editor` skill. There is no default: without it, a new-site run raises a
   durable site-type request before anything is created. The type cannot be changed later.
 - `--notification-mute on|off` is valid only with `--destination existing:<site-id>`. `on`
   mutes all site notifications, including customer emails, until someone unmutes; the live
@@ -136,12 +139,38 @@ said so: aggregate completion receipts must validate. Cancellation is a durable 
 it requests graceful shutdown before forced termination, never labels a partial import as
 completed, and preserves recovery artifacts for a later `replatform resume`.
 
+When an agent turn stops on a usage, token or rate limit, the runner waits by itself and
+runs the same route again: until the stated reset time (plus 2 minutes) when the agent gives
+one, else 15, 30, then 60 minutes. Each stop is an `agent_usage_limit` event and a
+`usageLimitWaits` entry in the run record. After 3 waits, or when the reset is more than 6
+hours away (or past `--wall-timeout`), the run ends `blocked` with the reset time in
+`nextAction`; `cancel` works during a wait.
+
+The runner hashes the installed toolkit (`.agents/skills`, `.claude/skills`) at start and,
+after every agent turn, restores any edited, added or deleted toolkit file and any vendored
+`src/lib` / `src/resources` copy that differs from the toolkit file at the same path. Changed
+copies are kept under `state/runner/toolkit-integrity/quarantine/`; each restore is a line in
+`execution/toolkit-integrity-incidents.ndjson` and an import-operator action in the completion
+report. A vendored copy listed in `execution/toolkit-patches.md` (the run's own fix for a
+toolkit bug) is kept, by this guard and by the codegen scaffold's re-vendoring (unless the
+toolkit file changed since the copy was made: then the new file is copied in, the patch is saved
+under `execution/codegen-scaffold-replaced/`, and `stagePrepared.notices` says so). It is recorded as a `patched` incident, and each listed patch is a
+`toolkit-patched-in-run` import-operator action, so it lands as a toolkit PR. The installed
+toolkit is always restored. To keep a deliberate mid-run patch to the installed toolkit, run
+`node <skill>/scripts/toolkit-integrity.js accept --project-dir <project> --note "<what and why>"`.
+`REPLATFORM_TOOLKIT_INTEGRITY=off` turns the guard off.
+
 A run stopped on a blocker (`run.json` `status: blocked`) stays stopped: `run` ends with the
 `run_blocked` route and its `resumeFrom`, ahead of pending questions. `answer --continue`
 records the answer but does not release this hold. Resolve the blocker, then
 `replatform resume <project>` sets the status back to `running` and routes again;
 `orchestration-state.js transition --state <state> --phase <phase> --status running`
 also releases it. Transitions without `--status` preserve the hold.
+
+A stop records its time in `resumeFrom.recordedAt`. When `resumeFrom` names
+`rp-import-codegen` (in `nextResource`, `resource` or `owner`), resume routes to codegen until
+codegen records newer finished work (a done codegen handoff or the codegen checkpoint); then
+the same import resumes.
 
 The final JSON includes `router.resumeFrom`, `router.resumeWith`, and a typed `blocker`
 with its artifact, owner and required input; text output displays the note and next action.
@@ -179,9 +208,8 @@ chooses a port; the server refuses any non-loopback host.
 
 The Work panel reads `state/runner/task-state.json` through `replatform tasks`, so it survives
 console reloads and restarts. It records router work and direct agent processes; extra workers
-appear only when an adapter reports their structured topology, including a visible `Starting`
-state while a vendor sub-worker is initializing. The observed activity feed remains diagnostic
-evidence and never marks work complete by itself.
+appear only when a non-Codex adapter or a compatibility event reports structured topology. The
+observed activity feed remains diagnostic evidence and never marks work complete by itself.
 
 For destination-creation acknowledgements, the console also displays the identity reported by
 the local Wix CLI and requires that check to succeed before it enables acknowledgement. The

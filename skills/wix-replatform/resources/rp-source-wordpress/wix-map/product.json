@@ -1,0 +1,2916 @@
+{
+  "schemaVersion": 1,
+  "kind": "wix-map-suggestion",
+  "sourcePlatform": "woocommerce",
+  "sourceEntity": "product",
+  "targetRef": "stores/product",
+  "targetEntity": "product",
+  "preferredWrite": "createStoresProduct",
+  "primaryKey": "id",
+  "requiredSourceEntityRefs": [
+    "product-brand",
+    "product-category",
+    "product-tag"
+  ],
+  "sourceShape": {
+    "record": "GET /wc/v3/products item",
+    "children": {
+      "_variations": {
+        "extract": "product-variation",
+        "parentKey": "parent_id",
+        "route": "GET /wc/v3/products/{id}/variations",
+        "note": "joined onto the parent by parent_id (store T 11-15 run shape)"
+      }
+    }
+  },
+  "builder": "rp-source-wordpress/wix-map/product.builder.js",
+  "exampleConventions": "Each example input is merged onto a minimal published simple product (the test base record). References resolve with stand-in lookups: brand -> \"<product-brand:<id>>\", connected modifier -> the pending id the product step resolves.",
+  "provenance": [
+    "store T 11-15 run mapping plan: every product check passed; rows copied, then changed only where listed in each row's choices",
+    "stores T and P 11-10 plans",
+    "store P 11-15 plan (brand, types, stock, bundles)",
+    "rp-target-wix/domains/stores/entities/product*.json intendedFields and pitfalls"
+  ],
+  "recordFilters": [
+    {
+      "id": "product-type",
+      "sourcePath": "type",
+      "cases": {
+        "simple": "write",
+        "variable": "write",
+        "woosb": "write-at-price",
+        "external": "hold:product-type-external-no-target",
+        "grouped": "hold:product-type-grouped-no-target",
+        "pw-gift-card": "hold:product-type-gift-card-separate-target"
+      },
+      "unknown": "hold:product-type-unknown",
+      "decisionId": "product-price-simple",
+      "decisionNote": "Type holds name the product-price-simple row: its precedence is by type, and the read-back gate accepts a hold only for a decision in the plan.",
+      "reason": "Which WooCommerce product types become Wix Stores products (store P 11-15 p-variants-held).",
+      "choicesOn": "product-price-simple"
+    }
+  ],
+  "fieldMappings": [
+    {
+      "id": "product-name",
+      "sourcePaths": [
+        "name"
+      ],
+      "disposition": "native",
+      "reason": "Product title; WordPress HTML entities decoded; names over 80 characters are truncated by wix-build (finding product-name-truncated, full name kept in the finding).",
+      "evidence": [
+        "store T 11-15 run mapping plan (every product check passed)",
+        "resources/rp-target-wix/domains/stores/entities/product.json (preferredWrite createStoresProduct, intendedFields, operationContracts)",
+        "resources/rp-target-wix/lib/wix-target-spec.js STORES_V3_TARGET",
+        "resources/rp-target-wix/lib/wix-build.js buildProduct"
+      ],
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/product.builder.js#productName",
+        "revision": "rp-source-wordpress/wix-map/product.builder.js",
+        "arguments": {
+          "decodeEntities": true,
+          "maxLength": 80,
+          "uses": "wix-build.buildProduct(name)"
+        }
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "hold-record",
+          "code": "product-name-missing"
+        },
+        "null": {
+          "action": "hold-record",
+          "code": "product-name-missing"
+        },
+        "empty": {
+          "action": "hold-record",
+          "code": "product-name-missing"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "pn-1",
+          "input": {
+            "name": "Coffee &amp; Tea"
+          },
+          "expected": [
+            {
+              "outputId": "name",
+              "writeOperation": "createStoresProduct",
+              "value": "Coffee & Tea"
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "name",
+          "sourcePaths": [
+            "name"
+          ],
+          "targetRef": "stores/product",
+          "writeOperation": "createStoresProduct",
+          "targetPath": "name",
+          "verification": {
+            "readPath": "product.name"
+          }
+        }
+      ],
+      "builder": "rp-source-wordpress/wix-map/product.builder.js",
+      "choice": {
+        "name": "product-name-over-80",
+        "value": "truncate",
+        "default": "truncate",
+        "reason": "Wix caps product.name at 80 characters (live 400). wix-build cuts on whole characters and reports product-name-truncated with the full name; the full name also stays in the source archive. store T 6, store P 5 products.",
+        "decidedBy": "suggestion",
+        "alternatives": [
+          "hold-record"
+        ]
+      }
+    },
+    {
+      "id": "product-description",
+      "sourcePaths": [
+        "description",
+        "short_description"
+      ],
+      "disposition": "native",
+      "reason": "Long and short descriptions are composed into the one Wix description (short, <hr />, long) by wix-build composeProductDescription; HTML is converted by Wix.",
+      "evidence": [
+        "store T 11-15 run mapping plan (every product check passed)",
+        "resources/rp-target-wix/domains/stores/entities/product.json (preferredWrite createStoresProduct, intendedFields, operationContracts)",
+        "resources/rp-target-wix/lib/wix-target-spec.js STORES_V3_TARGET",
+        "resources/rp-target-wix/lib/wix-build.js buildProduct"
+      ],
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/product.builder.js#productDescription",
+        "revision": "rp-source-wordpress/wix-map/product.builder.js",
+        "arguments": {
+          "order": [
+            "short_description",
+            "description"
+          ],
+          "separator": "\n<hr />\n",
+          "maxLength": 16000,
+          "uses": "wix-build.composeProductDescription"
+        }
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "pd-1",
+          "input": {
+            "short_description": "<p>S</p>",
+            "description": "<p>L</p>"
+          },
+          "expected": [
+            {
+              "outputId": "plainDescription",
+              "writeOperation": "createStoresProduct",
+              "value": "<p>S</p>\n<hr />\n<p>L</p>"
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "plainDescription",
+          "sourcePaths": [
+            "description",
+            "short_description"
+          ],
+          "targetRef": "stores/product",
+          "writeOperation": "createStoresProduct",
+          "targetPath": "plainDescription",
+          "verification": {
+            "readPath": "product.plainDescription"
+          }
+        }
+      ],
+      "builder": "rp-source-wordpress/wix-map/product.builder.js",
+      "acceptedLimitations": [
+        "A placeholder body (\"Lorem ipsum\" or empty HTML) is omitted on purpose; a predicate cannot see that, so the read-back canary may list that product as missing a description. store T 1 (the same as rev 3)."
+      ],
+      "choice": {
+        "name": "product-description",
+        "value": {
+          "product-description-compose": "short-hr-long",
+          "product-description-placeholder": "drop",
+          "product-description-over-16000": "hold-record"
+        },
+        "default": {
+          "product-description-compose": "short-hr-long",
+          "product-description-placeholder": "drop",
+          "product-description-over-16000": "hold-record"
+        },
+        "reason": "This row decides several values; each part has its own default and reason.",
+        "decidedBy": "suggestion",
+        "parts": [
+          {
+            "name": "product-description-compose",
+            "value": "short-hr-long",
+            "default": "short-hr-long",
+            "reason": "Wix has one description. Both runs kept the long description; rev 3 also kept the short one above it with <hr /> (wix-build composeProductDescription). store P 11-15 sent the long one only and archived the short one. Keeping both loses nothing on the product page.",
+            "decidedBy": "suggestion",
+            "alternatives": [
+              "long-only (short to archive)"
+            ]
+          },
+          {
+            "name": "product-description-placeholder",
+            "value": "drop",
+            "default": "drop",
+            "reason": "wix-build drops a \"Lorem ipsum\" or empty-HTML body (isPlaceholderDescription): importing it equals importing no copy.",
+            "decidedBy": "suggestion"
+          },
+          {
+            "name": "product-description-over-16000",
+            "value": "hold-record",
+            "default": "hold-record",
+            "reason": "plainDescription is capped at 16,000 characters; rev 3 held the product (product-description-too-long) rather than cut text silently. 0 in stores T and P.",
+            "decidedBy": "suggestion",
+            "alternatives": [
+              "trim and archive the full text"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "product-slug",
+      "sourcePaths": [
+        "slug",
+        "id"
+      ],
+      "disposition": "native",
+      "reason": "Source slug is percent-decoded (Hebrew slugs arrive encoded) and sanitized by wix-build toWixSlug; an empty source slug is minted as product-<source id> before the write so it cannot collide with a derived slug. Slug is the reconciliation key.",
+      "evidence": [
+        "store T 11-15 run mapping plan (every product check passed)",
+        "resources/rp-target-wix/domains/stores/entities/product.json (preferredWrite createStoresProduct, intendedFields, operationContracts)",
+        "resources/rp-target-wix/lib/wix-target-spec.js STORES_V3_TARGET",
+        "resources/rp-target-wix/lib/wix-build.js buildProduct",
+        "product.json pitfall empty-source-slug-derives-and-can-collide",
+        "product.json pitfall wordpress-percent-encoded-slug"
+      ],
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/product.builder.js#productSlug",
+        "revision": "rp-source-wordpress/wix-map/product.builder.js",
+        "arguments": {
+          "fallback": "product-<id>",
+          "uses": "wix-build.toWixSlug(decodeURIComponent(slug) || \"product-\" + id)"
+        },
+        "precedence": [
+          "slug",
+          "id"
+        ]
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "mint",
+          "value": "product-<id>"
+        },
+        "null": {
+          "action": "mint",
+          "value": "product-<id>"
+        },
+        "empty": {
+          "action": "mint",
+          "value": "product-<id>"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "ps-1",
+          "input": {
+            "id": 5,
+            "slug": "abc-def"
+          },
+          "expected": [
+            {
+              "outputId": "slug",
+              "writeOperation": "createStoresProduct",
+              "value": "abc-def"
+            }
+          ]
+        },
+        {
+          "id": "ps-2",
+          "input": {
+            "id": 9,
+            "slug": ""
+          },
+          "expected": [
+            {
+              "outputId": "slug",
+              "writeOperation": "createStoresProduct",
+              "value": "product-9"
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "slug",
+          "sourcePaths": [
+            "slug",
+            "id"
+          ],
+          "targetRef": "stores/product",
+          "writeOperation": "createStoresProduct",
+          "targetPath": "slug",
+          "verification": {
+            "readPath": "product.slug"
+          }
+        }
+      ],
+      "builder": "rp-source-wordpress/wix-map/product.builder.js",
+      "choice": {
+        "name": "product-slug-empty",
+        "value": "product-<source id>",
+        "default": "product-<source id>",
+        "reason": "An empty slug lets Wix derive one from the name, which can collide (pitfall empty-source-slug-derives-and-can-collide). store T 6, store P 72 empty slugs.",
+        "decidedBy": "suggestion"
+      }
+    },
+    {
+      "id": "product-visible",
+      "sourcePaths": [
+        "status",
+        "catalog_visibility"
+      ],
+      "disposition": "native",
+      "reason": "Only published products whose catalog visibility is not hidden are visible; draft, pending and private products are imported hidden.",
+      "evidence": [
+        "store T 11-15 run mapping plan (every product check passed)",
+        "resources/rp-target-wix/domains/stores/entities/product.json (preferredWrite createStoresProduct, intendedFields, operationContracts)",
+        "resources/rp-target-wix/lib/wix-target-spec.js STORES_V3_TARGET",
+        "resources/rp-target-wix/lib/wix-build.js buildProduct"
+      ],
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/product.builder.js#productVisible",
+        "revision": "rp-source-wordpress/wix-map/product.builder.js",
+        "arguments": {
+          "uses": "visible = (status == 'publish') && (catalog_visibility != 'hidden')"
+        }
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "pv-1",
+          "input": {
+            "status": "draft",
+            "catalog_visibility": "visible"
+          },
+          "expected": [
+            {
+              "outputId": "visible",
+              "writeOperation": "createStoresProduct",
+              "value": false
+            }
+          ]
+        },
+        {
+          "id": "pv-2",
+          "input": {
+            "status": "publish",
+            "catalog_visibility": "visible"
+          },
+          "expected": [
+            {
+              "outputId": "visible",
+              "writeOperation": "createStoresProduct",
+              "value": true
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "visible",
+          "sourcePaths": [
+            "status",
+            "catalog_visibility"
+          ],
+          "targetRef": "stores/product",
+          "writeOperation": "createStoresProduct",
+          "targetPath": "visible",
+          "verification": {
+            "readPath": "product.visible"
+          }
+        }
+      ],
+      "builder": "rp-source-wordpress/wix-map/product.builder.js",
+      "choice": {
+        "name": "product-visible",
+        "value": {
+          "product-visible-status": "publish only",
+          "product-visible-catalog-visibility": "hidden -> hidden; catalog/search -> visible"
+        },
+        "default": {
+          "product-visible-status": "publish only",
+          "product-visible-catalog-visibility": "hidden -> hidden; catalog/search -> visible"
+        },
+        "reason": "This row decides several values; each part has its own default and reason.",
+        "decidedBy": "suggestion",
+        "parts": [
+          {
+            "name": "product-visible-status",
+            "value": "publish only",
+            "default": "publish only",
+            "reason": "draft, pending and private products are imported hidden, never dropped (store T 137, store P 83). store P 11-15 read status only; rev 3 also hid catalog_visibility hidden.",
+            "decidedBy": "suggestion"
+          },
+          {
+            "name": "product-visible-catalog-visibility",
+            "value": "hidden -> hidden; catalog/search -> visible",
+            "default": "hidden -> hidden; catalog/search -> visible",
+            "reason": "Wix has one visibility flag. \"catalog\" (shop only) and \"search\" (search only) are closer to visible than hidden (store P 12).",
+            "decidedBy": "suggestion"
+          }
+        ]
+      }
+    },
+    {
+      "id": "product-media",
+      "sourcePaths": [
+        "images[].src",
+        "images[].alt",
+        "images[].name"
+      ],
+      "disposition": "native",
+      "reason": "Product gallery images are sent as external URLs (original full-size src) in source order; Wix ingests them asynchronously (verified by media observation).",
+      "evidence": [
+        "store T 11-15 run mapping plan (every product check passed)",
+        "resources/rp-target-wix/domains/stores/entities/product.json (preferredWrite createStoresProduct, intendedFields, operationContracts)",
+        "resources/rp-target-wix/lib/wix-target-spec.js STORES_V3_TARGET",
+        "resources/rp-target-wix/lib/wix-build.js buildProduct",
+        "rp-mapper SKILL.md \"Product images: map one row per item field inside media.itemsInfo.items[]\""
+      ],
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/product.builder.js#productMedia",
+        "revision": "rp-source-wordpress/wix-map/product.builder.js",
+        "arguments": {
+          "url": "images[].src",
+          "altText": "images[].alt",
+          "displayName": "images[].name (entities decoded)",
+          "uses": "wix-build.buildMedia"
+        }
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "pm-1",
+          "input": {
+            "images": [
+              {
+                "src": "https://example.com/a.jpg",
+                "name": "a"
+              }
+            ]
+          },
+          "expected": [
+            {
+              "outputId": "url",
+              "writeOperation": "createStoresProduct",
+              "values": [
+                "https://example.com/a.jpg"
+              ]
+            },
+            {
+              "outputId": "displayName",
+              "writeOperation": "createStoresProduct",
+              "values": [
+                "a"
+              ]
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "url",
+          "sourcePaths": [
+            "images[].src"
+          ],
+          "targetRef": "stores/product",
+          "writeOperation": "createStoresProduct",
+          "targetPath": "media.itemsInfo.items[].url",
+          "verification": {
+            "readPath": "product.media.itemsInfo.items[].url"
+          }
+        },
+        {
+          "id": "altText",
+          "sourcePaths": [
+            "images[].alt"
+          ],
+          "targetRef": "stores/product",
+          "writeOperation": "createStoresProduct",
+          "targetPath": "media.itemsInfo.items[].altText",
+          "verification": {
+            "readPath": "product.media.itemsInfo.items[].altText"
+          }
+        },
+        {
+          "id": "displayName",
+          "sourcePaths": [
+            "images[].name"
+          ],
+          "targetRef": "stores/product",
+          "writeOperation": "createStoresProduct",
+          "targetPath": "media.itemsInfo.items[].displayName",
+          "verification": {
+            "unverifiableReason": "target-limitation: Wix Stores V3 accepts media.itemsInfo.items[].displayName on create but never returns it on read-back, so it cannot be verified after the write."
+          }
+        }
+      ],
+      "builder": "rp-source-wordpress/wix-map/product.builder.js",
+      "choice": {
+        "name": "product-media",
+        "value": {
+          "product-media-order": "source order; first image is the main image",
+          "variation-image": "archive"
+        },
+        "default": {
+          "product-media-order": "source order; first image is the main image",
+          "variation-image": "archive"
+        },
+        "reason": "This row decides several values; each part has its own default and reason.",
+        "decidedBy": "suggestion",
+        "parts": [
+          {
+            "name": "product-media-order",
+            "value": "source order; first image is the main image",
+            "default": "source order; first image is the main image",
+            "reason": "wix-build buildMedia: the first item becomes the main media.",
+            "decidedBy": "suggestion"
+          },
+          {
+            "name": "variation-image",
+            "value": "archive",
+            "default": "archive",
+            "reason": "A variation image (_variations[].image) has no place on a Catalog V3 variant; it stays in the source archive. store T 151, store P 330 variations carry one.",
+            "decidedBy": "suggestion",
+            "alternatives": [
+              "set it as the choice image of the first option (needs a writer)"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "product-price-simple",
+      "sourcePaths": [
+        "regular_price",
+        "sale_price",
+        "on_sale",
+        "price",
+        "type"
+      ],
+      "disposition": "native",
+      "reason": "Simple product price on its single default variant: a sale price below the regular price becomes actualPrice and the regular price the compare-at price; otherwise the regular price is actualPrice. A WPC bundle (woosb) is written at its own selling price `price`, never regular_price (the sum of its parts); when `price` is 0 or below it falls back to its sale price, then its regular price (each only above 0), else the product is written hidden at 0 with the product-price-missing task. A sale price of 0 or below is never a sale. A bundle has no compare-at price unless the choice woosb-compare-at says so.",
+      "evidence": [
+        "store T 11-15 run mapping plan (every product check passed)",
+        "resources/rp-target-wix/domains/stores/entities/product.json (preferredWrite createStoresProduct, intendedFields, operationContracts)",
+        "resources/rp-target-wix/lib/wix-target-spec.js STORES_V3_TARGET",
+        "resources/rp-target-wix/lib/wix-build.js buildProduct",
+        "wix-target-spec.js STORES_V3_TARGET.priceResolution",
+        "store P 11-15 plan rows p-price and p-price-bundle"
+      ],
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/product.builder.js#productPriceSimple",
+        "revision": "rp-source-wordpress/wix-map/product.builder.js",
+        "arguments": {
+          "price": "regular_price (woosb: price, else sale_price, else regular_price, each above 0)",
+          "discountedPrice": "sale_price when on_sale is not false and sale_price > 0",
+          "uses": "wix-build.buildVariantPrice"
+        },
+        "precedence": [
+          "product-price-simple when type != variable",
+          "product-variants when type == variable"
+        ]
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "write-as-is"
+        },
+        "null": {
+          "action": "write-as-is"
+        },
+        "empty": {
+          "action": "write-as-is"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "pp-1",
+          "input": {
+            "type": "simple",
+            "regular_price": "100",
+            "sale_price": "80"
+          },
+          "expected": [
+            {
+              "outputId": "actualPrice",
+              "writeOperation": "createStoresProduct",
+              "values": [
+                "80.00"
+              ]
+            },
+            {
+              "outputId": "compareAtPrice",
+              "writeOperation": "createStoresProduct",
+              "values": [
+                "100.00"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "pp-2",
+          "input": {
+            "type": "simple",
+            "regular_price": "50"
+          },
+          "expected": [
+            {
+              "outputId": "actualPrice",
+              "writeOperation": "createStoresProduct",
+              "values": [
+                "50.00"
+              ]
+            },
+            {
+              "outputId": "compareAtPrice",
+              "writeOperation": "createStoresProduct",
+              "omitted": true
+            }
+          ]
+        },
+        {
+          "id": "pp-3",
+          "input": {
+            "type": "simple",
+            "regular_price": "50",
+            "sale_price": "0"
+          },
+          "expected": [
+            {
+              "outputId": "actualPrice",
+              "writeOperation": "createStoresProduct",
+              "values": [
+                "50.00"
+              ]
+            },
+            {
+              "outputId": "compareAtPrice",
+              "writeOperation": "createStoresProduct",
+              "omitted": true
+            }
+          ]
+        },
+        {
+          "id": "pp-4",
+          "input": {
+            "type": "woosb",
+            "regular_price": "813.70",
+            "price": "402.00",
+            "sale_price": ""
+          },
+          "expected": [
+            {
+              "outputId": "actualPrice",
+              "writeOperation": "createStoresProduct",
+              "values": [
+                "402.00"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "pp-5",
+          "input": {
+            "type": "woosb",
+            "regular_price": "120.00",
+            "price": "0",
+            "sale_price": "85.31"
+          },
+          "expected": [
+            {
+              "outputId": "actualPrice",
+              "writeOperation": "createStoresProduct",
+              "values": [
+                "85.31"
+              ]
+            },
+            {
+              "outputId": "compareAtPrice",
+              "writeOperation": "createStoresProduct",
+              "omitted": true
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "actualPrice",
+          "sourcePaths": [
+            "regular_price",
+            "sale_price",
+            "on_sale",
+            "price"
+          ],
+          "targetRef": "stores/product",
+          "writeOperation": "createStoresProduct",
+          "targetPath": "variantsInfo.variants[].price.actualPrice.amount",
+          "appliesWhen": {
+            "op": "notEquals",
+            "location": "type",
+            "value": "variable"
+          },
+          "verification": {
+            "readPath": "product.variantsInfo.variants[].price.actualPrice.amount"
+          }
+        },
+        {
+          "id": "compareAtPrice",
+          "sourcePaths": [
+            "regular_price",
+            "sale_price",
+            "on_sale",
+            "price"
+          ],
+          "targetRef": "stores/product",
+          "writeOperation": "createStoresProduct",
+          "targetPath": "variantsInfo.variants[].price.compareAtPrice.amount",
+          "appliesWhen": {
+            "op": "fact",
+            "name": "woo.onSale",
+            "values": [
+              true
+            ]
+          },
+          "verification": {
+            "readPath": "product.variantsInfo.variants[].price.compareAtPrice.amount"
+          }
+        }
+      ],
+      "builder": "rp-source-wordpress/wix-map/product.builder.js",
+      "choice": {
+        "name": "product-price-simple",
+        "value": {
+          "sale-price-zero": "no sale",
+          "sale-price-scheduled": "sale applies only while on_sale is true",
+          "price-missing": "write hidden at price 0",
+          "woosb-bundle": "write at its own price, parts not linked",
+          "external-product": "hold-record",
+          "grouped-product": "hold-record",
+          "gift-card-product": "hold-record",
+          "woosb-compare-at": "none"
+        },
+        "default": {
+          "sale-price-zero": "no sale",
+          "sale-price-scheduled": "sale applies only while on_sale is true",
+          "price-missing": "write hidden at price 0",
+          "woosb-bundle": "write at its own price, parts not linked",
+          "external-product": "hold-record",
+          "grouped-product": "hold-record",
+          "gift-card-product": "hold-record",
+          "woosb-compare-at": "none"
+        },
+        "reason": "This row decides several values; each part has its own default and reason.",
+        "decidedBy": "suggestion",
+        "parts": [
+          {
+            "name": "sale-price-zero",
+            "value": "no sale",
+            "default": "no sale",
+            "reason": "WooCommerce writes an empty or \"0\" sale price to mean no sale; Wix rejects compareAtPrice <= actualPrice (wix-build buildVariantPrice). Both runs agree.",
+            "decidedBy": "suggestion"
+          },
+          {
+            "name": "sale-price-scheduled",
+            "value": "sale applies only while on_sale is true",
+            "default": "sale applies only while on_sale is true",
+            "reason": "A sale with a future start date (date_on_sale_from) has no Wix schedule; writing it early would charge the sale price before the merchant planned. The dates stay in the source archive. 0 in stores T and P.",
+            "decidedBy": "suggestion",
+            "alternatives": [
+              "always apply sale_price"
+            ]
+          },
+          {
+            "name": "price-missing",
+            "value": "write hidden at price 0",
+            "default": "write hidden at price 0",
+            "reason": "A product with no regular price is written hidden at price 0: it is not lost, and no shopper can buy it for free. A cutover task (product-price-missing) lists them so the merchant sets a price and shows them. Store T 6, store P 16.",
+            "decidedBy": "suggestion",
+            "alternatives": [
+              "hold-record"
+            ]
+          },
+          {
+            "name": "woosb-bundle",
+            "value": "write at its own price, parts not linked",
+            "default": "write at its own price, parts not linked",
+            "reason": "store P 11-15 wrote the 3 WPC bundles as plain products at `price`. Wix bundle support is not built yet, so the parts are not linked and their stock is not shared.",
+            "decidedBy": "suggestion",
+            "alternatives": [
+              "hold-record"
+            ]
+          },
+          {
+            "name": "woosb-compare-at",
+            "value": "none",
+            "default": "none",
+            "reason": "A bundle is sold at its own price and shows no strike-through price (product decision). The alternative writes the bundle regular price as its compare-at price when it is above the selling price.",
+            "decidedBy": "suggestion",
+            "alternatives": [
+              "regular price as compare-at"
+            ]
+          },
+          {
+            "name": "external-product",
+            "value": "hold-record",
+            "default": "hold-record",
+            "reason": "An affiliate product sold on another site would become buyable in Wix checkout. store P 5.",
+            "decidedBy": "suggestion",
+            "alternatives": [
+              "write hidden"
+            ]
+          },
+          {
+            "name": "grouped-product",
+            "value": "hold-record",
+            "default": "hold-record",
+            "reason": "A grouped product is a display list with no own price; its children import as their own products. store P 3.",
+            "decidedBy": "suggestion"
+          },
+          {
+            "name": "gift-card-product",
+            "value": "hold-record",
+            "default": "hold-record",
+            "reason": "A gift-card product belongs to the gift-card entity, not Stores. store P 1.",
+            "decidedBy": "suggestion"
+          }
+        ]
+      }
+    },
+    {
+      "id": "product-sku-simple",
+      "sourcePaths": [
+        "sku",
+        "type"
+      ],
+      "disposition": "native",
+      "reason": "Simple product SKU on its default variant. Variable products carry SKUs per variation; the parent SKU is archived.",
+      "evidence": [
+        "store T 11-15 run mapping plan (every product check passed)",
+        "resources/rp-target-wix/domains/stores/entities/product.json (preferredWrite createStoresProduct, intendedFields, operationContracts)",
+        "resources/rp-target-wix/lib/wix-target-spec.js STORES_V3_TARGET",
+        "resources/rp-target-wix/lib/wix-build.js buildProduct"
+      ],
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/product.builder.js#productSkuSimple",
+        "revision": "rp-source-wordpress/wix-map/product.builder.js",
+        "arguments": {
+          "uses": "identity"
+        },
+        "precedence": [
+          "product-sku-simple when type != variable",
+          "product-variants when type == variable"
+        ]
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "pk-1",
+          "input": {
+            "type": "simple",
+            "sku": "A1"
+          },
+          "expected": [
+            {
+              "outputId": "sku",
+              "writeOperation": "createStoresProduct",
+              "values": [
+                "A1"
+              ]
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "sku",
+          "sourcePaths": [
+            "sku"
+          ],
+          "targetRef": "stores/product",
+          "writeOperation": "createStoresProduct",
+          "targetPath": "variantsInfo.variants[].sku",
+          "appliesWhen": {
+            "op": "notEquals",
+            "location": "type",
+            "value": "variable"
+          },
+          "verification": {
+            "readPath": "product.variantsInfo.variants[].sku"
+          }
+        }
+      ],
+      "builder": "rp-source-wordpress/wix-map/product.builder.js"
+    },
+    {
+      "id": "product-weight-simple",
+      "sourcePaths": [
+        "weight",
+        "type"
+      ],
+      "disposition": "native",
+      "reason": "Simple product weight (store unit, kg) on its default variant as a number.",
+      "evidence": [
+        "store T 11-15 run mapping plan (every product check passed)",
+        "resources/rp-target-wix/domains/stores/entities/product.json (preferredWrite createStoresProduct, intendedFields, operationContracts)",
+        "resources/rp-target-wix/lib/wix-target-spec.js STORES_V3_TARGET",
+        "resources/rp-target-wix/lib/wix-build.js buildProduct"
+      ],
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/product.builder.js#productWeightSimple",
+        "revision": "rp-source-wordpress/wix-map/product.builder.js",
+        "arguments": {
+          "uses": "Number(weight)"
+        },
+        "precedence": [
+          "product-weight-simple when type != variable",
+          "product-variants when type == variable"
+        ]
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "pw-1",
+          "input": {
+            "type": "simple",
+            "weight": "1.2"
+          },
+          "expected": [
+            {
+              "outputId": "weight",
+              "writeOperation": "createStoresProduct",
+              "values": [
+                1.2
+              ]
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "weight",
+          "sourcePaths": [
+            "weight"
+          ],
+          "targetRef": "stores/product",
+          "writeOperation": "createStoresProduct",
+          "targetPath": "variantsInfo.variants[].physicalProperties.weight",
+          "appliesWhen": {
+            "op": "notEquals",
+            "location": "type",
+            "value": "variable"
+          },
+          "verification": {
+            "readPath": "product.variantsInfo.variants[].physicalProperties.weight"
+          }
+        }
+      ],
+      "builder": "rp-source-wordpress/wix-map/product.builder.js",
+      "choice": {
+        "name": "weight-unit",
+        "value": "no conversion",
+        "default": "no conversion",
+        "reason": "The store weight unit is assumed to equal the Wix site unit (both runs: kg). If they differ, add a value transform.",
+        "decidedBy": "suggestion"
+      }
+    },
+    {
+      "id": "product-stock-simple",
+      "sourcePaths": [
+        "manage_stock",
+        "stock_quantity",
+        "stock_status",
+        "type"
+      ],
+      "disposition": "native",
+      "reason": "Tracked stock (manage_stock=true) writes the quantity: null is 0 (WooCommerce shows it out of stock), negative is 0, over 99,999 is 99,999 (the Wix range). Untracked stock writes inStock = stock_status != outofstock, so onbackorder is in stock. Backorder settings stay in the source archive.",
+      "evidence": [
+        "store T 11-15 run mapping plan (every product check passed)",
+        "resources/rp-target-wix/domains/stores/entities/product.json (preferredWrite createStoresProduct, intendedFields, operationContracts)",
+        "resources/rp-target-wix/lib/wix-target-spec.js STORES_V3_TARGET",
+        "resources/rp-target-wix/lib/wix-build.js buildProduct",
+        "rp-mapper SKILL.md \"Variant inventory is part of the catalog plan\"",
+        "resources/rp-target-wix/lib/stores-inventory.js inventoryForVariant"
+      ],
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/product.builder.js#productStockSimple",
+        "revision": "rp-source-wordpress/wix-map/product.builder.js",
+        "arguments": {
+          "tracked": "manage_stock",
+          "quantity": "stock_quantity",
+          "status": "stock_status",
+          "clamp": [
+            0,
+            99999
+          ],
+          "uses": "stores-inventory.inventoryForVariant"
+        },
+        "precedence": [
+          "product-stock-simple when type != variable",
+          "product-variants when type == variable"
+        ]
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "write",
+          "value": 0,
+          "when": "manage_stock == true and stock_quantity is null"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "write-clamped",
+          "min": 0,
+          "max": 99999
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "st-1",
+          "input": {
+            "type": "simple",
+            "manage_stock": false,
+            "stock_status": "outofstock"
+          },
+          "expected": [
+            {
+              "outputId": "inStock",
+              "writeOperation": "createStoresProduct",
+              "values": [
+                false
+              ]
+            },
+            {
+              "outputId": "quantity",
+              "writeOperation": "createStoresProduct",
+              "omitted": true
+            }
+          ]
+        },
+        {
+          "id": "st-2",
+          "input": {
+            "type": "simple",
+            "manage_stock": true,
+            "stock_quantity": 14,
+            "stock_status": "instock"
+          },
+          "expected": [
+            {
+              "outputId": "quantity",
+              "writeOperation": "createStoresProduct",
+              "values": [
+                14
+              ]
+            }
+          ]
+        },
+        {
+          "id": "st-3",
+          "input": {
+            "type": "simple",
+            "manage_stock": true,
+            "stock_quantity": null,
+            "stock_status": "outofstock"
+          },
+          "expected": [
+            {
+              "outputId": "quantity",
+              "writeOperation": "createStoresProduct",
+              "values": [
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "id": "st-4",
+          "input": {
+            "type": "simple",
+            "manage_stock": true,
+            "stock_quantity": -3,
+            "stock_status": "outofstock"
+          },
+          "expected": [
+            {
+              "outputId": "quantity",
+              "writeOperation": "createStoresProduct",
+              "values": [
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "id": "st-5",
+          "input": {
+            "type": "simple",
+            "manage_stock": false,
+            "stock_status": "onbackorder"
+          },
+          "expected": [
+            {
+              "outputId": "inStock",
+              "writeOperation": "createStoresProduct",
+              "values": [
+                true
+              ]
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "inStock",
+          "sourcePaths": [
+            "manage_stock",
+            "stock_status"
+          ],
+          "targetRef": "stores/product",
+          "writeOperation": "createStoresProduct",
+          "targetPath": "variantsInfo.variants[].inventoryItem.inStock",
+          "appliesWhen": {
+            "op": "all",
+            "of": [
+              {
+                "op": "notEquals",
+                "location": "type",
+                "value": "variable"
+              },
+              {
+                "op": "notEquals",
+                "location": "manage_stock",
+                "value": true
+              }
+            ]
+          },
+          "verification": {
+            "readPath": "product.variantsInfo.variants[].inventoryItem.inStock"
+          }
+        },
+        {
+          "id": "quantity",
+          "sourcePaths": [
+            "manage_stock",
+            "stock_quantity"
+          ],
+          "targetRef": "stores/product",
+          "writeOperation": "createStoresProduct",
+          "targetPath": "variantsInfo.variants[].inventoryItem.quantity",
+          "appliesWhen": {
+            "op": "all",
+            "of": [
+              {
+                "op": "notEquals",
+                "location": "type",
+                "value": "variable"
+              },
+              {
+                "op": "equals",
+                "location": "manage_stock",
+                "value": true
+              }
+            ]
+          },
+          "verification": {
+            "readPath": "product.variantsInfo.variants[].inventoryItem.quantity"
+          }
+        }
+      ],
+      "builder": "rp-source-wordpress/wix-map/product.builder.js",
+      "choice": {
+        "name": "product-stock-simple",
+        "value": {
+          "tracked-null-quantity": "0",
+          "negative-quantity": "0",
+          "backorders": "archive; onbackorder counts as in stock"
+        },
+        "default": {
+          "tracked-null-quantity": "0",
+          "negative-quantity": "0",
+          "backorders": "archive; onbackorder counts as in stock"
+        },
+        "reason": "This row decides several values; each part has its own default and reason.",
+        "decidedBy": "suggestion",
+        "parts": [
+          {
+            "name": "tracked-null-quantity",
+            "value": "0",
+            "default": "0",
+            "reason": "WooCommerce treats it as 0 and marks it out of stock. Rev 3 wrote 0 (1 store T product); store P 11-15 would have held it (0 measured). Writing 0 imports the product without inventing stock.",
+            "decidedBy": "suggestion",
+            "alternatives": [
+              "hold-record"
+            ]
+          },
+          {
+            "name": "negative-quantity",
+            "value": "0",
+            "default": "0",
+            "reason": "Wix accepts 0..99,999 only. A negative count means oversold; 0 keeps it unsellable. store P 1 variation.",
+            "decidedBy": "suggestion",
+            "alternatives": [
+              "hold-record"
+            ]
+          },
+          {
+            "name": "backorders",
+            "value": "archive; onbackorder counts as in stock",
+            "default": "archive; onbackorder counts as in stock",
+            "reason": "Wix has no backorder setting matching WooCommerce \"yes\"/\"notify\" (store P 39 products). Preorder is a different feature and is not switched on.",
+            "decidedBy": "suggestion",
+            "alternatives": [
+              "enable Wix preorder"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "product-variants",
+      "sourcePaths": [
+        "_variations[].id",
+        "_variations[].menu_order",
+        "_variations[].regular_price",
+        "_variations[].sale_price",
+        "_variations[].on_sale",
+        "_variations[].sku",
+        "_variations[].weight",
+        "_variations[].manage_stock",
+        "_variations[].stock_quantity",
+        "_variations[].stock_status",
+        "_variations[].attributes[].id",
+        "_variations[].attributes[].name",
+        "_variations[].attributes[].option",
+        "attributes[].id",
+        "attributes[].name",
+        "attributes[].options[]",
+        "attributes[].variation",
+        "type"
+      ],
+      "disposition": "native",
+      "reason": "Each WooCommerce variation becomes a Wix variant; its attribute values become option choices, resolved from term slugs to the parent's display names. An attribute that is \"Any\" in every variation cannot change price or stock, so it becomes a mandatory modifier on one default variant (owner-approved rule); the product step writes its customization just before the product. A tracked stock pool is never copied onto several variants. A variation value the parent does not declare is held (selection-route-contradiction), never guessed.",
+      "evidence": [
+        "store T 11-15 run mapping plan (every product check passed)",
+        "resources/rp-target-wix/domains/stores/entities/product.json (preferredWrite createStoresProduct, intendedFields, operationContracts)",
+        "resources/rp-target-wix/lib/wix-target-spec.js STORES_V3_TARGET",
+        "resources/rp-target-wix/lib/wix-build.js buildProduct",
+        "GET /wc/v3/products/{id}/variations embedded as _variations[] in the extract",
+        "product.json pitfall shared-selection-attributes-become-modifiers",
+        "product-variant.json pitfall created-by-parent-product",
+        "rp-import-codegen SKILL.md \"Route selection attributes through the shipped router\""
+      ],
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/product.builder.js#productVariants",
+        "revision": "rp-source-wordpress/wix-map/product.builder.js",
+        "arguments": {
+          "variations": "_variations[] (menu order, then id)",
+          "selectors": "attributes[] with variation=true",
+          "price": "_variations[].regular_price",
+          "discountedPrice": "_variations[].sale_price",
+          "connectedModifiers": "lookups.connectedModifiers",
+          "uses": "woo-selection-attributes.wooSelectionAttributes+selection-route.routeSelections+wix-build.buildProduct"
+        },
+        "precedence": [
+          "product-variants when type == variable"
+        ]
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "hold-record",
+          "code": "product-variations-missing"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "write-as-is"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "va-1",
+          "input": {
+            "type": "variable",
+            "attributes": [
+              {
+                "id": 1,
+                "name": "Size",
+                "variation": true,
+                "options": [
+                  "1 kg",
+                  "2 kg"
+                ]
+              }
+            ],
+            "_variations": [
+              {
+                "id": 11,
+                "regular_price": "10",
+                "stock_status": "instock",
+                "manage_stock": false,
+                "attributes": [
+                  {
+                    "id": 1,
+                    "name": "Size",
+                    "option": "1-kg"
+                  }
+                ]
+              },
+              {
+                "id": 12,
+                "regular_price": "18",
+                "sale_price": "15",
+                "stock_status": "outofstock",
+                "manage_stock": false,
+                "attributes": [
+                  {
+                    "id": 1,
+                    "name": "Size",
+                    "option": "2 kg"
+                  }
+                ]
+              }
+            ]
+          },
+          "expected": [
+            {
+              "outputId": "v-price",
+              "writeOperation": "createStoresProduct",
+              "values": [
+                "10.00",
+                "15.00"
+              ]
+            },
+            {
+              "outputId": "v-compare",
+              "writeOperation": "createStoresProduct",
+              "values": [
+                "18.00"
+              ]
+            },
+            {
+              "outputId": "v-option-name",
+              "writeOperation": "createStoresProduct",
+              "values": [
+                "Size"
+              ]
+            },
+            {
+              "outputId": "v-choice-name",
+              "writeOperation": "createStoresProduct",
+              "values": [
+                "1 kg",
+                "2 kg"
+              ]
+            },
+            {
+              "outputId": "v-in-stock",
+              "writeOperation": "createStoresProduct",
+              "values": [
+                true,
+                false
+              ]
+            }
+          ]
+        },
+        {
+          "id": "va-2",
+          "input": {
+            "type": "variable",
+            "attributes": [
+              {
+                "id": 1,
+                "name": "Flavor",
+                "variation": true,
+                "options": [
+                  "Mint",
+                  "Lemon"
+                ]
+              }
+            ],
+            "_variations": [
+              {
+                "id": 21,
+                "regular_price": "30",
+                "stock_status": "instock",
+                "manage_stock": false,
+                "attributes": []
+              }
+            ]
+          },
+          "expected": [
+            {
+              "outputId": "v-price",
+              "writeOperation": "createStoresProduct",
+              "values": [
+                "30.00"
+              ]
+            },
+            {
+              "outputId": "v-option-name",
+              "writeOperation": "createStoresProduct",
+              "omitted": true
+            },
+            {
+              "outputId": "v-modifier",
+              "writeOperation": "createStoresProduct",
+              "values": [
+                "Flavor"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "va-3",
+          "input": {
+            "type": "variable",
+            "attributes": [
+              {
+                "id": 1,
+                "name": "Size",
+                "variation": true,
+                "options": [
+                  "1 kg"
+                ]
+              }
+            ],
+            "_variations": [
+              {
+                "id": 31,
+                "regular_price": "10",
+                "stock_status": "instock",
+                "manage_stock": false,
+                "attributes": [
+                  {
+                    "id": 1,
+                    "name": "Size",
+                    "option": "no-such-size"
+                  }
+                ]
+              }
+            ]
+          },
+          "expected": [
+            {
+              "outputId": "v-price",
+              "writeOperation": "createStoresProduct",
+              "noWrite": true,
+              "findingCodes": [
+                "selection-route-contradiction"
+              ]
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "v-price",
+          "sourcePaths": [
+            "_variations[].regular_price",
+            "_variations[].sale_price",
+            "_variations[].on_sale",
+            "type",
+            "_variations[].id",
+            "_variations[].menu_order"
+          ],
+          "targetRef": "stores/product",
+          "writeOperation": "createStoresProduct",
+          "targetPath": "variantsInfo.variants[].price.actualPrice.amount",
+          "verification": {
+            "readPath": "product.variantsInfo.variants[].price.actualPrice.amount"
+          },
+          "appliesWhen": {
+            "op": "equals",
+            "location": "type",
+            "value": "variable"
+          }
+        },
+        {
+          "id": "v-compare",
+          "sourcePaths": [
+            "_variations[].regular_price",
+            "_variations[].sale_price",
+            "_variations[].on_sale"
+          ],
+          "targetRef": "stores/product",
+          "writeOperation": "createStoresProduct",
+          "targetPath": "variantsInfo.variants[].price.compareAtPrice.amount",
+          "appliesWhen": {
+            "op": "fact",
+            "name": "woo.variationOnSale",
+            "values": [
+              true
+            ]
+          },
+          "verification": {
+            "readPath": "product.variantsInfo.variants[].price.compareAtPrice.amount"
+          }
+        },
+        {
+          "id": "v-sku",
+          "sourcePaths": [
+            "_variations[].sku"
+          ],
+          "targetRef": "stores/product",
+          "writeOperation": "createStoresProduct",
+          "targetPath": "variantsInfo.variants[].sku",
+          "verification": {
+            "readPath": "product.variantsInfo.variants[].sku"
+          },
+          "appliesWhen": {
+            "op": "all",
+            "of": [
+              {
+                "op": "equals",
+                "location": "type",
+                "value": "variable"
+              },
+              {
+                "op": "populated",
+                "location": "_variations[].sku"
+              }
+            ]
+          }
+        },
+        {
+          "id": "v-weight",
+          "sourcePaths": [
+            "_variations[].weight"
+          ],
+          "targetRef": "stores/product",
+          "writeOperation": "createStoresProduct",
+          "targetPath": "variantsInfo.variants[].physicalProperties.weight",
+          "verification": {
+            "readPath": "product.variantsInfo.variants[].physicalProperties.weight"
+          },
+          "appliesWhen": {
+            "op": "all",
+            "of": [
+              {
+                "op": "equals",
+                "location": "type",
+                "value": "variable"
+              },
+              {
+                "op": "populated",
+                "location": "_variations[].weight"
+              }
+            ]
+          }
+        },
+        {
+          "id": "v-in-stock",
+          "sourcePaths": [
+            "_variations[].manage_stock",
+            "_variations[].stock_status"
+          ],
+          "targetRef": "stores/product",
+          "writeOperation": "createStoresProduct",
+          "targetPath": "variantsInfo.variants[].inventoryItem.inStock",
+          "verification": {
+            "readPath": "product.variantsInfo.variants[].inventoryItem.inStock"
+          },
+          "appliesWhen": {
+            "op": "all",
+            "of": [
+              {
+                "op": "equals",
+                "location": "type",
+                "value": "variable"
+              },
+              {
+                "op": "in",
+                "location": "_variations[].manage_stock",
+                "values": [
+                  false,
+                  "parent"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "v-option-name",
+          "sourcePaths": [
+            "attributes[].name",
+            "attributes[].variation"
+          ],
+          "targetRef": "stores/product",
+          "writeOperation": "createStoresProduct",
+          "targetPath": "options[].name",
+          "verification": {
+            "unverifiableReason": "Options and modifiers are the selection route's decision over all attributes together (Any, Wix limits of 6 options / 1,000 variants), not one source field each, so the read-back canary does not require them per record. importProducts verifies them: every variant is matched to its source variation by its choice projection (resolveVariants) and modifiers against the route record (modifierExpectation)."
+          },
+          "appliesWhen": {
+            "op": "fact",
+            "name": "woo.selectionRoute",
+            "values": [
+              "variants",
+              "hybrid"
+            ]
+          }
+        },
+        {
+          "id": "v-choice-name",
+          "sourcePaths": [
+            "attributes[].options[]",
+            "attributes[].variation"
+          ],
+          "targetRef": "stores/product",
+          "writeOperation": "createStoresProduct",
+          "targetPath": "options[].choicesSettings.choices[].name",
+          "verification": {
+            "unverifiableReason": "Options and modifiers are the selection route's decision over all attributes together (Any, Wix limits of 6 options / 1,000 variants), not one source field each, so the read-back canary does not require them per record. importProducts verifies them: every variant is matched to its source variation by its choice projection (resolveVariants) and modifiers against the route record (modifierExpectation)."
+          },
+          "appliesWhen": {
+            "op": "fact",
+            "name": "woo.selectionRoute",
+            "values": [
+              "variants",
+              "hybrid"
+            ]
+          }
+        },
+        {
+          "id": "v-variant-option",
+          "sourcePaths": [
+            "_variations[].attributes[].name",
+            "attributes[].id",
+            "_variations[].attributes[].id"
+          ],
+          "targetRef": "stores/product",
+          "writeOperation": "createStoresProduct",
+          "targetPath": "variantsInfo.variants[].choices[].optionChoiceNames.optionName",
+          "verification": {
+            "unverifiableReason": "Options and modifiers are the selection route's decision over all attributes together (Any, Wix limits of 6 options / 1,000 variants), not one source field each, so the read-back canary does not require them per record. importProducts verifies them: every variant is matched to its source variation by its choice projection (resolveVariants) and modifiers against the route record (modifierExpectation)."
+          },
+          "appliesWhen": {
+            "op": "fact",
+            "name": "woo.selectionRoute",
+            "values": [
+              "variants",
+              "hybrid"
+            ]
+          }
+        },
+        {
+          "id": "v-variant-choice",
+          "sourcePaths": [
+            "_variations[].attributes[].option",
+            "attributes[].id",
+            "_variations[].attributes[].id"
+          ],
+          "targetRef": "stores/product",
+          "writeOperation": "createStoresProduct",
+          "targetPath": "variantsInfo.variants[].choices[].optionChoiceNames.choiceName",
+          "verification": {
+            "unverifiableReason": "Options and modifiers are the selection route's decision over all attributes together (Any, Wix limits of 6 options / 1,000 variants), not one source field each, so the read-back canary does not require them per record. importProducts verifies them: every variant is matched to its source variation by its choice projection (resolveVariants) and modifiers against the route record (modifierExpectation)."
+          },
+          "appliesWhen": {
+            "op": "fact",
+            "name": "woo.selectionRoute",
+            "values": [
+              "variants",
+              "hybrid"
+            ]
+          }
+        },
+        {
+          "id": "v-quantity",
+          "sourcePaths": [
+            "_variations[].manage_stock",
+            "_variations[].stock_quantity"
+          ],
+          "targetRef": "stores/product",
+          "writeOperation": "createStoresProduct",
+          "targetPath": "variantsInfo.variants[].inventoryItem.quantity",
+          "appliesWhen": {
+            "op": "all",
+            "of": [
+              {
+                "op": "equals",
+                "location": "type",
+                "value": "variable"
+              },
+              {
+                "op": "equals",
+                "location": "_variations[].manage_stock",
+                "value": true
+              }
+            ]
+          },
+          "verification": {
+            "unverifiableReason": "Catalog V3 product read carries no tracked quantity; the inventory reconcile (stores-inventory.js) reads and verifies it."
+          }
+        },
+        {
+          "id": "v-modifier",
+          "sourcePaths": [
+            "attributes[].name",
+            "attributes[].variation"
+          ],
+          "targetRef": "stores/product",
+          "writeOperation": "createStoresProduct",
+          "targetPath": "modifiers[].name",
+          "verification": {
+            "unverifiableReason": "Options and modifiers are the selection route's decision over all attributes together (Any, Wix limits of 6 options / 1,000 variants), not one source field each, so the read-back canary does not require them per record. importProducts verifies them: every variant is matched to its source variation by its choice projection (resolveVariants) and modifiers against the route record (modifierExpectation)."
+          },
+          "appliesWhen": {
+            "op": "fact",
+            "name": "woo.selectionRoute",
+            "values": [
+              "modifiers",
+              "hybrid"
+            ]
+          }
+        },
+        {
+          "id": "v-modifier-choice",
+          "sourcePaths": [
+            "attributes[].options[]",
+            "attributes[].variation"
+          ],
+          "targetRef": "stores/product",
+          "writeOperation": "createStoresProduct",
+          "targetPath": "modifiers[].choicesSettings.choices[].name",
+          "verification": {
+            "unverifiableReason": "Options and modifiers are the selection route's decision over all attributes together (Any, Wix limits of 6 options / 1,000 variants), not one source field each, so the read-back canary does not require them per record. importProducts verifies them: every variant is matched to its source variation by its choice projection (resolveVariants) and modifiers against the route record (modifierExpectation)."
+          },
+          "appliesWhen": {
+            "op": "fact",
+            "name": "woo.selectionRoute",
+            "values": [
+              "modifiers",
+              "hybrid"
+            ]
+          }
+        }
+      ],
+      "builder": "rp-source-wordpress/wix-map/product.builder.js",
+      "acceptedLimitations": [
+        "A partly-\"Any\" variation that tracks quantity and covers several variants imports as stock status only (a pool is never copied); the canary then sees inStock where it predicted quantity. 0 in stores T and P."
+      ],
+      "choice": {
+        "name": "product-variants",
+        "value": {
+          "any-attribute": "modifier",
+          "variation-shared-parent-stock": "stock status only",
+          "variation-price-missing": "write the product hidden, unpriced variations at 0",
+          "undeclared-variation-value": "hold-record",
+          "product-options-over-limit": "hold"
+        },
+        "default": {
+          "any-attribute": "modifier",
+          "variation-shared-parent-stock": "stock status only",
+          "variation-price-missing": "write the product hidden, unpriced variations at 0",
+          "undeclared-variation-value": "hold-record",
+          "product-options-over-limit": "hold"
+        },
+        "reason": "This row decides several values; each part has its own default and reason.",
+        "decidedBy": "suggestion",
+        "parts": [
+          {
+            "name": "any-attribute",
+            "value": "modifier",
+            "default": "modifier",
+            "reason": "An attribute that is \"Any\" in every variation has one price and stock for all its values: a mandatory modifier on one default variant (owner-approved rule, shipped in selection-route.js). The product step writes each modifier's customization just before the product (same name and choices reuse one customization). Rev 3 held these 16 store T products instead.",
+            "decidedBy": "suggestion",
+            "alternatives": [
+              "hold-record"
+            ]
+          },
+          {
+            "name": "variation-shared-parent-stock",
+            "value": "stock status only",
+            "default": "stock status only",
+            "reason": "A variation with manage_stock \"parent\" shares the parent pool; a pool is never copied onto several variants.",
+            "decidedBy": "suggestion"
+          },
+          {
+            "name": "variation-price-missing",
+            "value": "write the product hidden, unpriced variations at 0",
+            "default": "write the product hidden, unpriced variations at 0",
+            "reason": "A variation with no regular price is written at price 0 and its product is hidden, so no shopper can buy it for free; the cutover task product-price-missing lists them. 0 measured.",
+            "decidedBy": "suggestion",
+            "alternatives": [
+              "hold-record"
+            ]
+          },
+          {
+            "name": "undeclared-variation-value",
+            "value": "hold-record",
+            "default": "hold-record",
+            "reason": "A variation value the parent no longer declares (store P \"לא-קיים\") is held, never guessed (selection-route-contradiction). store T 1, store P 3.",
+            "decidedBy": "suggestion"
+          },
+          {
+            "name": "product-options-over-limit",
+            "value": "hold",
+            "default": "hold",
+            "reason": "A product with more variant attributes than Wix's 6 options is held, not created, so no shopper sees a product whose prices or options were folded into fewer choices. The held product becomes a cutover task (product-options-over-limit). Product decision.",
+            "decidedBy": "suggestion",
+            "alternatives": [
+              "import"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "product-tags",
+      "sourcePaths": [
+        "tags[].id"
+      ],
+      "disposition": "native",
+      "reason": "Each product tag reference is resolved per record by the dependency gate from the product-tag crosswalk; the builder never emits tag ids.",
+      "evidence": [
+        "store T 11-15 run mapping plan (every product check passed)",
+        "resources/rp-target-wix/domains/stores/entities/product.json (preferredWrite createStoresProduct, intendedFields, operationContracts)",
+        "resources/rp-target-wix/lib/wix-target-spec.js STORES_V3_TARGET",
+        "resources/rp-target-wix/lib/wix-build.js buildProduct",
+        "product.json dependencyReferenceFields stores/product-tag: tags.publicTags.tagIds[] (per-record)"
+      ],
+      "transform": {
+        "kind": "helper",
+        "name": "dependency-gate.resolveReference",
+        "revision": "lib/dependency-readiness.js",
+        "arguments": {
+          "entityRef": "product-tag",
+          "input": "tags[].id"
+        }
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "pt-1",
+          "input": {
+            "tags": [
+              {
+                "id": 227
+              }
+            ]
+          },
+          "expected": [
+            {
+              "outputId": "tagIds",
+              "writeOperation": "createStoresProduct",
+              "findingCodes": [
+                "gate-supplied-reference"
+              ],
+              "omitted": true
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "tagIds",
+          "sourcePaths": [
+            "tags[].id"
+          ],
+          "targetRef": "stores/product",
+          "writeOperation": "createStoresProduct",
+          "targetPath": "tags.publicTags.tagIds[]",
+          "verification": {
+            "unverifiableReason": "Gate-supplied reference; verified by the dependency-gate receipt, not the builder read-back."
+          }
+        }
+      ],
+      "referencePolicy": {
+        "cardinality": "many",
+        "order": "source order",
+        "entityRef": "product-tag",
+        "input": "tags[].id",
+        "targetPath": "tags.publicTags.tagIds[]",
+        "missing": "no tags written",
+        "ambiguous": "hold record (dependency gate)",
+        "orphan": "tag omitted and recorded in execution/dependency-readiness.json omittedReferences"
+      },
+      "builder": "rp-source-wordpress/wix-map/product.builder.js"
+    },
+    {
+      "id": "product-categories",
+      "sourcePaths": [
+        "categories[].id"
+      ],
+      "disposition": "native",
+      "reason": "Category membership is attached after create (bulkAddItemToCategories) from the product-category crosswalk, then verified; the builder never emits category ids.",
+      "evidence": [
+        "store T 11-15 run mapping plan (every product check passed)",
+        "resources/rp-target-wix/domains/stores/entities/product.json (preferredWrite createStoresProduct, intendedFields, operationContracts)",
+        "resources/rp-target-wix/lib/wix-target-spec.js STORES_V3_TARGET",
+        "resources/rp-target-wix/lib/wix-build.js buildProduct",
+        "product.json auxiliaryReferenceFields stores/category; operationContracts.createStoresProduct.auxiliaryOperations bulkAddItemToCategories",
+        "resources/rp-target-wix/lib/stores-category-attach.js"
+      ],
+      "transform": {
+        "kind": "helper",
+        "name": "stores-category-attach",
+        "revision": "rp-target-wix/stores-category-attach.js",
+        "arguments": {
+          "entityRef": "product-category",
+          "input": "categories[].id"
+        }
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "write-as-is"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "pc-1",
+          "input": {
+            "categories": [
+              {
+                "id": 15
+              }
+            ]
+          },
+          "expected": [
+            {
+              "outputId": "categoryIds",
+              "writeOperation": "createStoresProduct",
+              "findingCodes": [
+                "post-create-category-attach"
+              ],
+              "omitted": true
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "categoryIds",
+          "sourcePaths": [
+            "categories[].id"
+          ],
+          "targetRef": "stores/product",
+          "writeOperation": "createStoresProduct",
+          "targetPath": "categoryIds[]",
+          "verification": {
+            "unverifiableReason": "Post-create membership; verified by the category attach read-back (stores-category-attach.js)."
+          }
+        }
+      ],
+      "referencePolicy": {
+        "cardinality": "many",
+        "order": "source order",
+        "entityRef": "product-category",
+        "input": "categories[].id",
+        "targetPath": "categoryIds[]",
+        "missing": "no category membership",
+        "ambiguous": "hold attach (recorded)",
+        "orphan": "membership omitted and recorded"
+      },
+      "builder": "rp-source-wordpress/wix-map/product.builder.js"
+    },
+    {
+      "id": "product-brand",
+      "sourcePaths": [
+        "brands[].id"
+      ],
+      "disposition": "native",
+      "reason": "The product's brand is linked by its crosswalked Wix brand id (the stores/brand task imports brands first). A product whose brand cannot be linked (missing from the source, or its import failed) is held; it is never written without its brand by default.",
+      "evidence": [
+        "store T 11-15 run mapping plan (every product check passed)",
+        "resources/rp-target-wix/domains/stores/entities/product.json mappingGuidance \"assign brands by crosswalked brand.id, never by name\"",
+        "store P 11-10 plan row n-brand_id (brand.id); store P 11-15 used brand.name"
+      ],
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/product.builder.js#productBrand",
+        "revision": "rp-source-wordpress/wix-map/product.builder.js",
+        "arguments": {
+          "entityRef": "product-brand",
+          "input": "brands[0].id",
+          "uses": "lookups.ref(stores/brand, product-brand:<id>, brand.id)"
+        }
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "omit-output"
+        },
+        "invalid": {
+          "action": "hold-record"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "pb-1",
+          "input": {
+            "brands": [
+              {
+                "id": 7
+              }
+            ]
+          },
+          "expected": [
+            {
+              "outputId": "brandId",
+              "writeOperation": "createStoresProduct",
+              "value": "<product-brand:7>"
+            }
+          ]
+        },
+        {
+          "id": "pb-2",
+          "input": {
+            "brands": []
+          },
+          "expected": [
+            {
+              "outputId": "brandId",
+              "writeOperation": "createStoresProduct",
+              "omitted": true
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "brandId",
+          "sourcePaths": [
+            "brands[].id"
+          ],
+          "targetRef": "stores/product",
+          "writeOperation": "createStoresProduct",
+          "targetPath": "brand.id",
+          "verification": {
+            "readPath": "product.brand.id"
+          }
+        }
+      ],
+      "builder": "rp-source-wordpress/wix-map/product.builder.js",
+      "choice": {
+        "name": "product-brand",
+        "value": {
+          "brand-link": "by crosswalked brand id",
+          "several-brands": "first brand; the rest archived"
+        },
+        "default": {
+          "brand-link": "by crosswalked brand id",
+          "several-brands": "first brand; the rest archived"
+        },
+        "reason": "This row decides several values; each part has its own default and reason.",
+        "decidedBy": "suggestion",
+        "parts": [
+          {
+            "name": "brand-link",
+            "value": "by crosswalked brand id",
+            "default": "by crosswalked brand id",
+            "reason": "Target guidance: by id, never by name. store P 11-15 sent brand.name, which also links (live-verified dedupe) but depends on exact name normalization.",
+            "decidedBy": "suggestion",
+            "alternatives": [
+              "by brand name"
+            ]
+          },
+          {
+            "name": "several-brands",
+            "value": "first brand; the rest archived",
+            "default": "first brand; the rest archived",
+            "reason": "Wix allows one brand per product. 0 measured with more than one.",
+            "decidedBy": "suggestion"
+          }
+        ]
+      }
+    },
+    {
+      "id": "product-seo",
+      "sourcePaths": [
+        "meta_data[].value"
+      ],
+      "disposition": "native",
+      "reason": "Only per-field Yoast overrides the source proves (_yoast_wpseo_title, _yoast_wpseo_metadesc in meta_data) become product SEO tags. Rendered yoast_head_json alone is never written: it would turn an inherited template into a hard override. Rev 3 archived all Yoast data, so 37 store T meta descriptions never reached Wix.",
+      "evidence": [
+        "store T 11-15 run mapping plan (every product check passed)",
+        "resources/rp-target-wix/domains/stores/entities/product.json pitfall seo-data-only-for-proven-overrides",
+        "resources/rp-source-wordpress/lib/yoast-product-seo-evidence.js",
+        "resources/rp-target-wix/lib/product-seo.js planProductSeo"
+      ],
+      "transform": {
+        "kind": "helper",
+        "name": "rp-source-wordpress/wix-map/product.builder.js#productSeo",
+        "revision": "rp-source-wordpress/wix-map/product.builder.js",
+        "arguments": {
+          "meta": "meta_data[] values at keys _yoast_wpseo_title and _yoast_wpseo_metadesc",
+          "rendered": "yoast_head_json.title / .description resolve Yoast %%variables%% in an override (yoast-product-seo-evidence resolveOverrideValue); never proof on their own",
+          "uses": "yoast-product-seo-evidence.buildProductSeoReceipt+product-seo.planProductSeo+wix-build.buildProduct(seoPlan)"
+        }
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "omit-output"
+        },
+        "invalid": {
+          "action": "omit-output",
+          "reason": "override with unresolved Yoast variables and no rendered value"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "seo-1",
+          "input": {
+            "meta_data": [
+              {
+                "key": "_yoast_wpseo_metadesc",
+                "value": "Fresh beans every week"
+              }
+            ]
+          },
+          "expected": [
+            {
+              "outputId": "tags",
+              "writeOperation": "createStoresProduct",
+              "values": [
+                {
+                  "type": "meta",
+                  "props": {
+                    "name": "description",
+                    "content": "Fresh beans every week"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "seo-2",
+          "input": {
+            "meta_data": [
+              {
+                "key": "_yoast_wpseo_focuskw",
+                "value": "beans"
+              }
+            ],
+            "yoast_head_json": {
+              "title": "Sample - Shop"
+            }
+          },
+          "expected": [
+            {
+              "outputId": "tags",
+              "writeOperation": "createStoresProduct",
+              "omitted": true
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "tags",
+          "sourcePaths": [
+            "meta_data[].value"
+          ],
+          "targetRef": "stores/product",
+          "writeOperation": "createStoresProduct",
+          "targetPath": "seoData.tags[]",
+          "verification": {
+            "readPath": "product.seoData.tags[]"
+          }
+        }
+      ],
+      "builder": "rp-source-wordpress/wix-map/product.builder.js",
+      "selectors": [
+        {
+          "path": "meta_data[].value",
+          "keyPath": "meta_data[].key",
+          "keys": [
+            "_yoast_wpseo_metadesc",
+            "_yoast_wpseo_title"
+          ]
+        }
+      ],
+      "coverageNote": "The pre-fill declares meta_data[].value as a dynamic path (selector keyPath meta_data[].key, observedKeys from the extract) and gives the source-archive row a selector for every other observed key.",
+      "acceptedLimitations": [
+        "An override that still holds Yoast %%variables%% with no rendered value is not written; the canary reports that one product as missing an SEO tag. 0 in stores T and P."
+      ],
+      "choice": {
+        "name": "product-seo",
+        "value": {
+          "seo-overrides": "write proven overrides only",
+          "seo-absent-key": "inherit",
+          "focus-keyword": "archive"
+        },
+        "default": {
+          "seo-overrides": "write proven overrides only",
+          "seo-absent-key": "inherit",
+          "focus-keyword": "archive"
+        },
+        "reason": "This row decides several values; each part has its own default and reason.",
+        "decidedBy": "suggestion",
+        "parts": [
+          {
+            "name": "seo-overrides",
+            "value": "write proven overrides only",
+            "default": "write proven overrides only",
+            "reason": "The target rule. store T: 37 meta descriptions, 1 title.",
+            "decidedBy": "suggestion",
+            "alternatives": [
+              "materialize rendered titles too (owner choice per product)"
+            ]
+          },
+          {
+            "name": "seo-absent-key",
+            "value": "inherit",
+            "default": "inherit",
+            "reason": "A Yoast key absent from a read meta_data array means the product inherits the template, so nothing is written.",
+            "decidedBy": "suggestion"
+          },
+          {
+            "name": "focus-keyword",
+            "value": "archive",
+            "default": "archive",
+            "reason": "Wix has no verified product write path for focus keyphrases (product-seo.js); they stay in the source archive (store T 41).",
+            "decidedBy": "suggestion"
+          }
+        ]
+      }
+    },
+    {
+      "id": "source-archive",
+      "sourcePaths": [
+        "_links.collection[].href",
+        "_links.self[].href",
+        "_links.self[].targetHints.allow[]",
+        "_variations[]._links.collection[].href",
+        "_variations[]._links.self[].href",
+        "_variations[]._links.self[].targetHints.allow[]",
+        "_variations[]._links.up[].href",
+        "_variations[].attributes[].slug",
+        "_variations[].backordered",
+        "_variations[].backorders",
+        "_variations[].backorders_allowed",
+        "_variations[].date_created",
+        "_variations[].date_created_gmt",
+        "_variations[].date_modified",
+        "_variations[].date_modified_gmt",
+        "_variations[].download_expiry",
+        "_variations[].download_limit",
+        "_variations[].downloadable",
+        "_variations[].image.date_created",
+        "_variations[].image.date_created_gmt",
+        "_variations[].image.date_modified",
+        "_variations[].image.date_modified_gmt",
+        "_variations[].image.id",
+        "_variations[].image.name",
+        "_variations[].image.src",
+        "_variations[].meta_data[].id",
+        "_variations[].meta_data[].key",
+        "_variations[].meta_data[].value",
+        "_variations[].name",
+        "_variations[].parent_id",
+        "_variations[].permalink",
+        "_variations[].price",
+        "_variations[].purchasable",
+        "_variations[].shipping_class_id",
+        "_variations[].status",
+        "_variations[].tax_status",
+        "_variations[].type",
+        "_variations[].virtual",
+        "attributes[].position",
+        "attributes[].slug",
+        "attributes[].visible",
+        "average_rating",
+        "backordered",
+        "backorders",
+        "backorders_allowed",
+        "categories[].name",
+        "categories[].slug",
+        "date_created",
+        "date_created_gmt",
+        "date_modified",
+        "date_modified_gmt",
+        "download_expiry",
+        "download_limit",
+        "downloadable",
+        "featured",
+        "has_options",
+        "images[].date_created",
+        "images[].date_created_gmt",
+        "images[].date_modified",
+        "images[].date_modified_gmt",
+        "images[].id",
+        "images[].sizes",
+        "images[].srcset",
+        "images[].thumbnail",
+        "menu_order",
+        "meta_data[].id",
+        "parent_id",
+        "permalink",
+        "price_html",
+        "purchasable",
+        "rating_count",
+        "related_ids[]",
+        "reviews_allowed",
+        "shipping_class_id",
+        "shipping_required",
+        "shipping_taxable",
+        "sold_individually",
+        "tags[].name",
+        "tags[].slug",
+        "tax_status",
+        "total_sales",
+        "variations[]",
+        "virtual",
+        "yoast_head",
+        "yoast_head_json.article_modified_time",
+        "yoast_head_json.canonical",
+        "yoast_head_json.og_description",
+        "yoast_head_json.og_image[].height",
+        "yoast_head_json.og_image[].type",
+        "yoast_head_json.og_image[].url",
+        "yoast_head_json.og_image[].width",
+        "yoast_head_json.og_locale",
+        "yoast_head_json.og_site_name",
+        "yoast_head_json.og_title",
+        "yoast_head_json.og_type",
+        "yoast_head_json.og_url",
+        "yoast_head_json.robots.follow",
+        "yoast_head_json.robots.index",
+        "yoast_head_json.robots.max-image-preview",
+        "yoast_head_json.robots.max-snippet",
+        "yoast_head_json.robots.max-video-preview",
+        "yoast_head_json.schema[\"@context\"]",
+        "yoast_head_json.schema[\"@graph\"][].breadcrumb[\"@id\"]",
+        "yoast_head_json.schema[\"@graph\"][].caption",
+        "yoast_head_json.schema[\"@graph\"][].contentUrl",
+        "yoast_head_json.schema[\"@graph\"][].dateModified",
+        "yoast_head_json.schema[\"@graph\"][].datePublished",
+        "yoast_head_json.schema[\"@graph\"][].description",
+        "yoast_head_json.schema[\"@graph\"][].height",
+        "yoast_head_json.schema[\"@graph\"][].image[\"@id\"]",
+        "yoast_head_json.schema[\"@graph\"][].inLanguage",
+        "yoast_head_json.schema[\"@graph\"][].isPartOf[\"@id\"]",
+        "yoast_head_json.schema[\"@graph\"][].itemListElement[].item",
+        "yoast_head_json.schema[\"@graph\"][].itemListElement[].name",
+        "yoast_head_json.schema[\"@graph\"][].itemListElement[].position",
+        "yoast_head_json.schema[\"@graph\"][].itemListElement[][\"@type\"]",
+        "yoast_head_json.schema[\"@graph\"][].name",
+        "yoast_head_json.schema[\"@graph\"][].potentialAction[].query-input.valueName",
+        "yoast_head_json.schema[\"@graph\"][].potentialAction[].query-input.valueRequired",
+        "yoast_head_json.schema[\"@graph\"][].potentialAction[].query-input[\"@type\"]",
+        "yoast_head_json.schema[\"@graph\"][].potentialAction[].target.urlTemplate",
+        "yoast_head_json.schema[\"@graph\"][].potentialAction[].target[\"@type\"]",
+        "yoast_head_json.schema[\"@graph\"][].potentialAction[].target[]",
+        "yoast_head_json.schema[\"@graph\"][].potentialAction[][\"@type\"]",
+        "yoast_head_json.schema[\"@graph\"][].primaryImageOfPage[\"@id\"]",
+        "yoast_head_json.schema[\"@graph\"][].thumbnailUrl",
+        "yoast_head_json.schema[\"@graph\"][].url",
+        "yoast_head_json.schema[\"@graph\"][].width",
+        "yoast_head_json.schema[\"@graph\"][][\"@id\"]",
+        "yoast_head_json.schema[\"@graph\"][][\"@type\"]",
+        "yoast_head_json.twitter_card",
+        "yoast_head_json.twitter_misc[\"זמן קריאה מוערך\"]",
+        "yoast_head_json.title",
+        "yoast_head_json.description",
+        "meta_data[].key",
+        "meta_data[].value"
+      ],
+      "disposition": "cms",
+      "reason": "Every product field with no Wix home is kept per field in the private source-archive CMS collection. The list below is the standard wc/v3 product shape; the pre-fill adds any other discovered leaf (plugin fields, meta_data sub-keys) to this row.",
+      "evidence": [
+        "store T 11-15 run mapping plan (every product check passed)",
+        "rp-mapper SKILL.md \"The source archive is per field, not per record\"",
+        "resources/rp-target-wix/lib/source-archive.js PACKED_ARCHIVE_FIELDS",
+        "Archive expectations use the packed source-archive-retention-v1 item shape ({\"<source id>\":{fields:{\"<group> › <label>\":value}}}); labels follow rp-target-wix/lib/source-archive.js labelFor and domains/cms/source-archive-fields.v1.json groups; a record whose archived leaves are all empty or noise writes no archive item (source-archive-item-missing)."
+      ],
+      "transform": {
+        "kind": "helper",
+        "name": "source-archive.buildArchiveRecord",
+        "revision": "source-archive-retention-v1",
+        "arguments": {
+          "sourceEntity": "product",
+          "sourceKeyPath": "id",
+          "collectionId": "ImportArchive_product_a8792157"
+        }
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output"
+        },
+        "null": {
+          "action": "omit-output"
+        },
+        "empty": {
+          "action": "omit-output"
+        },
+        "zero": {
+          "action": "archive-as-is"
+        },
+        "invalid": {
+          "action": "archive-as-is"
+        },
+        "unknown": {
+          "action": "omit-output"
+        }
+      },
+      "examples": [
+        {
+          "id": "product-archive-1",
+          "input": {
+            "id": 3,
+            "total_sales": 12
+          },
+          "expected": [
+            {
+              "outputId": "records",
+              "writeOperation": "insertDataItem",
+              "values": [
+                {
+                  "3": {
+                    "fields": {
+                      "Other › Total sales": 12
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "records",
+          "sourcePaths": [
+            "_links.collection[].href",
+            "_links.self[].href",
+            "_links.self[].targetHints.allow[]",
+            "_variations[]._links.collection[].href",
+            "_variations[]._links.self[].href",
+            "_variations[]._links.self[].targetHints.allow[]",
+            "_variations[]._links.up[].href",
+            "_variations[].attributes[].slug",
+            "_variations[].backordered",
+            "_variations[].backorders",
+            "_variations[].backorders_allowed",
+            "_variations[].date_created",
+            "_variations[].date_created_gmt",
+            "_variations[].date_modified",
+            "_variations[].date_modified_gmt",
+            "_variations[].download_expiry",
+            "_variations[].download_limit",
+            "_variations[].downloadable",
+            "_variations[].image.date_created",
+            "_variations[].image.date_created_gmt",
+            "_variations[].image.date_modified",
+            "_variations[].image.date_modified_gmt",
+            "_variations[].image.id",
+            "_variations[].image.name",
+            "_variations[].image.src",
+            "_variations[].meta_data[].id",
+            "_variations[].meta_data[].key",
+            "_variations[].meta_data[].value",
+            "_variations[].name",
+            "_variations[].parent_id",
+            "_variations[].permalink",
+            "_variations[].price",
+            "_variations[].purchasable",
+            "_variations[].shipping_class_id",
+            "_variations[].status",
+            "_variations[].tax_status",
+            "_variations[].type",
+            "_variations[].virtual",
+            "attributes[].position",
+            "attributes[].slug",
+            "attributes[].visible",
+            "average_rating",
+            "backordered",
+            "backorders",
+            "backorders_allowed",
+            "categories[].name",
+            "categories[].slug",
+            "date_created",
+            "date_created_gmt",
+            "date_modified",
+            "date_modified_gmt",
+            "download_expiry",
+            "download_limit",
+            "downloadable",
+            "featured",
+            "has_options",
+            "images[].date_created",
+            "images[].date_created_gmt",
+            "images[].date_modified",
+            "images[].date_modified_gmt",
+            "images[].id",
+            "images[].sizes",
+            "images[].srcset",
+            "images[].thumbnail",
+            "menu_order",
+            "meta_data[].id",
+            "parent_id",
+            "permalink",
+            "price_html",
+            "purchasable",
+            "rating_count",
+            "related_ids[]",
+            "reviews_allowed",
+            "shipping_class_id",
+            "shipping_required",
+            "shipping_taxable",
+            "sold_individually",
+            "tags[].name",
+            "tags[].slug",
+            "tax_status",
+            "total_sales",
+            "variations[]",
+            "virtual",
+            "yoast_head",
+            "yoast_head_json.article_modified_time",
+            "yoast_head_json.canonical",
+            "yoast_head_json.og_description",
+            "yoast_head_json.og_image[].height",
+            "yoast_head_json.og_image[].type",
+            "yoast_head_json.og_image[].url",
+            "yoast_head_json.og_image[].width",
+            "yoast_head_json.og_locale",
+            "yoast_head_json.og_site_name",
+            "yoast_head_json.og_title",
+            "yoast_head_json.og_type",
+            "yoast_head_json.og_url",
+            "yoast_head_json.robots.follow",
+            "yoast_head_json.robots.index",
+            "yoast_head_json.robots.max-image-preview",
+            "yoast_head_json.robots.max-snippet",
+            "yoast_head_json.robots.max-video-preview",
+            "yoast_head_json.schema[\"@context\"]",
+            "yoast_head_json.schema[\"@graph\"][].breadcrumb[\"@id\"]",
+            "yoast_head_json.schema[\"@graph\"][].caption",
+            "yoast_head_json.schema[\"@graph\"][].contentUrl",
+            "yoast_head_json.schema[\"@graph\"][].dateModified",
+            "yoast_head_json.schema[\"@graph\"][].datePublished",
+            "yoast_head_json.schema[\"@graph\"][].description",
+            "yoast_head_json.schema[\"@graph\"][].height",
+            "yoast_head_json.schema[\"@graph\"][].image[\"@id\"]",
+            "yoast_head_json.schema[\"@graph\"][].inLanguage",
+            "yoast_head_json.schema[\"@graph\"][].isPartOf[\"@id\"]",
+            "yoast_head_json.schema[\"@graph\"][].itemListElement[].item",
+            "yoast_head_json.schema[\"@graph\"][].itemListElement[].name",
+            "yoast_head_json.schema[\"@graph\"][].itemListElement[].position",
+            "yoast_head_json.schema[\"@graph\"][].itemListElement[][\"@type\"]",
+            "yoast_head_json.schema[\"@graph\"][].name",
+            "yoast_head_json.schema[\"@graph\"][].potentialAction[].query-input.valueName",
+            "yoast_head_json.schema[\"@graph\"][].potentialAction[].query-input.valueRequired",
+            "yoast_head_json.schema[\"@graph\"][].potentialAction[].query-input[\"@type\"]",
+            "yoast_head_json.schema[\"@graph\"][].potentialAction[].target.urlTemplate",
+            "yoast_head_json.schema[\"@graph\"][].potentialAction[].target[\"@type\"]",
+            "yoast_head_json.schema[\"@graph\"][].potentialAction[].target[]",
+            "yoast_head_json.schema[\"@graph\"][].potentialAction[][\"@type\"]",
+            "yoast_head_json.schema[\"@graph\"][].primaryImageOfPage[\"@id\"]",
+            "yoast_head_json.schema[\"@graph\"][].thumbnailUrl",
+            "yoast_head_json.schema[\"@graph\"][].url",
+            "yoast_head_json.schema[\"@graph\"][].width",
+            "yoast_head_json.schema[\"@graph\"][][\"@id\"]",
+            "yoast_head_json.schema[\"@graph\"][][\"@type\"]",
+            "yoast_head_json.twitter_card",
+            "yoast_head_json.twitter_misc[\"זמן קריאה מוערך\"]",
+            "yoast_head_json.title",
+            "yoast_head_json.description",
+            "meta_data[].key",
+            "meta_data[].value"
+          ],
+          "targetRef": "cms/data-item",
+          "writeOperation": "insertDataItem",
+          "targetPath": "data.records",
+          "storage": {
+            "collectionId": "ImportArchive_product_a8792157",
+            "fieldKey": "records",
+            "fieldType": "OBJECT",
+            "permissionsPreset": "migration-internal",
+            "sourceEntity": "product",
+            "parentLink": {
+              "field": "sourceKeys",
+              "sourceKeyPath": "id",
+              "wixIdField": "wixIds"
+            }
+          },
+          "verification": {
+            "unverifiableReason": "Written by the source-archive step (packed CMS items), not by the entity writer; the archive step reads its own items back."
+          }
+        }
+      ],
+      "builder": "rp-source-wordpress/wix-map/product.builder.js",
+      "choice": {
+        "name": "leftover-fields",
+        "value": "source archive",
+        "default": "source archive",
+        "reason": "No native Wix field holds them; nothing is dropped silently.",
+        "decidedBy": "suggestion"
+      }
+    }
+  ],
+  "holdCodes": {
+    "product-name-missing": {
+      "role": "site-owner",
+      "severity": "medium",
+      "action": "These products have no name in the source and were not imported. Add them in Business Manager > Store Products, or confirm they were not real products.",
+      "resolutionEvidence": "Each listed source product exists in Wix Stores or is confirmed unwanted."
+    },
+    "product-type-unknown": {
+      "role": "import-operator",
+      "severity": "high",
+      "action": "Requires Import Operator: these products have a WooCommerce type the suggestions do not cover, so they were held.",
+      "resolutionEvidence": "Each listed product is imported or held on purpose by a reviewed plan row.",
+      "importOperatorPrompt": "Map the listed WooCommerce product type in mapping/mapping-plan.json (recordFilters product-type), regenerate the product build step, and rerun the product import for these source ids."
+    },
+    "product-type-external-no-target": {
+      "role": "cutover-operator",
+      "severity": "medium",
+      "action": "These affiliate (external) products were not imported: Wix Stores has no external product, and a normal product would be buyable in Wix checkout. If you still want them, add a button or link to the seller on a site page.",
+      "resolutionEvidence": "Each listed product is linked from a page or confirmed unwanted."
+    },
+    "product-type-grouped-no-target": {
+      "role": "cutover-operator",
+      "severity": "low",
+      "action": "These grouped products were not imported: Wix has no grouped product. Their child products were imported on their own. If the grouping matters, make it a category in Business Manager.",
+      "resolutionEvidence": "Each grouping is a Wix category or confirmed unwanted."
+    },
+    "product-type-gift-card-separate-target": {
+      "role": "site-owner",
+      "severity": "medium",
+      "action": "This gift-card product was not imported as a store product. Set up Wix Gift Cards in Business Manager with the same amounts.",
+      "resolutionEvidence": "Wix Gift Cards is set up, or gift cards are confirmed unwanted."
+    },
+    "product-variations-missing": {
+      "role": "import-operator",
+      "severity": "high",
+      "action": "Requires Import Operator: these variable products came without their variations, so they were held.",
+      "resolutionEvidence": "Each listed product is imported with its variants.",
+      "importOperatorPrompt": "Re-read /wc/v3/products/{id}/variations for the listed products into data/source-extract/product-variation.ndjson and rerun the product import for these source ids."
+    },
+    "selection-route-contradiction": {
+      "role": "site-owner",
+      "severity": "medium",
+      "action": "Each of these products has a variation set to a value the product no longer offers (for example an old size), so it was not imported. Fix or delete that variation in WooCommerce and ask for a rerun, or add the product in Business Manager.",
+      "resolutionEvidence": "Each listed product exists in Wix with its options."
+    },
+    "product-brand-reference-missing": {
+      "role": "import-operator",
+      "severity": "high",
+      "action": "Requires Import Operator: these products were not imported because their brand could not be linked (it is missing from the WooCommerce brands, or its import failed). A product is never imported without its brand unless the owner asks for that.",
+      "resolutionEvidence": "Each listed product is imported with its brand, or the owner's choice to import it without a brand is recorded.",
+      "importOperatorPrompt": "For each listed product, check its brand in WooCommerce (Products > Brands). If the brand is missing, restore it, re-extract and rerun the product-brand import (stores/brand), then rerun the product import for these source ids with --deferred-only. If the brand import failed, fix that failure and rerun both imports. If the owner wants these products now without a brand, record that as an approved omission and resume the product import with --deferred-only."
+    },
+    "product-description-too-long": {
+      "role": "site-owner",
+      "severity": "low",
+      "action": "These products have a description over 16,000 characters and were not imported. Shorten the description in the source and ask for a rerun, or add the product in Business Manager.",
+      "resolutionEvidence": "Each listed product exists in Wix."
+    },
+    "product-weight-invalid": {
+      "role": "site-owner",
+      "severity": "low",
+      "action": "These products have a weight that is not a number in the source and were not imported. Fix the weight in WooCommerce and ask for a rerun, or add the product in Business Manager.",
+      "resolutionEvidence": "Each listed product exists in Wix with its weight."
+    },
+    "product-options-over-limit": {
+      "role": "cutover-operator",
+      "severity": "medium",
+      "action": "These products have more variation attributes than Wix Stores allows (6 options), so they were not imported. For each, add the product in Business Manager with the options and prices you want shoppers to see (for example fewer options, or separate products).",
+      "resolutionEvidence": "Each listed source product exists in Wix Stores or is confirmed unwanted."
+    }
+  },
+  "findingCodes": {
+    "product-price-missing": {
+      "role": "cutover-operator",
+      "severity": "medium",
+      "action": "These products have no price in the source (the whole product, or some of its variations). They were imported hidden, with price 0 where the price was missing. In Business Manager > Store Products, set the price and make each product visible, or delete it if it is not for sale.",
+      "resolutionEvidence": "Each listed product has a price on every variant and is visible, or is deleted as not for sale."
+    }
+  },
+  "routeActions": {
+    "role": "cutover-operator",
+    "resolutionEvidence": "The product page shows the right options and choices.",
+    "note": "selection-route.js operatorActions (for example selection-over-variant-limits) become cutover-operator tasks with their own code and detail."
+  },
+  "builderContract": "Each fieldMappings row names one export of product.builder.js (helper \"<file>#<export>\"). lib/plan-builder.js calls it with (record, {lookups, choices, args}) and merges its canonical part into one wix-build buildProduct call; tags and categories are toolkit reference helpers. A row whose helper names its own hold codes keeps valuePolicy.invalid without a code, so the helper code reaches the journal."
+}

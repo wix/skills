@@ -120,154 +120,6 @@ function buildApiUrl(baseUrl, routePath, query = {}) {
 }
 
 // ---------------------------------------------------------------------------
-// Where a source request may go
-//
-// The base URL is the site being migrated, and the credentials go to it. A hostile or misconfigured
-// source must not be able to turn this reader into a probe of the machine's own network, or into a way
-// to collect the operator's credentials:
-//   - cloud metadata and link-local addresses are never contacted, whether named in the base URL, named
-//     by a redirect, or what a host name resolves to;
-//   - redirects are followed here one hop at a time, not by fetch: a redirect may not lead to a private
-//     or loopback address (unless that is the base host itself, e.g. a local test site the operator named),
-//     and every hop is checked the same way;
-//   - the Authorization header and any configured auth header go only to the base site (the same host,
-//     with or without `www.`, same port, https when the base was https); a redirect to anywhere else
-//     carries no credentials.
-// The resolve-then-connect gap (DNS rebinding) remains; a network-isolated machine is the backstop.
-// Node built-ins only, like the rest of this file: the vendored copy needs no install.
-
-const dns = require('node:dns');
-const net = require('node:net');
-
-class SourceRequestRefusedError extends Error {
-  constructor(message) {
-    super(message);
-    this.name = 'SourceRequestRefusedError';
-    this.code = 'source-request-refused';
-  }
-}
-
-const METADATA_RANGES = new net.BlockList();
-METADATA_RANGES.addSubnet('169.254.0.0', 16, 'ipv4');
-METADATA_RANGES.addSubnet('fe80::', 10, 'ipv6');
-METADATA_RANGES.addSubnet('fd00:ec2::', 32, 'ipv6');
-const PRIVATE_RANGES = new net.BlockList();
-for (const [address, prefix] of [
-  ['0.0.0.0', 8], ['10.0.0.0', 8], ['100.64.0.0', 10], ['127.0.0.0', 8], ['172.16.0.0', 12], ['192.0.0.0', 24],
-  ['192.168.0.0', 16], ['198.18.0.0', 15], ['224.0.0.0', 4], ['240.0.0.0', 4],
-]) PRIVATE_RANGES.addSubnet(address, prefix, 'ipv4');
-for (const [address, prefix] of [['::', 128], ['::1', 128], ['fc00::', 7], ['ff00::', 8]]) PRIVATE_RANGES.addSubnet(address, prefix, 'ipv6');
-
-function bareHost(hostname) {
-  return String(hostname || '').toLowerCase().replace(/^\[|\]$/g, '').replace(/\.+$/, '');
-}
-
-// 'metadata' | 'private' | 'public' for a literal IP address.
-function addressClass(value) {
-  let address = bareHost(value);
-  const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(address);
-  const mappedHex = /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(address);
-  if (mapped) address = mapped[1];
-  else if (mappedHex) {
-    const high = parseInt(mappedHex[1], 16);
-    const low = parseInt(mappedHex[2], 16);
-    address = `${high >> 8}.${high & 255}.${low >> 8}.${low & 255}`;
-  }
-  const family = net.isIP(address);
-  if (!family) return 'private';
-  const type = family === 4 ? 'ipv4' : 'ipv6';
-  if (METADATA_RANGES.check(address, type)) return 'metadata';
-  if (PRIVATE_RANGES.check(address, type)) return 'private';
-  return 'public';
-}
-
-const CLASS_RANK = { public: 0, private: 1, metadata: 2 };
-
-// A resolved host keeps its verdict for a minute: a discovery run makes thousands of requests to one host.
-const HOST_CLASS_TTL_MS = 60 * 1000;
-const hostClassCache = new Map();
-
-async function hostClass(hostname, lookup) {
-  const host = bareHost(hostname);
-  const cached = hostClassCache.get(`${host}`);
-  if (cached && cached.lookup === lookup && Date.now() - cached.at < HOST_CLASS_TTL_MS) return cached.cls;
-  const cls = await resolveHostClass(hostname, lookup);
-  if (cls !== 'unresolved') hostClassCache.set(host, { cls, at: Date.now(), lookup });
-  return cls;
-}
-
-// The worst class among a host's addresses; 'unresolved' when it has none.
-async function resolveHostClass(hostname, lookup) {
-  const host = bareHost(hostname);
-  if (!host) return 'private';
-  if (host === 'localhost' || host.endsWith('.localhost')) return 'private';
-  if (host === 'metadata.google.internal') return 'metadata';
-  if (net.isIP(host)) return addressClass(host);
-  let addresses;
-  try {
-    addresses = await lookup(host, { all: true });
-  } catch {
-    return 'unresolved';
-  }
-  if (!addresses || !addresses.length) return 'unresolved';
-  return addresses.map((entry) => addressClass(entry.address)).reduce((worst, cls) => (CLASS_RANK[cls] > CLASS_RANK[worst] ? cls : worst), 'public');
-}
-
-function stripWww(hostname) {
-  return bareHost(hostname).replace(/^www\./, '');
-}
-
-// Same site as the base: the same host (with or without www.), the same port, and not a downgrade to http.
-function isBaseSite(url, base) {
-  if (stripWww(url.hostname) !== stripWww(base.hostname) || url.port !== base.port) return false;
-  return url.protocol === base.protocol || (base.protocol === 'http:' && url.protocol === 'https:');
-}
-
-async function assertSourceTarget(url, base, { isRedirect, lookup }) {
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-    throw new SourceRequestRefusedError(`Refusing a non-http(s) WordPress URL (${url.protocol})`);
-  }
-  const cls = await hostClass(url.hostname, lookup);
-  if (cls === 'metadata') {
-    throw new SourceRequestRefusedError(`Refusing to contact ${bareHost(url.hostname)}: it is a link-local or cloud-metadata address`);
-  }
-  if (isRedirect && cls !== 'public' && !(cls === 'private' && bareHost(url.hostname) === bareHost(base.hostname) && url.port === base.port)) {
-    throw new SourceRequestRefusedError(`Refusing a redirect to ${bareHost(url.hostname)}${cls === 'unresolved' ? ': it does not resolve' : ': it is a private or loopback address'}`);
-  }
-}
-
-const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
-
-/**
- * fetch() for requests to the source site (see the policy above). Same signature plus `{ baseUrl }`, the
- * site the credentials belong to; `lookup` and `fetchImpl` exist for tests.
- */
-async function fetchSource(url, init = {}, { baseUrl, lookup = dns.promises.lookup, fetchImpl = fetch, maxRedirects = 5 } = {}) {
-  let current = new URL(String(url));
-  const base = new URL(String(baseUrl || url));
-  let options = { ...init, redirect: 'manual' };
-  for (let hop = 0; hop <= maxRedirects; hop += 1) {
-    await assertSourceTarget(current, base, { isRedirect: hop > 0, lookup });
-    const response = await fetchImpl(current.toString(), options);
-    const location = response.headers && typeof response.headers.get === 'function' ? response.headers.get('location') : null;
-    if (!REDIRECT_STATUSES.has(response.status) || !location) return response;
-    try { await response.body?.cancel(); } catch { /* the redirect has no body worth reading */ }
-    const next = new URL(location, current);
-    if (!isBaseSite(next, base)) {
-      const accept = new Headers(options.headers).get('accept');
-      options = { ...options, headers: new Headers(accept ? { accept } : {}) };
-    }
-    const method = String(options.method || 'GET').toUpperCase();
-    if (response.status === 303 || ((response.status === 301 || response.status === 302) && method === 'POST')) {
-      const { body: _body, ...rest } = options;
-      options = { ...rest, method: method === 'HEAD' ? 'HEAD' : 'GET' };
-    }
-    current = next;
-  }
-  throw new SourceRequestRefusedError(`Too many redirects from ${bareHost(base.hostname)}`);
-}
-
-// ---------------------------------------------------------------------------
 // Payment-gateway route denial
 //
 // `GET /wc/v3/payment_gateways` (and `/{id}`) returns each gateway's ENTIRE settings object.
@@ -396,14 +248,14 @@ async function fetchJsonUnchecked(baseUrl, routePath, {
           step: 'wordpress-request',
           ...progressContext,
           message: `Still waiting on WordPress ${method} ${routePath || '/'}`,
-        }, () => fetchSource(url, {
+        }, () => fetch(url, {
           ...requestInit,
           signal: controller.signal,
-        }, { baseUrl }))
-        : await fetchSource(url, {
+        }))
+        : await fetch(url, {
           ...requestInit,
           signal: controller.signal,
-        }, { baseUrl });
+        });
       const text = await response.text();
       const responseHeaders = Object.fromEntries(response.headers.entries());
 
@@ -580,8 +432,6 @@ module.exports = {
   normalizeBaseUrl,
   buildApiUrl,
   fetchJson,
-  fetchSource,
-  SourceRequestRefusedError,
   // NOTE what is deliberately NOT here: the undenied transport, under any name. The gateway
   // deny rule is only worth as much as this export list.
   GATEWAY_COLLECTION_ROUTE,

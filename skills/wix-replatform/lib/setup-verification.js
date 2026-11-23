@@ -12,11 +12,12 @@ const SCHEMA_VERSION = 1;
 // evidence-free receipt (including one written before this field existed) fails closed and
 // setup re-runs, it is never upgraded in place.
 const { SETUP_CHECK_METHODS, SETUP_CHECK_METHOD_SET } = require('./setup-check-methods.js');
+const { archiveCollectionIdMatchesSource, isWixCollectionId } = require('./cms-collection-id.js');
 // The target entities each named setup executor in execute-setup.js writes. A step with one of
 // these ids must list them in `entityRefs`, so codegen binds the step as their producer; each is
 // `setupProducible` in rp-target-wix, so the mapping preflight expects setup to make it too.
 // A step that runs a generic registered writer (`intent.writerId`) declares its own refs instead.
-const SETUP_EXECUTOR_ENTITY_REFS = Object.freeze({ 'create-cms-collections': Object.freeze(['cms/collection']) });
+const SETUP_EXECUTOR_ENTITY_REFS = Object.freeze({ 'create-cms-collections': Object.freeze(['cms/collection']), 'import-business-contact': Object.freeze(['site/business-contact']) });
 const fs = require('node:fs');
 const path = require('node:path');
 let reviewedReferencePaths;
@@ -75,12 +76,54 @@ function validReadBack(declaration, projectDir) {
       Object.values(r.values).some(p => !L.isExact(p)) || !Array.isArray(r.evidence) || !r.evidence.some(e=>e.kind==='authoritative-schema' && e.revision)) return false;
   try { for(const e of r.evidence) A.artifact(projectDir || A.current()?.projectDir,e); return true; } catch { return false; }
 }
+
+function cmsCollectionIdReasons(collection, pathLabel) {
+  const reasons = [];
+  if (!isWixCollectionId(collection?.id)) reasons.push(`plan_cms_collection_id_invalid:${pathLabel}.id`);
+  if (typeof collection?.sourceEntity === 'string' && collection.sourceEntity.trim() &&
+      (!archiveCollectionIdMatchesSource(collection.id, collection.sourceEntity))) {
+    reasons.push(`plan_cms_collection_id_mismatch:${pathLabel}.id`);
+  }
+  return reasons;
+}
+
+function cmsCollectionPlanReasons(plan, projectDir) {
+  const reasons = [];
+  const seen = new Set();
+  const add = (collection, pathLabel) => {
+    for (const reason of cmsCollectionIdReasons(collection, pathLabel)) {
+      if (!seen.has(reason)) { seen.add(reason); reasons.push(reason); }
+    }
+  };
+  for (const [stepIndex, step] of (plan.steps || []).entries()) {
+    if (step?.id !== 'create-cms-collections' || !Array.isArray(step.collections)) continue;
+    step.collections.forEach((collection, index) => add(collection, `steps[${stepIndex}].collections[${index}]`));
+  }
+  if (projectDir) {
+    const requirementsPath = path.join(projectDir, 'setup', 'setup-requirements.json');
+    if (fs.existsSync(requirementsPath)) {
+      try {
+        const value = JSON.parse(fs.readFileSync(requirementsPath, 'utf8'));
+        const requirements = Array.isArray(value) ? value : value?.requirements;
+        const requirement = (requirements || []).find((item) => item?.id === 'create-cms-collections');
+        if (Array.isArray(requirement?.collections)) {
+          requirement.collections.forEach((collection, index) => add(collection, `setup-requirements.collections[${index}]`));
+        }
+      } catch {
+        // The setup-requirements shape gate reports unreadable/malformed requirements;
+        // plan validation should remain a non-throwing predicate.
+      }
+    }
+  }
+  return reasons;
+}
 function validatePlanShape(plan, projectDir) {
   if (!plan || typeof plan !== 'object' || !Array.isArray(plan.steps)) {
     return { ok: false, reasons: ['plan_missing_or_invalid'], stepIds: [] };
   }
   const reasons = [];
   if (plan.schemaVersion !== SCHEMA_VERSION) reasons.push('plan_schema_version_mismatch');
+  reasons.push(...cmsCollectionPlanReasons(plan, projectDir));
   const stepIds = normalizeIds(plan.steps, {
     onMissing: () => reasons.push('plan_step_missing_id'),
     onDuplicate: (id) => reasons.push(`plan_duplicate_step_id:${id}`),
@@ -157,6 +200,17 @@ function validateSetupVerification({ verification, plan, planDigest, siteId, pro
 
   for (const step of plan.steps) {
     const requirement = verification.requirements.find(row => row.id === step.id);
+    // A step setup skipped as set-aside-only must still be one today (same rule as execute-setup);
+    // nothing imported resolves its references, so it binds none.
+    if (requirement?.verification?.method === SETUP_CHECK_METHODS.SET_ASIDE_NOT_NEEDED) {
+      if (!projectDir || !require('./setup-set-aside.js').setAsideOnlyStep(step, projectDir)) reasons.push(`setup_set_aside_skip_invalid:${step.id}`);
+      continue;
+    }
+    // A step setup skipped because an import task writes its refs: same rule as execute-setup.
+    if (requirement?.verification?.method === SETUP_CHECK_METHODS.IMPORT_TASK_WRITES_IT) {
+      if (!projectDir || !require('./setup-set-aside.js').importOwnedStep(step, projectDir)) reasons.push(`setup_import_owned_skip_invalid:${step.id}`);
+      continue;
+    }
     reasons.push(...validateReferenceBindings(step, requirement?.referenceBindings, projectDir));
   }
   return { ok: reasons.length === 0, reasons };
@@ -177,4 +231,4 @@ function validateReferenceBindings(step, bindings, projectDir) {
   return errors;
 }
 
-module.exports = { validateReferenceBindings, SCHEMA_VERSION, SETUP_EXECUTOR_ENTITY_REFS, SETUP_CHECK_METHODS, SETUP_CHECK_METHOD_SET, validatePlanShape, validateSetupRequirementsShape, validateSetupVerification };
+module.exports = { validateReferenceBindings, SCHEMA_VERSION, SETUP_EXECUTOR_ENTITY_REFS, SETUP_CHECK_METHODS, SETUP_CHECK_METHOD_SET, validatePlanShape, validateSetupRequirementsShape, validateSetupVerification, cmsCollectionPlanReasons };

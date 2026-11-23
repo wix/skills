@@ -20,12 +20,24 @@ const sourceRegional = require(path.join(ADAPTER_DIR, '..', '..', 'lib', 'source
 const { buildQuickWooCommerceRegional } = require(path.join(ADAPTER_DIR, '..', 'rp-source-wordpress', 'lib', 'regional-capture.js'));
 const recovery = require(path.join(ADAPTER_DIR, '..', 'rp-quick-runtime', 'lib', 'limit-recovery.js'));
 const importProgress = require(path.join(ADAPTER_DIR, '..', 'rp-quick-runtime', 'lib', 'import-progress.js'));
+const quickHandoff = require(path.join(ADAPTER_DIR, '..', 'rp-quick-runtime', 'lib', 'quick-handoff.js'));
 // On the public Store API this is a no-op — `src` there is already the original — so
 // the URLs produced here do not change. It is called anyway because naming an image field
 // directly is how a whole catalog once shipped as thumbnails: the same idiom got copied onto the
 // authenticated wc/v3 payload, where `src` can be the smallest crop.
 const { resolveImageUrls } = require(path.join(ADAPTER_DIR, '..', 'rp-source-wordpress', 'lib', 'wp-image-url.js'));
 const { composeProductDescription } = require(path.join(ADAPTER_DIR, '..', 'rp-target-wix', 'lib', 'wix-build.js'));
+const inventory = require(path.join(ADAPTER_DIR, '..', 'rp-target-wix', 'lib', 'stores-inventory.js'));
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+// A product read right after its create can 404 for a moment (the same behavior the Shopify adapter handles): retry only that.
+async function readCreatedProduct(wix, id, delays = [500, 1500, 3000]) {
+  for (let attempt = 0; ; attempt += 1) {
+    try { return await require(path.join(ADAPTER_DIR, '..', 'rp-target-wix', 'lib', 'wix-writers.js')).getStoresProductForVerification(wix, id); } catch (error) {
+      if (!/\b404\b/.test(error.message) || attempt >= delays.length) throw error;
+      await sleep(delays[attempt]);
+    }
+  }
+}
 
 async function readJson(filePath) {
   return JSON.parse(await fs.readFile(filePath, 'utf8'));
@@ -294,6 +306,22 @@ async function importData(projectDir) {
     const heldProducts = new Map(destinationProducts.filter((item) => baselineProductIds.has(item.id)).map((item) => [slug(item.slug), item]));
     const existingProducts = new Map(destinationProducts.filter((item) => !baselineProductIds.has(item.id)).map((item) => [slug(item.slug), item]));
     const productRows = await readLines(path.join(sourceDir, 'product.ndjson'));
+    // A standalone product create writes no stock record, and Wix shows such a product out of stock. A product is in
+    // stock unless the store says it is not (`is_in_stock: false`): its stock is written after the loop, in bulk.
+    const stockRows = [];
+    const stockGaps = [];
+    const stockSources = new Map();
+    const queueStock = async (row, targetId, productSlug) => {
+      if (dryRun || seen('product_stock', row.id)) return;
+      try {
+        const fullTarget = await readCreatedProduct(wix, targetId);
+        const canonical = { slug: productSlug, variants: [{ choices: [], inStock: row.is_in_stock !== false }] };
+        for (const stock of writers.registerQuickInventoryScope(wix, canonical, fullTarget)) { stockRows.push(stock); stockSources.set(stock.variantId, String(row.id)); }
+      } catch (error) {
+        if (wixAuth.isRunInterruption(error)) throw error;
+        stockGaps.push({ sourceProductId: String(row.id), sourceVariantId: null, reason: error.message });
+      }
+    };
     const productSlugCounts = new Map();
     for (const row of productRows) {
       const key = slug(row.slug);
@@ -302,9 +330,9 @@ async function importData(projectDir) {
     for (const row of productRows) {
       // A saved target id is checked too: an earlier run may have adopted a baseline product.
       if (seen('product', row.id) && baselineProductIds.has(seen('product', row.id))) { holdCollision('stores/product', 'product', row.id, destinationProducts.find((item) => item.id === seen('product', row.id)) || { id: seen('product', row.id) }); continue; }
-      if (seen('product', row.id)) { products += 1; continue; }
       const baseSlug = slug(row.slug);
       const sourceSlug = productSlugCounts.get(baseSlug) > 1 ? `${baseSlug}-${row.id}` : baseSlug;
+      if (seen('product', row.id)) { products += 1; await queueStock(row, seen('product', row.id), sourceSlug); continue; }
       const heldProduct = !existingProducts.has(sourceSlug) && heldProducts.get(sourceSlug);
       if (heldProduct) { holdCollision('stores/product', 'product', row.id, heldProduct); continue; }
       const actualPrice = price(row.prices?.price, row.prices?.currency_minor_unit); const regular = price(row.prices?.regular_price, row.prices?.currency_minor_unit);
@@ -312,8 +340,17 @@ async function importData(projectDir) {
       const created = existingProducts.get(sourceSlug) || (productSlugCounts.get(baseSlug) > 1 && existingProducts.get(baseSlug)) || await writers.createStoresProduct(wix, { name: text(row.name), slug: sourceSlug, description: composeProductDescription({ description: row.description, shortDescription: row.short_description }), productType: 'PHYSICAL', visible: true, tags: { publicTags: { tagIds: normalized.tagIds } }, media: { itemsInfo: { items: resolveImageUrls(row.images).map(({ url, altText, displayName }) => ({ url, ...(altText ? { altText } : {}), ...(displayName ? { displayName } : {}) })) } }, variantsInfo: { variants: [{ visible: true, sku: normalized.sku || undefined, inStock: row.is_in_stock !== false, price: { actualPrice: { amount: actualPrice }, ...(Number(regular) > Number(actualPrice) ? { compareAtPrice: { amount: regular } } : {}) } }] } });
       if (normalized.recoveries.length) { if (!dryRun) await recovery.appendRecoveries(projectDir, planResult.adapter, row.id, normalized.recoveries); recovery.recordRecoveredRecord(summary, normalized.recoveries); }
       const targets = (row.categories || []).map((category) => categoryIds.get(String(category.id))).filter(Boolean); if (targets.length) await writers.bulkAddItemToCategories(wix, { productId: created.id, categoryIds: targets }); remember('product', row.id, created.id); if (!dryRun) catalogBaseline.clearCollision(projectDir, 'stores/product', row.id); products += 1;
+      await queueStock(row, created.id, sourceSlug);
+    }
+    if (!dryRun && (stockRows.length || stockGaps.length)) {
+      summary.inventory = await inventory.reconcileInventory(wix, stockRows, { expectedCount: stockRows.length + stockGaps.length, gaps: stockGaps });
+      await inventory.persistInventoryReport(path.join(projectDir, 'state', 'inventory-report.json'), summary.inventory);
+      for (const row of summary.inventory.rows) if (['reconciled', 'created', 'updated'].includes(row.outcome)) remember('product_stock', stockSources.get(row.variantId), row.variantId);
+      // Stock that could not be confirmed means the import did not finish cleanly: never reported complete.
+      if (summary.inventory.status === 'partial') summary.status = 'partial';
     }
     summary.imported.product = products;
+    if (!dryRun) summary.onSite = quickHandoff.onSiteProducts(productRows, (row) => seen('product', row.id), (row) => text(row.name));
     capabilities.finishQuickEntity(quickRun, 'product');
   }
   if (!dryRun) await writeJson(path.join(projectDir, 'state', 'crosswalk', 'quick-mode.json'), crosswalk);
@@ -321,14 +358,16 @@ async function importData(projectDir) {
   if (!dryRun && Object.keys(regionalRefused).length) summary.status = 'partial';
   Object.assign(summary, await sourceCoverage.quickSummaryCoverage(projectDir));
   catalogBaseline.quickReport(projectDir, summary);
+  if (!dryRun) quickHandoff.stampLastWrite(summary);
   await recovery.writeFinalReport(projectDir, summary, { dryRun });
   await writeJson(path.join(projectDir, 'execution', dryRun ? 'dry-run-completion-report.json' : 'completion-report.json'), summary);
+  await quickHandoff.finish(projectDir, summary, { dryRun });
   return summary;
 }
 async function main() {
   const [command, projectDirArg] = process.argv.slice(2);
   if (!command || !projectDirArg || !['preflight', 'plan', 'setup-author', 'extract', 'import'].includes(command)) throw new Error('Usage: quick-mode.js <preflight|plan|setup-author|extract|import> <projectDir>');
   const result = await ({ preflight, plan, 'setup-author': ensureFallbackAuthor, extract, import: importData })[command](path.resolve(projectDirArg));
-  process.stdout.write(`${JSON.stringify({ ok: true, command, status: result.status || 'completed' })}\n`);
+  process.stdout.write(`${JSON.stringify({ ok: true, command, status: result.status || 'completed', ...(result.handoffWarning ? { warning: result.handoffWarning } : {}) })}\n`);
 }
 main().catch(async (error) => { process.stderr.write(`${error.message}\n`); process.exit(await wixAuth.stopExitCode(error, process.argv[3] && path.resolve(process.argv[3]))); });

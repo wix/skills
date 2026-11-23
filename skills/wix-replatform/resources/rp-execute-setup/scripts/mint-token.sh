@@ -5,6 +5,9 @@
 # Usage (from the migration project root):
 #   bash scripts/mint-token.sh
 #
+# This helper runs from a project's scripts/ directory: it finds config/wix.env one level up.
+# A quick import copies it there (scripts/quick-run.js does this itself).
+#
 # Reads WIX_SITE_ID from config/wix.env.
 # Requires: the installed Wix CLI (logged in — check: npx --no-install wix whoami)
 #
@@ -31,11 +34,31 @@ fi
 
 echo "Minting token for site $WIX_SITE_ID ..." >&2
 
-# Capture token only on stdout; suppress CLI spinner/progress on stderr
-TOKEN=$(npx --no-install wix token --site "$WIX_SITE_ID" 2>/dev/null | tr -d '[:space:]')
+# The token is read from stdout only; the CLI's stderr is kept just to explain a failure.
+# The token is the first line that holds one: the leading run of printable, space-free characters, ending at the end of
+# the line or at the first non-ASCII character. An out-of-date CLI draws an "update available" box after the token,
+# which can start on the token's own line. This is the same rule as tokenFromOutput in scripts/wix-destination.js.
+# The CLI's whole output is captured first (nothing it writes after the token can hit a closed pipe), with its
+# exit code and its own error words. A token is read only when the CLI succeeded (a failing CLI may print a word).
+CLI_ERR_FILE="$(mktemp "${TMPDIR:-/tmp}/wix-token-err.XXXXXX")"
+CLI_EXIT=0
+CLI_OUT=$(npx --no-install wix token --site "$WIX_SITE_ID" 2>"$CLI_ERR_FILE") || CLI_EXIT=$?
+CLI_LOGIN=0
+if grep -qiE 'logged in|log in|login' "$CLI_ERR_FILE"; then CLI_LOGIN=1; fi
+CLI_ERR=$(tail -n 3 "$CLI_ERR_FILE" | tr '\n' ' ' | cut -c1-300)
+rm -f "$CLI_ERR_FILE"
+TOKEN=""
+[[ "$CLI_EXIT" -eq 0 ]] && TOKEN=$(printf '%s\n' "$CLI_OUT" | LC_ALL=C sed -nE -e '/^[[:space:]]*[!-~]+([^ -~]|[[:space:]]*$)/{s/^[[:space:]]*([!-~]+).*/\1/;p;:rest' -e 'n;b rest' -e '}')
+unset CLI_OUT
 
 if [[ -z "$TOKEN" ]]; then
-  echo "Error: token command returned empty output" >&2
+  # Only the CLI's own words say whether the login is the problem (a logged-out CLI says it must be logged in).
+  # A missing CLI, the network or no access to this site keep their own words, so a new login is not asked for.
+  if [[ "$CLI_EXIT" -eq 0 || "$CLI_LOGIN" -eq 1 ]]; then
+    echo "Error: token command returned empty output (the Wix CLI login is needed: npx --no-install wix whoami) ${CLI_ERR}" >&2
+  else
+    echo "Error: wix token failed (exit $CLI_EXIT): ${CLI_ERR:-no error text}" >&2
+  fi
   exit 1
 fi
 

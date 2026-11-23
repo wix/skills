@@ -39,7 +39,7 @@
     },
     {
       "code": "key-is-server-assigned",
-      "severity": "blocker",
+      "severity": "warning",
       "summary": "CORRECTED 2026-08-16 (live): `key` is READ-ONLY and server-derived — creating a field named \"ZZZ Probe WP Meta\" returned key `custom.zzz-probe-wp-meta-iveokecsuhrarwyqq` (slugified name + random suffix). You cannot set the source meta key as the Wix key, and you cannot reconstruct it. Capture `field.key` from the create response into the crosswalk; every value write addresses that key. A codegen path that derives the key from the source meta key writes into a field that does not exist."
     },
     {
@@ -78,5 +78,53 @@
       "note": "Verified live: create → 200 (id <anonymized-id>, server key custom.zzz-probe-wp-meta-iveokecsuhrarwyqq, fieldOrigin CUSTOM, appliesTo ALL_MEMBERS, section GENERAL); value set on a probe member via member PATCH and read back; DELETE without revision → 400, DELETE ?revision=1 → 200; list-custom-fields empty afterwards"
     }
   ],
-  "notes": "Authored 2026-08-11 from the docs-survey gap (member Custom Fields). Classified setup-config: it defines profile schema (the member-side analog of contact extended fields); per-member values ride on members/member. Promoted to verified-live 2026-08-16; the probe corrected the original mappingGuidance claim that the source meta key becomes the Wix field key — the key is server-assigned."
+  "notes": "Authored 2026-08-11 from the docs-survey gap (member Custom Fields). Classified setup-config: it defines profile schema (the member-side analog of contact extended fields); per-member values ride on members/member. Promoted to verified-live 2026-08-16; the probe corrected the original mappingGuidance claim that the source meta key becomes the Wix field key — the key is server-assigned.",
+  "fieldContracts": [
+    {
+      "domain": "members",
+      "entity": "custom-field",
+      "surface": "members-custom-fields-v1",
+      "operation": "createCustomField",
+      "path": "field",
+      "verificationLevel": "live-create-and-readback",
+      "lastVerified": "2026-08-16",
+      "verifiedBy": "live-verification",
+      "endpoint": "POST /members/v1/custom-fields",
+      "requiredPaths": [
+        "field.name",
+        "field.fieldType"
+      ],
+      "optionalPaths": [
+        "field.defaultPrivacy"
+      ],
+      "readback": {
+        "field.id": "server-assigned",
+        "field.key": "server-assigned",
+        "field.revision": "server-assigned"
+      },
+      "evidence": "pitfalls key-is-server-assigned and preferredWrite.decision (live 2026-08-16)"
+    },
+    {
+      "domain": "members",
+      "entity": "custom-field",
+      "surface": "members-v1",
+      "operation": "updateMember",
+      "path": "member.contact.customFields",
+      "verificationLevel": "live-create-and-readback",
+      "lastVerified": "2026-08-16",
+      "verifiedBy": "live-verification",
+      "endpoint": "PATCH /members/v1/members/{memberId}",
+      "requiredPaths": [
+        "member.contact.customFields.<key>.value"
+      ],
+      "constraints": [
+        {
+          "path": "member.contact.customFields.<key>",
+          "from": "field.key of the createCustomField response (crosswalk)",
+          "source": "live-validation"
+        }
+      ],
+      "evidence": "pitfall value-write-is-a-member-patch (live 2026-08-16)"
+    }
+  ]
 }

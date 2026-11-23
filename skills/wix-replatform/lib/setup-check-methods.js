@@ -16,6 +16,11 @@ const SETUP_CHECK_METHODS = Object.freeze({
   WRITER_RESPONSE: 'writer-response',
   SITE_PROPERTIES_READ: 'site-properties-read',
   SETTINGS_READ: 'settings-read',
+  // Not run: the step only serves set-aside entities (lib/setup-set-aside.js); the validator rechecks.
+  SET_ASIDE_NOT_NEEDED: 'set-aside-not-needed',
+  // Not run: an import task writes every ref of the step itself (lib/setup-set-aside.js
+  // importOwnedStep, e.g. a tax rate's region); the validator rechecks.
+  IMPORT_TASK_WRITES_IT: 'import-task-writes-it',
 });
 
 const SETUP_CHECK_METHOD_SET = new Set(Object.values(SETUP_CHECK_METHODS));

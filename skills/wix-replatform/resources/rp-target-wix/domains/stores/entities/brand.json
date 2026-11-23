@@ -26,6 +26,10 @@
     "surface": "Stores Catalog V3 Brands",
     "endpoint": "POST /stores/v3/brands",
     "writerId": "createStoresBrand",
+    "requestInput": "brand",
+    "requestFields": [
+      "name"
+    ],
     "verification": "verified-live",
     "importSafe": true,
     "bulk": true,

@@ -59,13 +59,14 @@ function bindSetupStep(run, stepId) {
   if (!step) fail('SETUP_STEP_UNKNOWN');
   return issue('setup-step', ctx, { stepId, step });
 }
+// The extra targets a quick adapter's product entity may write: Shopify its tags and stock, WooCommerce its stock.
+const QUICK_PRODUCT_AUXILIARY = Object.freeze({ 'quick-shopify': ['stores/product-tag', 'stores/inventory-item'], 'quick-woocommerce': ['stores/inventory-item'] });
 function validateQuickContract(contract) {
   const ids = new Set((contract.entities || []).map(entity => entity.id));
   if (ids.size !== contract.entities?.length) fail('quick_contract_invalid');
   for (const entity of contract.entities) {
     if ((entity.dependsOn || []).some(id => !ids.has(id))) fail(`quick_contract_dependency_external:${entity.id}`);
-    if (entity.auxiliaryTargets && (contract.id !== 'quick-shopify' || entity.id !== 'product' ||
-      JSON.stringify(entity.auxiliaryTargets) !== JSON.stringify(['stores/product-tag', 'stores/inventory-item']))) fail('quick_contract_auxiliary_invalid');
+    if (entity.auxiliaryTargets && (entity.id !== 'product' || JSON.stringify(entity.auxiliaryTargets) !== JSON.stringify(QUICK_PRODUCT_AUXILIARY[contract.id]))) fail('quick_contract_auxiliary_invalid');
   }
   return contract;
 }
@@ -107,6 +108,8 @@ function startDevProbe({ siteId, confirmation, dryRun = false } = {}) {
 function startImportRun(input) {
   const ctx = context(input);
   const inputs = require('./dependency-readiness').validateImportInputs(ctx.projectDir);
+  // H49: refuse to start an import that would fill the disk mid-write (DISK_SPACE_LOW, clear message).
+  require('./disk-space.js').assertDiskSpace(ctx.projectDir);
   enter('import');
   if (ctx.dryRun) require('./local-state').startSampleJournal(ctx.projectDir, ctx.runId);
   return issue('import-run', { ...ctx, ...inputs });

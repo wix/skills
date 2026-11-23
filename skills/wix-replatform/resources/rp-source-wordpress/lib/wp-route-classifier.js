@@ -121,6 +121,7 @@ const BACKEND_DATA_RULES = [
   // this literal, so this rule alone does not cause a fetch — the group is read directly by the
   // caller, the same way a shipping zone's /locations and /methods sub-resources are. The rule
   // exists so that when the literal IS advertised it is classified as data rather than excluded.
+  ['/wc/v3/settings/tax', 'wc.data.store-settings-tax', 'WooCommerce tax settings say whether catalog prices include tax — canonical store configuration'],
   ['/wc/v3/settings/general', 'wc.data.store-settings-general', 'WooCommerce general settings hold the store address, currency and selling countries — canonical store configuration'],
   ['/wc/v3/shipping/zones', 'wc.data.shipping-zones', 'WooCommerce shipping zones are canonical store configuration'],
   ['/wc/v3/shipping_methods', 'wc.data.shipping-method-types', 'WooCommerce shipping method types are canonical store configuration'],

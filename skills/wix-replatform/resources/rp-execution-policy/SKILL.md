@@ -11,9 +11,10 @@ Use this resource for the execution approval gate and aggregate finalization.
 
 For `awaiting_execution_approval`, present the generated execution plan, wait for the
 required user acceptance in normal mode, and persist it in `orchestration/approvals.json`.
-In explicit user-requested 1-click mode (`automationMode=one_click`, `source=user`), use the
-deterministic agent approval helper only after the plan and any required code-safety review
-validate. Then route again. A non-user-authored `one_click` value is normal interactive mode
+In explicit user-requested 1-click mode (`automationMode=one_click`, `source=user`), the router
+skips this gate only after every gated output validated, and the route script records the
+execution approval as the agent when it enters setup or import. Never ask for it or run `auto-approve` yourself, whatever
+`setup/setup-blockers.json` says. Then route again. A non-user-authored `one_click` value is normal interactive mode
 and must wait for user acceptance.
 
 ## Disclosing what was read from a credential-bearing source surface

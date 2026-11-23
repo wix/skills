@@ -1,6 +1,7 @@
 'use strict';
 
 const COLLECTION_PERMISSION_KEYS = Object.freeze(['read', 'insert', 'update', 'remove']);
+const { archiveCollectionIdMatchesSource, isWixCollectionId } = require('./cms-collection-id.js');
 
 // Mapping uses a named preset, while Wix Data's REST API requires the expanded
 // permissions object. Keep the translation at the request boundary so every
@@ -48,7 +49,13 @@ function normalizeField(field, path) {
   if (typeof field.key !== 'string' || !field.key.trim()) {
     throw invalidCollectionRequest(path, [`${path}.key: expected a non-empty string`]);
   }
-  if (typeof field.type !== 'string' || !field.type.trim()) {
+  const hasType = Object.hasOwn(field, 'type');
+  const hasFieldType = Object.hasOwn(field, 'fieldType');
+  if (hasType && hasFieldType && field.type !== field.fieldType) {
+    throw invalidCollectionRequest(path, [`${path}.type and ${path}.fieldType: expected matching values`]);
+  }
+  const type = hasType ? field.type : field.fieldType;
+  if (typeof type !== 'string' || !type.trim()) {
     throw invalidCollectionRequest(path, [`${path}.type: expected a non-empty string`]);
   }
   if (field.displayName !== undefined && typeof field.displayName !== 'string') {
@@ -60,15 +67,19 @@ function normalizeField(field, path) {
   if (field.typeMetadata !== undefined && (!field.typeMetadata || typeof field.typeMetadata !== 'object' || Array.isArray(field.typeMetadata))) {
     throw invalidCollectionRequest(path, [`${path}.typeMetadata: expected an object, received ${valueKind(field.typeMetadata)}`]);
   }
-  return { ...field };
+  const { fieldType: _fieldType, ...normalized } = field;
+  return { ...normalized, type };
 }
 
-function normalizeCmsCollectionDefinition(collection, { path = 'collection' } = {}) {
+function normalizeCmsCollectionDefinition(collection, { path = 'collection', sourceEntity = null } = {}) {
   if (!collection || typeof collection !== 'object' || Array.isArray(collection)) {
     throw invalidCollectionRequest(path, [`${path}: expected an object, received ${valueKind(collection)}`]);
   }
-  if (typeof collection.id !== 'string' || !collection.id.trim()) {
-    throw invalidCollectionRequest(path, [`${path}.id: expected a non-empty string`]);
+  if (!isWixCollectionId(collection.id)) {
+    throw invalidCollectionRequest(path, [`${path}.id: expected 1-36 letters, numbers, _ or -, received ${JSON.stringify(collection.id)}`]);
+  }
+  if (typeof sourceEntity === 'string' && sourceEntity.trim() && !archiveCollectionIdMatchesSource(collection.id, sourceEntity)) {
+    throw invalidCollectionRequest(path, [`${path}.id: must be derived from source entity ${sourceEntity}`]);
   }
   if (collection.displayName !== undefined && typeof collection.displayName !== 'string') {
     throw invalidCollectionRequest(path, [`${path}.displayName: expected a string, received ${valueKind(collection.displayName)}`]);
@@ -81,4 +92,4 @@ function normalizeCmsCollectionDefinition(collection, { path = 'collection' } = 
   return { ...collection, fields, permissions };
 }
 
-module.exports = { CMS_PERMISSION_PRESETS, normalizeCmsCollectionDefinition };
+module.exports = { CMS_PERMISSION_PRESETS, normalizeCmsCollectionDefinition, isWixCollectionId };

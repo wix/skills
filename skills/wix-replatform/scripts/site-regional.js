@@ -10,7 +10,8 @@
 //
 // `emit` is what rp-setup-discovery runs after it writes the setup plan and requirements (before it stamps
 // the plan): it adds the `import-site-locale` requirement and step as a pair, after notification safety,
-// even when the source file is missing so setup fails closed instead of exempting the migration.
+// even when the source file is missing so setup fails closed instead of exempting the migration. For a
+// WordPress/WooCommerce source it also adds the `import-business-contact` pair (lib/business-contact-setup.js).
 // `preview` is what rp-execution-policy runs while it builds the execution plan: it prints the plain-language
 // section ("set currency / time zone / language to ...") from the source file alone. It reads no site.
 // `status` prints whether the step is planned and whether the owner's question is open.
@@ -36,7 +37,11 @@ async function main() {
     return 1;
   }
   const projectDir = path.resolve(projectDirArg);
-  const result = command === 'emit' ? await site.emitRegionalSetup(projectDir)
+  const emit = async () => {
+    const regional = await site.emitRegionalSetup(projectDir);
+    return { ...regional, businessContact: await require('../lib/business-contact-setup.js').emitBusinessContactSetup(projectDir) };
+  };
+  const result = command === 'emit' ? await emit()
     : command === 'preview' ? await site.previewRegionalPlan(projectDir)
       : command === 'reconsider' ? await site.reopenRegionalRequest(projectDir) : await status(projectDir);
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);

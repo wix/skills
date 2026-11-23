@@ -41,7 +41,13 @@ function safeFile(projectDir, relativePath, roots = ['data/wp-discovery', 'data/
   }
   return absolute;
 }
+// A plan reference is { schemaVersion, path, sha256 }. A hand-written source schema may carry the
+// bare plan path instead; it binds to the plan file as it is now (freshness hashes it from then on).
+function planReference(projectDir, reference) {
+  return typeof reference === 'string' ? { schemaVersion: 1, ...referenceFor(projectDir, reference) } : reference;
+}
 function checkedFile(projectDir, reference, roots) {
+  reference = planReference(projectDir, reference);
   if (!reference || !HASH.test(reference.sha256)) fail('artifact reference needs sha256');
   const file = safeFile(projectDir, reference.path, roots);
   if (!fs.existsSync(file) || sha(fs.readFileSync(file)) !== reference.sha256) fail(`missing or changed artifact: ${reference.path}`);
@@ -241,7 +247,8 @@ async function verifyFullExtraction(options, plan) {
   if (manifest.mode !== 'full' || manifest.sourceEntityRef !== entity || !same(manifest.planRef, options.planRef)
     || manifest.sourceIdentity !== plan.sourceIdentity || !same(manifest.assembly, plan.assembly)) fail('current full entity manifest required');
   const stats = await require('./structure-bridge-reader.js').fileStats(paths.ndjson);
-  if (!stats.exists || stats.digest !== manifest.ndjsonDigest || stats.lines !== manifest.rowsWritten) fail('full output digest/count mismatch');
+  if (!require('./structure-bridge-reader.js').extractCount(manifest).finished
+    || !stats.exists || stats.digest !== manifest.ndjsonDigest || stats.lines !== manifest.rowsWritten) fail('full output digest/count mismatch');
   await verifyComponentEvidence(options, plan, manifest);
   return { paths, manifest };
 }
@@ -257,7 +264,7 @@ async function verifyComponentEvidence(options, plan, manifest) {
     const prefix = `data/source-extract/${entity}.${options.planRef.sha256}.${component.id}.`;
     if (!component.manifest?.path.startsWith(prefix) || !component.output?.path.startsWith(prefix)) fail('component evidence namespace mismatch');
     const componentManifest = json(checkedFile(projectDir, component.manifest, ['data/source-extract']));
-    if (componentManifest.kind !== 'eav-read-plan' && componentManifest.rowsWritten !== componentManifest.snapshotTotal) fail('component count unreconciled');
+    if (componentManifest.kind !== 'eav-read-plan' && !require('./structure-bridge-reader.js').extractCount(componentManifest).finished) fail('component count unreconciled');
     const data = await require('./structure-bridge-reader.js').fileStats(checkedFile(projectDir, component.output, ['data/source-extract']));
     if (data.digest !== componentManifest.ndjsonDigest || data.lines !== componentManifest.rowsWritten) fail('component output mismatch');
     for (const reference of component.readArtifacts) checkedFile(projectDir, reference, ['data/wp-discovery']);
@@ -493,7 +500,7 @@ async function extractBoundPluginEntity(input) {
     const paths = entityPaths(projectDir, entity);
     const bytes = rows.map((row) => `${JSON.stringify(row)}\n`).join('');
     atomic(paths.ndjson, bytes);
-    const manifest = { schemaVersion: 1, mode: 'full', sourceEntityRef: entity, sourceIdentity: plan.sourceIdentity, planRef, components, materializations, assembly: plan.assembly, rowsWritten: rows.length, ndjsonDigest: sha(bytes) };
+    const manifest = { schemaVersion: 1, mode: 'full', sourceEntityRef: entity, sourceIdentity: plan.sourceIdentity, planRef, components, materializations, assembly: plan.assembly, rowsWritten: rows.length, snapshotTotal: rows.length, ndjsonDigest: sha(bytes) };
     atomic(paths['manifest.json'], `${JSON.stringify(manifest, null, 2)}\n`);
     recordPluginExtractionDeferral({ ...options, resolution: { manifestPath: rel(projectDir, paths['manifest.json']), rowsWritten: rows.length, planRef } });
     return { status: 'promoted', rowsWritten: rows.length, manifestPath: paths['manifest.json'], finalPath: paths.ndjson };
@@ -586,13 +593,48 @@ function dependencyOrderedEntities(entities, entityOrder) {
   if (explicitOrder && !same(ordered.filter((entity) => entityOrder.includes(entity.sourceEntityRef)).map((entity) => entity.sourceEntityRef), entityOrder)) fail('adapter dependency order conflicts with source prerequisites; repair codegen ordering before import');
   return ordered;
 }
+// One cutover item per plugin entity that failed as a whole (a missing handler, a scope-guard
+// refusal, a writer crash). Its records were not written; the other entities were.
+function failedEntityOperatorAction(sourceEntityRef, taskError) {
+  const code = taskError.code || 'plugin-entity-failed';
+  return {
+    actionId: `plugin-entity-failed:${sourceEntityRef}`,
+    code: 'plugin-entity-failed',
+    role: 'import-operator',
+    severity: 'high',
+    entity: sourceEntityRef,
+    affectedCount: null,
+    affectedIds: [sourceEntityRef],
+    artifactRefs: ['execution/completion-report.json'],
+    prerequisites: ['original migration project', 'source snapshot', 'current-site access'],
+    action: `Requires Import Operator: plugin entity ${sourceEntityRef} was not imported (${code}); its records are held and the other entities imported.`,
+    importOperatorPrompt: `Plugin entity ${sourceEntityRef} failed as a whole with ${code}: ${taskError.message}. Fix the cause in the toolkit or the mapping, then rerun the import for --entity ${sourceEntityRef} only.`,
+    resolutionEvidence: `a later completion report shows ${sourceEntityRef} with no failed task row`,
+    deadlineReason: 'the records of this plugin entity are not on the new site',
+  };
+}
+// finalizeImport already merges deferredExtraction.operatorActions and statuses into the
+// completion report; failed entities reach the cutover list through that same channel.
+function withFailedEntityActions(reportInput, results) {
+  const failed = (results || []).filter((row) => row && row.status === 'failed' && row.operatorAction).map((row) => row.operatorAction);
+  if (!failed.length) return reportInput;
+  return { ...reportInput, operatorActions: [...reportInput.operatorActions, ...failed],
+    statuses: reportInput.statuses.includes('incomplete_with_failures') ? reportInput.statuses : [...reportInput.statuses, 'incomplete_with_failures'] };
+}
+// An error that ends the whole run rather than one entity: a preflight refusal (authorization,
+// mute). Every other error from one entity (a missing handler, the scope guard, a writer crash)
+// fails only that entity.
+function stopsRun(error) { if (error && typeof error === 'object') Object.defineProperty(error, 'stopsRun', { value: true }); return error; }
 // `results` collects each entity's outcome as it lands, so a stopped run still reports the
 // entities it finished; `stopRequested` ends dispatch before the next entity.
+// Dispatch runs through the shared task loop (runImportTasks), one task per entity in the
+// adapter's dependency order, with the same policy as every generated importer: an entity whose
+// handler throws becomes a `failed` row and later entities still run. A dependent entity is
+// still dispatched; its own readiness gate defers only the records whose parent cannot land.
 async function dispatchWithPluginExtractionReadiness({ entities, selection, projectDir, siteBaseUrl, entityOrder, results = [], stopRequested = () => false }, handlers) {
   const checks = new Map();
   const selected = selectPluginEntities(dependencyOrderedEntities(entities, entityOrder), selection).filter((entity) => entity.dispatchSelected !== false);
-  for (const entity of selected) {
-    if (stopRequested()) break;
+  const runEntity = async (entity) => {
     const required = [];
     const visit = (source, stack = new Set()) => {
       if (!source || stack.has(source.sourceEntityRef)) fail('missing/cyclic source prerequisite');
@@ -612,12 +654,29 @@ async function dispatchWithPluginExtractionReadiness({ entities, selection, proj
       }
       if (!checks.get(source.sourceEntityRef).result.ready) blocked = true;
     }
-    if (blocked) results.push({ sourceEntityRef: entity.sourceEntityRef, status: 'deferred' });
-    else {
-      if (typeof handlers[entity.sourceEntityRef] !== 'function') fail('selected import handler missing');
-      results.push(await handlers[entity.sourceEntityRef](entity, selection));
-    }
-  }
+    if (blocked) return { sourceEntityRef: entity.sourceEntityRef, status: 'deferred' };
+    // A missing handler is one entity's gap: hold that entity (a failed row with a cutover
+    // item) and keep importing the others.
+    if (typeof handlers[entity.sourceEntityRef] !== 'function') throw Object.assign(new Error('selected import handler missing'), { code: 'plugin-handler-missing' });
+    return handlers[entity.sourceEntityRef](entity, selection);
+  };
+  const byRef = new Map(selected.map((entity) => [entity.sourceEntityRef, entity]));
+  // No dependsOn: `selected` is already in dependency order, and waves would reorder entities
+  // whose target order the adapter declares only through entityOrder.
+  await orchestratorLib().runImportTasks({
+    tasks: selected.map((entity) => ({ id: entity.sourceEntityRef, kind: 'import' })),
+    stopRequested,
+    isInterruption: (error) => wixAuthLib().isRunInterruption(error) || error?.stopsRun === true,
+    runTask: async (task) => { const row = await runEntity(byRef.get(task.id)); results.push(row); return row; },
+    onTaskError: (error, task) => {
+      const taskError = { code: error?.code ? String(error.code) : null, message: String(error?.message || error).slice(0, 300) };
+      const row = { sourceEntityRef: task.id, status: 'failed', taskError,
+        counts: { attempted: 0, imported: 0, alreadyPresent: 0, deferred: 0, failed: 0, unresolved: 0 },
+        operatorAction: failedEntityOperatorAction(task.id, taskError) };
+      results.push(row);
+      return row;
+    },
+  });
   return results;
 }
 function selectPluginEntities(entities, selection = {}) {
@@ -645,7 +704,7 @@ function selectExtractionEntities(entities, selection) {
 function planFreshnessReferences({ projectDir, entities }) {
   const refs = new Map();
   for (const entity of entities) {
-    const reference = entity.sourceMeta?.extractionPlan;
+    const reference = entity.sourceMeta?.extractionPlan && planReference(projectDir, entity.sourceMeta.extractionPlan);
     if (!reference) continue;
     safeFile(projectDir, reference.path, ['data/wp-discovery']);
     refs.set(reference.path, reference);
@@ -659,7 +718,7 @@ function planFreshnessReferences({ projectDir, entities }) {
 }
 function readinessFingerprint({ projectDir, sourceEntityRef: entity, planRef }) {
   const files = new Set([path.join(projectDir, 'source-schema.json')]);
-  const add = (ref) => { if (ref?.path) files.add(safeFile(projectDir, ref.path)); };
+  const add = (ref) => { const at = typeof ref === 'string' ? ref : ref?.path; if (at) files.add(safeFile(projectDir, at)); };
   const paths = entityPaths(projectDir, entity);
   files.add(paths.ndjson); files.add(paths['manifest.json']); add(planRef);
   try {
@@ -679,6 +738,9 @@ function recovery() {
 }
 function interruptionLib() {
   return require(fs.existsSync(path.join(__dirname, 'import-interruption.js')) ? './import-interruption.js' : '../../../lib/import-interruption.js');
+}
+function orchestratorLib() {
+  return require(fs.existsSync(path.join(__dirname, 'import-task-orchestrator.js')) ? './import-task-orchestrator.js' : '../../../lib/import-task-orchestrator.js');
 }
 function wixAuthLib() {
   return require(fs.existsSync(path.join(__dirname, 'wix-auth.js')) ? './wix-auth.js' : '../../../lib/wix-auth.js');
@@ -717,6 +779,22 @@ function entryDescriptor(runtime, entities, mappingPlan, projectDir) {
   dependencyOrderedEntities(entities, descriptor.entityOrder);
   return descriptor;
 }
+// The fixed catalog extractor (catalog-extractor.js), from beside this file in the toolkit or from
+// the project's vendored copy (src/resources/rp-source-wordpress/lib, generated-plugin-handoff.js).
+function catalogAdapter(projectDir) {
+  const candidates = [path.join(__dirname, 'catalog-extractor.js'), path.join(projectDir, 'src/resources/rp-source-wordpress/lib/catalog-extractor.js')];
+  const file = candidates.find((candidate) => fs.existsSync(candidate));
+  if (!file) fail('catalog extractor is not vendored; run generated-plugin-handoff emitCatalogExtract');
+  return require(file).projectAdapter(projectDir);
+}
+// Extract functions: the project adapter's own when it defines them (older projects), else the
+// fixed catalog extractor. A WordPress run's adapter no longer defines readers.
+function extractAdapter(projectDir) {
+  const file = path.join(projectDir, 'src/project/plugin-runtime.js');
+  const own = fs.existsSync(file) ? require(file) : {};
+  if (typeof own.extractNative === 'function') return { extractNative: own.extractNative, preview: (e) => own.preview?.(e), sourceTransport: own.sourceTransport, afterExtraction: async (a) => own.afterExtraction?.(a) };
+  return catalogAdapter(projectDir);
+}
 async function runGeneratedPluginEntrypoint({ kind, projectDir, entities }, args) {
   // A wrapper cannot vouch for a project's ledger or selectors. Keep the existing
   // importer self-check against the adapter's real configuration before any I/O hooks.
@@ -748,7 +826,8 @@ async function runGeneratedPluginEntrypoint({ kind, projectDir, entities }, args
   // remain behind readiness; the adapter retains ledger/idempotency/record selectors.
   let results;
   if (selection.sample) {
-    results = selectPluginEntities(entities, selection).map((entity) => ({ status: 'preview', sourceEntityRef: entity.sourceEntityRef, rows: adapter().preview?.(entity) || null }));
+    const reader = kind === 'import' ? adapter() : extractAdapter(projectDir);
+    results = selectPluginEntities(entities, selection).map((entity) => ({ status: 'preview', sourceEntityRef: entity.sourceEntityRef, rows: reader.preview?.(entity) || null }));
   } else if (kind === 'import') {
     const approvalsPath = path.join(projectDir, 'orchestration/approvals.json');
     const approval = fs.existsSync(approvalsPath) ? json(approvalsPath) : {};
@@ -762,7 +841,9 @@ async function runGeneratedPluginEntrypoint({ kind, projectDir, entities }, args
       async (row, filters) => {
         // Run-scoped authorization/mute checks happen once, before the first ready write.
         preflight ||= Promise.resolve().then(() => runtime.preflight({ entities: selectedEntities, selection: filters, projectDir, runId }));
-        await preflight;
+        // A preflight refusal (authorization, mute) ends the run. A scope-guard refusal is about
+        // this entity only: it fails (held, with a cutover item) and the others continue.
+        try { await preflight; } catch (error) { throw stopsRun(error); }
         if (exactScope) fieldContract().assertExecutionScope(mappingPlan, row.sourceEntityRef, descriptor.mappingPlanDigest, projectDir);
         return runtime.importEntity({ entity: row, selection: filters, projectDir, runId, dryRun });
       }]));
@@ -777,7 +858,7 @@ async function runGeneratedPluginEntrypoint({ kind, projectDir, entities }, args
     const stops = interruptionLib();
     const collected = [];
     const finalize = async (interruption) => {
-      const deferredExtraction = reader.deferredExtractionReportInput(await reader.collectDeferredExtractions(path.join(projectDir, 'data')));
+      const deferredExtraction = withFailedEntityActions(reader.deferredExtractionReportInput(await reader.collectDeferredExtractions(path.join(projectDir, 'data'))), collected);
       await runtime.finalizeImport({ results: collected, selection, projectDir, runId, deferredExtraction, ...(interruption ? { interruption } : {}) });
     };
     try {
@@ -796,17 +877,19 @@ async function runGeneratedPluginEntrypoint({ kind, projectDir, entities }, args
     }
   } else {
     results = [];
+    const reader = extractAdapter(projectDir);
     for (const entity of selectExtractionEntities(entities, selection)) {
-      if (!entity.bridgeDesignated) { results.push(await adapter().extractNative({ entity, selection, projectDir, runId })); continue; }
+      if (!entity.bridgeDesignated) { results.push(await reader.extractNative({ entity, selection, projectDir, runId })); continue; }
       const preparation = await validatePluginExtractionReadiness({ projectDir, sourceEntityRef: entity.sourceEntityRef, planRef: entity.sourceMeta?.extractionPlan, siteBaseUrl, phase: 'preparation' });
       if (!preparation.ready) { results.push({ status: 'deferred', ...preparation }); continue; }
-      const transport = await adapter().sourceTransport({ entity, projectDir, siteBaseUrl, runId });
+      const transport = await reader.sourceTransport({ entity, projectDir, siteBaseUrl, runId });
       results.push(await extractBoundPluginEntity({ projectDir, sourceEntityRef: entity.sourceEntityRef, planRef: entity.sourceMeta.extractionPlan, transport }));
     }
-    try { await adapter().afterExtraction?.({ results, selection, projectDir, runId }); }
+    try { await reader.afterExtraction({ results, selection, projectDir, runId }); }
     catch { process.stderr.write('Source-read telemetry could not be filed; extraction evidence is retained.\n'); }
   }
   process.stdout.write(`${JSON.stringify({ runId, results })}\n`);
   return results;
 }
-module.exports = { plannedPluginEntities, pluginFullReadState, readPluginEntitiesForMapping, sourceIdentity, sourceEntityRef, sha, safeFile, checkedFile, referenceFor, writeJson, writePluginEntityReadPlan, invalidatePluginEntityReadPlan, loadPlan, validatePlan, recordPluginExtractionDeferral, validatePluginExtractionReadiness, extractBoundPluginEntity, dispatchWithPluginExtractionReadiness, selectPluginEntities, planFreshnessReferences, assemble, parseSelectionArgs, runGeneratedPluginEntrypoint };
+module.exports = {
+  failedEntityOperatorAction, withFailedEntityActions, extractAdapter, plannedPluginEntities, pluginFullReadState, readPluginEntitiesForMapping, sourceIdentity, sourceEntityRef, sha, safeFile, checkedFile, referenceFor, planReference, writeJson, writePluginEntityReadPlan, invalidatePluginEntityReadPlan, loadPlan, validatePlan, recordPluginExtractionDeferral, validatePluginExtractionReadiness, extractBoundPluginEntity, dispatchWithPluginExtractionReadiness, selectPluginEntities, planFreshnessReferences, assemble, parseSelectionArgs, runGeneratedPluginEntrypoint };
