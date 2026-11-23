@@ -7,10 +7,10 @@ Common use cases: react to CRM events, sync data on order creation, send notific
 
 ## Scaffold
 
-Use `wix generate --params` with all required fields:
+Use `npm run generate -- --params` with all required fields:
 
 ```bash
-wix generate --params '{"extensionType":"EVENT","folder":"<folder>"}'
+npm run generate -- --params '{"extensionType":"EVENT","folder":"<folder>"}'
 ```
 
 `folder` must be lowercase alphanumeric and hyphens. The CLI generates the folder, both files, the UUID, and the `src/extensions.ts` registration. The scaffolded handler file imports a sample SDK event (CRM Contact Created) — replace the import and the handler body with the event you actually want.

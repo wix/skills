@@ -10,7 +10,7 @@ Service plugins are a set of APIs defined by Wix that let you inject custom logi
 
 ## Scaffold
 
-Use `wix generate --params` with `extensionType: SERVICE_PLUGIN`. `pluginType` is one of:
+Use `npm run generate -- --params` with `extensionType: SERVICE_PLUGIN`. `pluginType` is one of:
 
 | Value | SPI | Singular |
 | --- | --- | --- |
@@ -30,9 +30,9 @@ Use `wix generate --params` with `extensionType: SERVICE_PLUGIN`. `pluginType` i
 
 > **Singular types** — `ECOM_SHIPPING_RATES`, `ECOM_DISCOUNTS_TRIGGER`, and `GIFT_CARDS_PROVIDER` are **singular**: only one component of each type is allowed per app. Never scaffold or include two components of the same singular type in the same app payload.
 
-`name` must be lowercase alphanumeric + hyphens, max 19 characters. The CLI generates the folder, `plugin.ts`, the builder file, the UUID, and the `src/extensions.ts` registration with the appropriate builder method for the SPI type. Some SPI types (e.g., `ECOM_SHIPPING_RATES`) get a `description` placeholder field in the generated builder — replace it with your real copy.
+`name` must be lowercase alphanumeric + hyphens, max 19 characters. The CLI generates the folder, `<name>.ts`, the builder file, the UUID, and the `src/extensions.ts` registration with the appropriate builder method for the SPI type. Some SPI types (e.g., `ECOM_SHIPPING_RATES`) get a `description` placeholder field in the generated builder — replace it with your real copy.
 
-> **Missing dependency after scaffolding:** `wix generate` adds the SPI's SDK package (e.g. `@wix/bookings`, `@wix/realtime`) to `package.json`, but does not always install it into `node_modules`. If `tsc`/`wix build` reports the import as unresolved right after scaffolding, run `npm install <package>` for just that package (no need for a full reinstall) before debugging further.
+> **Missing dependency after scaffolding:** `npm run generate` adds the SPI's SDK package (e.g. `@wix/bookings`, `@wix/realtime`) to `package.json`, but does not always install it into `node_modules`. If `tsc`/`wix build` reports the import as unresolved right after scaffolding, run `npm install <package>` for just that package (no need for a full reinstall) before debugging further.
 
 ## References
 
@@ -56,7 +56,7 @@ Use `wix generate --params` with `extensionType: SERVICE_PLUGIN`. `pluginType` i
 
 ## Implementation Pattern
 
-The scaffolded `plugin.ts` imports the relevant module from the SPI's package (`@wix/ecom/service-plugins`, `@wix/bookings/service-plugins`, etc.) and calls `provideHandlers({...})`. Each handler is invoked by Wix on the relevant flow with a `{ request, metadata }` payload and must return the SPI-specific response shape — see the per-SPI reference (Shipping Rates, Validations, etc.) for the exact request/response types and a worked example.
+The scaffolded `<name>.ts` imports the relevant module from the SPI's package (`@wix/ecom/service-plugins`, `@wix/bookings/service-plugins`, etc.) and calls `provideHandlers({...})`. Each handler is invoked by Wix on the relevant flow with a `{ request, metadata }` payload and must return the SPI-specific response shape — see the per-SPI reference (Shipping Rates, Validations, etc.) for the exact request/response types and a worked example.
 
 ## Implementation Requirements
 

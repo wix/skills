@@ -5,7 +5,7 @@ Custom element widgets are native web components (HTML custom elements) that app
 
 ## Scaffold
 
-Use `wix generate --params '{"extensionType":"CUSTOM_ELEMENT","name":"<Display Name>"}'` — `name` is the required param (a human-readable name, e.g. `"Countdown Timer"`), **not `folder`**: the CLI derives the folder/tag name from it (kebab-cased, `-element` suffix added if needed for the hyphen requirement). The CLI generates 4 files plus the `src/extensions.ts` registration:
+Use `npm run generate -- --params '{"extensionType":"CUSTOM_ELEMENT","name":"<Display Name>"}'` — `name` is the required param (a human-readable name, e.g. `"Countdown Timer"`), **not `folder`**: the CLI derives the folder/tag name from it (kebab-cased, `-element` suffix added if needed for the hyphen requirement). The CLI generates 4 files plus the `src/extensions.ts` registration:
 
 | File | Purpose |
 |------|---------|
@@ -104,9 +104,9 @@ The CLI scaffolds the builder file with sensible defaults — edit it only to cu
 | `width.defaultWidth` | number (px) | `450` | Initial width when added to a page. |
 | `width.allowStretch` | boolean | `true` | Whether the site owner can stretch the widget's width. |
 | `height.defaultHeight` | number (px) | `250` | Initial height. |
-| `installation.autoAdd` | boolean | `true` | Auto-added on app install if true; set `false` for opt-in widgets. |
+| `installation.autoAdd` | boolean | `true` | Auto-added on app install if true — home page only; set `false` for opt-in widgets. |
 | `presets` | array | one default preset | Editor presets the site owner can pick, each with its own `id`/`name`/`thumbnailUrl`. |
-| `presets[].thumbnailUrl` | string | `{{BASE_URL}}/<name>-thumbnail.png` | Preview image path; `{{BASE_URL}}` resolves at build time — replace the placeholder asset there. |
+| `presets[].thumbnailUrl` | string | `{{BASE_URL}}/<name>-thumbnail.png` | Preview image path; `{{BASE_URL}}` resolves at build time — replace the placeholder asset there. Without a thumbnail the widget doesn't appear in Add Elements. |
 | `element` / `settings` | path | generated paths | Widget/panel file paths. Don't change unless renaming files. |
 
 - Import `@wix/design-system/styles.global.css` for styles
@@ -127,7 +127,7 @@ The convention differs by pattern, but the settings panel side is always kebab-c
 
 A widget runs as the **site visitor or member**, never as the app — see [Identity and Elevation Requirement](../SKILL.md#identity-and-elevation-requirement) before routing any SDK call out to a backend endpoint.
 
-A widget's collection reads need permissions admitting an anonymous visitor — see [Permissions](DATA_COLLECTION.md#permissions); the scaffolded default is `ANYONE` read, `PRIVILEGED` write.
+A widget's collection reads need permissions admitting an anonymous visitor — see [Permissions](DATA_COLLECTION.md#permissions); the scaffolded default is `CMS_EDITOR` for all four.
 
 ## Wix Data API Integration
 

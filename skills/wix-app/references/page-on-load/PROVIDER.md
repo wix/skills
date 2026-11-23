@@ -55,7 +55,7 @@ export default PageOnLoadUtmCapture;
 
 ## Extension Registration
 
-`wix generate` writes `page-on-load-<task-kebab-case-name>.extension.ts` and registers it in `src/extensions.ts`. Edit the generated file; the finished shape of the parts you change, for the example task `UtmCapture` (substitute your task per [Naming](../PAGE_ON_LOAD.md#naming)):
+`npm run generate` writes `page-on-load-<task-kebab-case-name>.extension.ts` and registers it in `src/extensions.ts`. Edit the generated file; the finished shape of the parts you change, for the example task `UtmCapture` (substitute your task per [Naming](../PAGE_ON_LOAD.md#naming)):
 
 ```typescript
 // No exposed items and no inputs: both fields stay, empty (they are required).

@@ -7,7 +7,7 @@ Creates CMS data collections for Wix CLI apps. The data collections extension al
 
 ## Scaffold
 
-Use `wix generate --params` with `extensionType: DATA_COLLECTION`. The only other param is `collectionName` (1-36 chars: letters, numbers, underscores, hyphens) — fields, permissions, displayName overrides, etc. are all edited after scaffolding in the generated file.
+Use `npm run generate -- --params` with `extensionType: DATA_COLLECTION`. The only other param is `collectionName` (1-36 chars: letters, numbers, underscores, hyphens) — fields, permissions, displayName overrides, etc. are all edited after scaffolding in the generated file.
 
 The CLI manages a shared aggregator file (`data-collections.extension.ts`) that imports every collection file and registers them in one `extensions.dataCollections({...})` builder. The aggregator and `src/extensions.ts` are updated automatically — don't edit them manually.
 
@@ -36,7 +36,7 @@ The CLI manages a shared aggregator file (`data-collections.extension.ts`) that 
 The CLI scaffolds `<CollectionName>.ts` as a `satisfies DataCollection` default export. The scaffolded `fields` and `dataPermissions` are placeholders — replace them with your real schema, and set permissions per [Permissions](data-collection/PERMISSIONS.md) before shipping.
 
 **Import `DataCollection` from the package this project actually uses.** A standalone
-`@wix/custom-extensions` project — what `wix generate` scaffolds today — emits
+`@wix/custom-extensions` project — what `npm run generate` scaffolds today — emits
 `from '@wix/custom-extensions'`; only an Astro project uses `'@wix/astro/builders'`. The scaffolded
 file already has the right one: keep the import the CLI wrote and replace the body around it.
 
@@ -68,7 +68,7 @@ export default {
 
 The four contexts, what each admits, and the `SITE_MEMBER_AUTHOR` rule are in
 [data-collection/PERMISSIONS.md](data-collection/PERMISSIONS.md). The scaffolded `dataPermissions`
-are placeholders — `ANYONE` to read, `PRIVILEGED` to write — so set them before shipping.
+are placeholders — `CMS_EDITOR` for all four — so set them before shipping.
 
 ## Wix CLI-Specific Constraints
 
@@ -91,8 +91,8 @@ Each item in `initialData` must match the collection schema exactly:
 
 - Field keys must be `lowerCamelCase` and match the schema
 - `TEXT` → string, `NUMBER` → number, `BOOLEAN` → boolean
-- `DATE`/`DATETIME` → use `{ "$date": "2024-01-15T10:30:00.000Z" }` format
-- `REFERENCE` → provide the `idSuffix` of the referenced collection
+- `DATE` → a `YYYY-MM-DD` string; `DATETIME` → `{ "$date": "2024-01-15T10:30:00.000Z" }`
+- `REFERENCE` → the `_id` of an item in the referenced collection
 - Required fields must always have values
 
 ## Examples
@@ -104,7 +104,7 @@ Each item in `initialData` must match the collection schema exactly:
 Scaffold:
 
 ```bash
-wix generate --params '{"extensionType":"DATA_COLLECTION","collectionName":"additional-fees"}'
+npm run generate -- --params '{"extensionType":"DATA_COLLECTION","collectionName":"additional-fees"}'
 ```
 
 Edit the generated `src/extensions/backend/data-collections/additional-fees.ts`:
@@ -140,7 +140,7 @@ export default {
 
 **Request:** "Create collections for products and categories with relationships"
 
-Run `wix generate --params` twice — once with `collectionName: "categories"` and once with `collectionName: "products"`. Then edit `src/extensions/backend/data-collections/products.ts` to add a `REFERENCE` field pointing at `categories` (`referenceOptions: { referencedCollectionId: "categories" }`). The aggregator `data-collections.extension.ts` is updated by the CLI automatically.
+Run `npm run generate -- --params` twice — once with `collectionName: "categories"` and once with `collectionName: "products"`. Then edit `src/extensions/backend/data-collections/products.ts` to add a `REFERENCE` field pointing at `categories` (`referenceOptions: { referencedCollectionId: "categories" }`). The aggregator `data-collections.extension.ts` is updated by the CLI automatically.
 
 ## Common Patterns
 

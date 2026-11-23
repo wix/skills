@@ -1,6 +1,6 @@
 # Lightbox Examples
 
-Each provider is scaffolded with `wix generate` and registered by it, as [CONTEXT_PROVIDER.md](../CONTEXT_PROVIDER.md) describes. The examples are in this file (a repeater) and [EXAMPLES_CONDITION.md](EXAMPLES_CONDITION.md) (a countdown). Each shows the `.tsx` in full and only the manifest parts the scaffold does not write: `context`, `data` and `resources`.
+Each provider is scaffolded with `npm run generate` and registered by it, as [CONTEXT_PROVIDER.md](../CONTEXT_PROVIDER.md) describes. The examples are in this file (a repeater) and [EXAMPLES_CONDITION.md](EXAMPLES_CONDITION.md) (a countdown). Each shows the `.tsx` in full and only the manifest parts the scaffold does not write: `context`, `data` and `resources`.
 
 ## Open on a click, with data for the popup
 

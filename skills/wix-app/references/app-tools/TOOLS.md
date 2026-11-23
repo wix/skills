@@ -11,7 +11,7 @@ The AI assistant does NOT call these tools directly. It uses the declarations he
 Scaffold the extension with the CLI — it creates the `.extension.ts` file and registers it in `src/extensions.ts` automatically:
 
 ```bash
-wix generate --params '{"extensionType":"APP_TOOLS","name":"my-tools"}'
+npm run generate -- --params '{"extensionType":"APP_TOOLS","name":"my-tools"}'
 ```
 
 The generated file lives at `src/extensions/backend/app-tools/my-tools/my-tools.extension.ts`. Replace the stub tool with your own:

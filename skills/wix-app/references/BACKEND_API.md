@@ -11,13 +11,13 @@ before choosing the directory, handler type, or frontend URL.
   transitive installation under `node_modules` is not enough. Do not infer the
   runtime from using `wix dev`, `wix build`, or the Wix CLI alone.
 - Existing `@wix/astro` apps retain Astro routing. Do not add
-  `@wix/custom-extensions`, move routes into `src/endpoints`, change their handler
+  `@wix/custom-extensions`, move routes into `src/api`, change their handler
   imports, or introduce `WIX_SERVER_BASE_PATH` to apply the other runtime's recipe.
 
 ## Generate for the Project Type
 
 ```bash
-npx wix generate --params '{"extensionType":"HTTP_ENDPOINT","name":"hello"}'
+npm run generate -- --params '{"extensionType":"HTTP_ENDPOINT","name":"hello"}'
 ```
 
 Names use lowercase letters, digits, and hyphens; slash-separated names such as
@@ -28,12 +28,10 @@ For Wix app projects, the generator preserves the selected runtime:
 
 | Project | Generated file | Route before any server base path | `APIRoute` import |
 | --- | --- | --- | --- |
-| `@wix/custom-extensions` | `src/endpoints/hello.ts` | `/hello` | `@wix/custom-extensions/types` |
+| `@wix/custom-extensions` | `src/api/hello.ts` | `/hello` | `@wix/custom-extensions/types` |
 | `@wix/astro` | `src/pages/api/hello.ts` | `/api/hello` | `astro` |
 
-In `@wix/custom-extensions` projects, endpoints live in `src/endpoints` by default and require
-`@wix/custom-extensions@^0.2.14`; older releases neither scan that directory by
-default nor export `./types`, and the build passes without serving anything. The
+In `@wix/custom-extensions` projects, endpoints live in `src/api` by default. The
 generator upgrades the package; when creating the file by hand, upgrade it
 yourself. Install changed dependencies before validating. If `app()` in
 `src/extensions.ts` passes `apiDir`, that directory (under `src/`) is the one the
@@ -41,7 +39,7 @@ runtime scans instead, and the generator does not read it: either remove `apiDir
 to use the default, or move the generated file into `src/<apiDir>`. The route is
 `/<name>` either way.
 
-If `wix generate` does not recognize `HTTP_ENDPOINT`, the CLI predates the
+If `npm run generate` does not recognize `HTTP_ENDPOINT`, the CLI predates the
 generator (added in `@wix/cli` 1.1.243). Update the CLI, or create the file by hand:
 put it in the directory from the table above, export the handlers shown in
 [HTTP Methods](#http-methods), and import `APIRoute` from
@@ -55,8 +53,8 @@ Nested paths are relative to the runtime's endpoint directory:
 
 | `@wix/custom-extensions` file | Route | Astro equivalent |
 | --- | --- | --- |
-| `src/endpoints/payments/checkout.ts` | `/payments/checkout` | `src/pages/api/payments/checkout.ts` → `/api/payments/checkout` |
-| `src/endpoints/users/[id].ts` | `/users/:id` | `src/pages/api/users/[id].ts` → `/api/users/:id` |
+| `src/api/payments/checkout.ts` | `/payments/checkout` | `src/pages/api/payments/checkout.ts` → `/api/payments/checkout` |
+| `src/api/users/[id].ts` | `/users/:id` | `src/pages/api/users/[id].ts` → `/api/users/:id` |
 
 ## HTTP Methods
 

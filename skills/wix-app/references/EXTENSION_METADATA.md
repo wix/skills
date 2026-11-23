@@ -1,6 +1,6 @@
 # Extension Metadata: `name` and `aiContext`
 
-`wix generate` scaffolds builder files without the metadata Wix uses for logs and for its AI. Finish each scaffolded `*.extension.ts` by adding it:
+`npm run generate` scaffolds builder files without the metadata Wix uses for logs and for its AI. Finish each scaffolded `*.extension.ts` by adding it:
 
 - **`name`** on a backend event or service plugin — a short title-case label of what the extension does, trigger first, then action: `"New Member Created"`, `"Order Paid Send Receipt"`, `"Weekend Delivery Fee"`. In a `@wix/custom-extensions` project the build slugifies it into the URL site monitoring logs show: `/_wix/extensions/webhooks/new-member-created/<id>` for an event, `/_wix/extensions/service-plugins/weekend-delivery-fee/<id>` for a service plugin; an event with no `name` logs as `/_wix/extensions/webhooks/webhook/<id>`. A service plugin's scaffolded `name` is its folder path, so replace it.
 - **`aiContext: { description }`** — one or two plain sentences on what the extension does for the site owner and when it runs. Wix's AI reads it to understand the extension.

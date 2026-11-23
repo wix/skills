@@ -11,7 +11,7 @@ A function library bundles reusable functions the Wix editor and runtime can cal
 1. [ ] Scaffold with the Wix CLI, from the project root:
 
    ```bash
-   npx wix generate --params '{"extensionType":"FUNCTION_LIBRARY","name":"<library-name>"}'
+   npm run generate -- --params '{"extensionType":"FUNCTION_LIBRARY","name":"<library-name>"}'
    ```
 
    `name` is kebab-case (e.g. `car-formatting`) — the CLI rejects spaces and uppercase. It derives the folder, `type`, `id` and the `src/extensions.ts` registration from it, and creates `src/extensions/site/function-libraries/{library-name}/{library-name}.ts` (a `formatPrice` stub) and `{library-name}.extension.ts`.

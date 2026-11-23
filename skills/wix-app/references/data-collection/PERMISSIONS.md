@@ -17,7 +17,7 @@ Access levels control who can read, create, update, and delete items in collecti
 
 **Common patterns:**
 
-- Public content (default, recommended): `read: ANYONE, write: PRIVILEGED`
+- Public content (recommended): `read: ANYONE, write: PRIVILEGED`
 - User-generated content: `read: SITE_MEMBER, write: SITE_MEMBER_AUTHOR`
 - Editorial workflow: `read: ANYONE, write: CMS_EDITOR`
 - Private/admin: `read: PRIVILEGED, write: PRIVILEGED`

@@ -11,7 +11,7 @@ Creates context provider components for Wix CLI applications. Context providers 
 A Wix context provider is an ordinary React context — `createContext`, a provider component, a hook — that is **registered as an extension** with `extensions.contextProvider()` from the project's Wix extension builder package. The React half is standard React, and this skill does not restate it. What makes it a Wix context provider is the registration, the file location, and the manifest shape. Writing the React part and skipping those is the mistake this section rules out.
 
 **DO NOT:**
-- Leave a `SomeContext.tsx` (or similar) unregistered — a React context with no `extensions.contextProvider()` entry is invisible to the Editor; scaffold with `wix generate` (see the [Quick Start Checklist](#quick-start-checklist))
+- Leave a `SomeContext.tsx` (or similar) unregistered — a React context with no `extensions.contextProvider()` entry is invisible to the Editor; scaffold with `npm run generate` (see the [Quick Start Checklist](#quick-start-checklist))
 - Build an Editor React component that wraps a `SomeProvider` — this bypasses the Wix extension system entirely
 - Put context files in `src/site/`, `src/contexts/`, or `src/site/widgets/`
 
@@ -25,7 +25,7 @@ Follow these steps in order when creating a context provider:
 1. [ ] Scaffold the provider with the Wix CLI, from the project root:
 
    ```bash
-   npx wix generate --params '{"extensionType":"CONTEXT_PROVIDER","name":"<Provider Name>"}'
+   npm run generate -- --params '{"extensionType":"CONTEXT_PROVIDER","name":"<Provider Name>"}'
    ```
 
    The CLI derives the folder (`counter-context`) from `name`, builds the `type` as `<codeIdentifier>.<camelCaseName>` with the app's own code identifier (no need to ask the user for it), generates a fresh UUID, and registers the extension in `src/extensions.ts`.

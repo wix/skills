@@ -34,8 +34,8 @@ The `methodName` field is the **linking key**: it must match exactly between the
 Run these two commands once — the CLI generates all files and updates `src/extensions.ts` automatically:
 
 ```bash
-wix generate --params '{"extensionType":"APP_TOOLS","name":"my-tools"}'
-wix generate --params '{"extensionType":"SERVICE_PLUGIN","pluginType":"TOOLS_PROVIDER_CONFIG","name":"my-tools-provider"}'
+npm run generate -- --params '{"extensionType":"APP_TOOLS","name":"my-tools"}'
+npm run generate -- --params '{"extensionType":"SERVICE_PLUGIN","pluginType":"TOOLS_PROVIDER_CONFIG","name":"my-tools-provider"}'
 ```
 
 ### Step 2: Declare your tools (`APP_TOOLS`)
