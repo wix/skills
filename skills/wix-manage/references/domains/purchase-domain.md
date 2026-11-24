@@ -522,7 +522,9 @@ Ask for every field, one per line:
 > - City
 > - Country
 > - State or province (if the country has them)
-> - Postal code (if the country uses one)
+> - Postal code
+
+Never describe the postal code as optional ("if applicable", "if the country uses one"). Ask for it every time, unless the country is on the no-postal-code list in §P4.3.
 
 Ask for the TLD-specific fields of §P4.4 in the same message when the domain's TLD has any.
 
