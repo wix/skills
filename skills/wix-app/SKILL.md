@@ -153,6 +153,7 @@ Opening a listed record, and any create or edit form for one (even a single fiel
 | App Market Review | [APP_MARKET_REVIEW.md](references/APP_MARKET_REVIEW.md) |
 | App Identifiers (Namespace, Code ID) | [APP_IDENTIFIERS.md](references/APP_IDENTIFIERS.md) |
 | Wix Stores Versioning (V1/V3), including product media writes | [STORES_VERSIONING.md](references/STORES_VERSIONING.md) |
+| Secrets and API keys — reading them with `process.env`, and where the user adds them | [SECRETS.md](references/SECRETS.md) |
 | Official Documentation Links | [DOCUMENTATION.md](references/DOCUMENTATION.md) |
 | Wix Patterns Dashboard Pages | [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md) |
 | Business Manager theme — the wrapper every dashboard page, modal and plugin needs | [BUSINESS_MANAGER_THEME.md](references/BUSINESS_MANAGER_THEME.md) |
@@ -238,6 +239,12 @@ When a Data Collection is created alongside other extensions that reference the 
 5. **Request both V1 and V3 permission scopes** for every Stores operation
 
 This is non-negotiable — V1 and V3 are NOT backwards compatible.
+
+---
+
+## Secrets and API Keys Requirement
+
+**Whenever the code needs an API key, token or other secret** (including one pasted into the chat), read [SECRETS.md](references/SECRETS.md) first. Never write the value into `.env*` files or source code.
 
 ---
 
