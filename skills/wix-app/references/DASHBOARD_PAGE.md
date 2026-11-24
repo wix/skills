@@ -18,10 +18,10 @@ The order, what each library owns, and how to look a name up: [COMPONENT_SELECTI
 
 ## Scaffold
 
-Use `wix generate --params` with all required fields:
+Use `npm run generate -- --params` with all required fields:
 
 ```bash
-wix generate --params '{"extensionType":"DASHBOARD_PAGE","title":"<title>","route":"<route>"}'
+npm run generate -- --params '{"extensionType":"DASHBOARD_PAGE","title":"<title>","route":"<route>"}'
 ```
 
 | Field | Constraint |

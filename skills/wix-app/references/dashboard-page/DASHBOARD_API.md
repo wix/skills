@@ -187,20 +187,19 @@ Host Module '@wix/dashboard' 'openModal()' opens a dashboard modal extension on 
 - `params` (Record<string, any>, optional): Custom data to pass into the modal (accessible via observeState in the modal)
 
 **Returns:**
-Promise that resolves when the modal is closed.
-`{ modalClosed: Promise<Serializable> }`
+`{ modalClosed: Promise<Serializable> }` — await `modalClosed` for the close data.
 
 **Example:**
 ```typescript
 import { dashboard } from '@wix/dashboard';
 
 // Open a modal
-await dashboard.openModal({
+dashboard.openModal({
   modalId: 'your-modal-id',
 });
 
 // Pass extra data when opening a modal
-await dashboard.openModal({
+dashboard.openModal({
   modalId: 'your-modal-id',
   params: { firstName: "Name" },
 });
