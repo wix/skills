@@ -1333,6 +1333,7 @@ The fallback link appears at stage 2, not stage 1. Do not skip stage 1.
 | `403` / `access_denied` on domain-search v2 | You added auth to a public endpoint. Remove all headers and retry. |
 | Offering returns no products | *"Wix doesn't support purchasing this TLD. Try a different extension like .com, .net, or .org."* |
 | Intent upsert validation error | A field the user gave is wrong → show which, ask for the correction, retry. A value you generated is wrong (`sessionId` is not a valid GUID) → fix it silently and retry once. See §P5. |
+| `403` / permission error on cart cancel, cart read or `add-items` (the user is not the site owner or lacks purchase permissions) | Do not retry and do not hand over a checkout link. Tell the user plainly: *"Only the site owner, or someone with permission to make purchases, can buy a domain for this site. Ask the owner to buy it, or choose a site you own."* No charge was made. |
 | Cart `add-items` fails | Confirm `productId` came from the offering response, not hardcoded. Retry once. |
 | Anything else, persistent | Escalation ladder above. |
 
