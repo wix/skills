@@ -40,10 +40,10 @@ Add create, delete or settings only when the workflow needs them; otherwise remo
 Scaffold once — every template is one extension, however many routes it has:
 
 ```bash
-wix generate --params '{"extensionType":"DASHBOARD_PAGE","title":"<title>","route":"<route>"}'
+npm run generate -- --params '{"extensionType":"DASHBOARD_PAGE","title":"<title>","route":"<route>"}'
 ```
 
-`route` takes no leading slash — `support-tickets`, not `/support-tickets`. See [Dashboard Page → Scaffold](../DASHBOARD_PAGE.md#scaffold).
+`route` takes no leading slash. See [Dashboard Page → Scaffold](../DASHBOARD_PAGE.md#scaffold).
 
 Then copy **every** file `--templates` lists for it into the generated folder (`src/extensions/dashboard/pages/<feature>/`). They import one another by relative path, so keep their names relative to each other; one file on its own does not compile.
 
