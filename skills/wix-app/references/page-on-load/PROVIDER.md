@@ -74,7 +74,7 @@ resources: {
 ```
 
 - **`hook`** must be the exact hook name the provider file exports. The scaffold's `useCounterContext` stops existing when you rewrite the file.
-- **`moduleSpecifier`** is `<moduleSpecifierPrefix>` plus the folder name. Module specifiers are unique across all of Wix, so an unprefixed one can belong to another app and fail the checkpoint with `Error during component specifier upsert`.
+- **`moduleSpecifier`** is `<moduleSpecifierPrefix>` plus the folder name. Module specifiers are unique across all of Wix, so an unprefixed one can belong to another app and fail to save with `Error during component specifier upsert`.
 - **Dependencies.** Run `npm install @wix/site`: it provides `analytics`, and is often present only as a transitive dependency.
 - **Unique `type`.** The `type` is built from the context's `name` and is globally unique. A second context with the same name fails with `componentType already exists` (code 2018), which the platform's background preview reports: rename it.
 - **`data`** is only needed if the side effect must be configurable from the Editor (e.g. a configurable event name); otherwise keep `data: {}`.

@@ -76,7 +76,7 @@ A `filter` data item needs a `filter` key, and a `sort` data item needs a `sort`
 | dataItems | References to other data items: `{ itemPath: { itemKey: '<key>' } }` |
 | contextItems | References to context items: `{ itemPath: { itemKey: '<key>' } }` |
 
-A missing key fails the checkpoint with `dataType 'filter' must include a 'filter' field`. An empty one (`filter: {}`) fails with `must include at least one of 'inlineItems', 'dataItems', or 'contextItems'`. TypeScript accepts both, because every field is optional.
+A missing key fails saving with `dataType 'filter' must include a 'filter' field`. An empty one (`filter: {}`) fails with `must include at least one of 'inlineItems', 'dataItems', or 'contextItems'`. TypeScript accepts both, because every field is optional.
 
 ```typescript
 productFilter: {
@@ -100,7 +100,7 @@ productFilter: {
 |-----|------|-------------|
 | options | Option[] | List of valid enum items (minSize: 2, maxSize: 100) |
 
-A `textEnum` with fewer than 2 options fails the checkpoint with `textEnum must have at least 2 options`. A field that only ever holds one fixed value (e.g. a media `type` that is always `'image'`) is `text`, not a one-option `textEnum`. When changing a field from `textEnum` to `text`, remove its `textEnum` key too: a `textEnum` key on a non-`textEnum` item fails with `dataType "text" does not match extension field "textEnum"`.
+A `textEnum` with fewer than 2 options fails saving with `textEnum must have at least 2 options`. A field that only ever holds one fixed value (e.g. a media `type` that is always `'image'`) is `text`, not a one-option `textEnum`. When changing a field from `textEnum` to `text`, remove its `textEnum` key too: a `textEnum` key on a non-`textEnum` item fails with `dataType "text" does not match extension field "textEnum"`.
 
 Each option:
 
@@ -156,7 +156,7 @@ type RichText = {
 
 ### ArrayItems Type
 
-> **⚠️ Important:** This `ArrayItems` type is used in the **`data`** section only. In a context provider it takes `dataItem` as its key. This is different from `ContextArrayItems` (used in the **`context`** section), which uses `item` as its key. See [ContextArrayItems](CONTEXT_SPEC_ITEMS.md#contextarrayitems) below. A context provider array without `dataItem` or `item` fails the checkpoint with: `arrayItems is missing arrayItems.item or arrayItems.dataItem with dataType`.
+> **⚠️ Important:** This `ArrayItems` type is used in the **`data`** section only. In a context provider it takes `dataItem` as its key. This is different from `ContextArrayItems` (used in the **`context`** section), which uses `item` as its key. See [ContextArrayItems](CONTEXT_SPEC_ITEMS.md#contextarrayitems) below. A context provider array without `dataItem` or `item` fails saving with: `arrayItems is missing arrayItems.item or arrayItems.dataItem with dataType`.
 
 | Key | Type | Description |
 |-----|------|-------------|
