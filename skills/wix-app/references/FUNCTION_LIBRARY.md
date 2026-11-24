@@ -32,7 +32,7 @@ resources: {
 
 ## Hard Constraints
 
-- **Always set `resources.moduleSpecifier` to `<moduleSpecifierPrefix><library-name>`** (e.g. `@/car-formatting`). `<moduleSpecifierPrefix>` is `@/` by default, or the prefix the user gives you. Module specifiers are unique across all of Wix, not per app: an unprefixed name may already belong to another app, and the checkpoint then fails with `Error during component specifier upsert`
+- **Always set `resources.moduleSpecifier` to `<moduleSpecifierPrefix><library-name>`** (e.g. `@/car-formatting`). `<moduleSpecifierPrefix>` is `@/` by default, or the prefix the user gives you. Module specifiers are unique across all of Wix, not per app: an unprefixed name may already belong to another app, and saving then fails with `Error during component specifier upsert`
 - **Never change the `moduleSpecifier` of a library that already exists** — a registered module specifier cannot be renamed. The prefix rule applies to new libraries only
 - **Exported function names MUST exactly match the keys in the `functions` map** — a mismatch means the editor references a function that doesn't exist at runtime. Named exports only, no `export default`
 - **The boolean type is `booleanValue` — NOT `boolean`**, which is a TypeScript primitive and not a valid `dataType`

@@ -31,7 +31,7 @@
 
 ## Error: `Error during component specifier upsert`
 
-The checkpoint fails when a `moduleSpecifier` is already registered by another app (module specifiers are unique across all of Wix) or when an existing one was changed (a registered module specifier cannot be renamed). For a function library added since the last checkpoint, set `resources.moduleSpecifier` to `<moduleSpecifierPrefix><its current value>` (`@/` by default, or the prefix the user gives you). For a library that already existed, restore the `moduleSpecifier` it had before (`git log -p -- <its .extension.ts>`). Change only that string; `type`, `id` and the files stay as they are.
+Saving fails when a `moduleSpecifier` is already registered by another app (module specifiers are unique across all of Wix) or when an existing one was changed (a registered module specifier cannot be renamed). For a function library that has never been saved, set `resources.moduleSpecifier` to `<moduleSpecifierPrefix><its current value>` (`@/` by default, or the prefix the user gives you). For a library that already existed, restore the `moduleSpecifier` it had before (`git log -p -- <its .extension.ts>`). Change only that string; `type`, `id` and the files stay as they are.
 
 ## Error: `componentType already exists` (code 2018)
 

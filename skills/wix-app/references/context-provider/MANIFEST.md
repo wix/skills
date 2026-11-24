@@ -18,7 +18,7 @@ The `context.items` map defines what the provider exposes to child components. E
 
 ### ⚠️ CRITICAL: `context` vs `data` Array Format Difference
 
-The `context` section and `data` section use **different types** for array items. Mixing them up causes the checkpoint error `arrayItems is missing arrayItems.item or arrayItems.dataItem with dataType`.
+The `context` section and `data` section use **different types** for array items. Mixing them up causes the save error `arrayItems is missing arrayItems.item or arrayItems.dataItem with dataType`.
 
 | Section | Type | Array item key | Example |
 |---------|------|---------------|---------|
@@ -30,7 +30,7 @@ An array of objects follows the same rule in both sections: the object is the ar
 ```typescript
 // ✅ data section, array of objects
 arrayItems: { dataItem: { dataType: 'data', data: { items: { title: { dataType: 'text' } } } } }
-// ❌ fails the checkpoint
+// ❌ fails to save
 arrayItems: { data: { items: { title: { dataType: 'text' } } } }
 ```
 
