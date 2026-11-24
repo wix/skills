@@ -12,7 +12,7 @@ import { delimiter, dirname, join } from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
 
 // The CLI version the fallback installs; equal to `@wix/cli` in wix-headless-kit/install/pins.json.
-const WIX_CLI_VERSION = "1.1.258";
+const WIX_CLI_VERSION = "1.2.17";
 const isWin = process.platform === "win32";
 
 // The JS file a @wix/cli install runs (package.json `bin`), or null.
