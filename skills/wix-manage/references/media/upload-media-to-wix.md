@@ -1,6 +1,6 @@
 ---
 name: "Upload Media to Wix"
-description: Uploads images and files to the Wix Media Manager using the Import File API. Covers importing from external URLs, checking file status, and using the returned wixstatic.com URL in other APIs.
+description: Uploads images and files to the Wix Media Manager. Covers importing from an external URL, uploading a file that is not at a URL (such as a file the user attached, including one that arrives as base64 text), checking file status, and using the returned wixstatic.com URL in other APIs.
 ---
 # RECIPE: Upload Media to Wix Media Manager
 
@@ -150,9 +150,9 @@ curl -X GET 'https://www.wixapis.com/site-media/v1/files?parentFolderId=media-ro
 
 ---
 
-## Alternative: Upload from Local Device
+## Alternative: Upload a File That Is Not at a URL
 
-If you need to upload files from a local device (not from a URL), use the two-step upload process:
+When the file is not at a URL (a file on a device, or a file the user attached), upload the file itself in two steps.
 
 ### Step 1: Generate Upload URL
 
@@ -166,15 +166,55 @@ curl -X POST 'https://www.wixapis.com/site-media/v1/files/generate-upload-url' \
 }'
 ```
 
+The response holds the `uploadUrl`.
+
 ### Step 2: Upload to the Generated URL
 
+Send the file's raw bytes as the body, with its MIME type and its name:
+
 ```bash
-curl -X PUT '<UPLOAD_URL_FROM_RESPONSE>' \
+curl -X PUT '<UPLOAD_URL_FROM_RESPONSE>?filename=my-photo.jpg' \
 -H 'Content-Type: image/jpeg' \
 --data-binary @my-photo.jpg
 ```
 
+The response holds the stored `file`, in the same shape as the import response: use its `url`.
+
 > **Note:** For files larger than 10MB, use the Resumable Upload URL API instead.
+
+### When the File Is Base64 Text
+
+A file often reaches your code as base64 text and not as bytes: an attached file handed over as `{ path, content, encoding: "base64" }`, or a `data:image/png;base64,...` value the user pasted. That text is not the file. Sent as the body in Step 2, it is stored as a text document, and the upload still answers 200. The Import File API does not take a `data:` URL either.
+
+Decode the text to bytes, then run the two steps. In an environment that runs one script over several Wix API requests (`wix.request` stands for an authenticated Wix API request there), it is one call:
+
+```javascript
+async function() {
+  // The file's name, its MIME type, and its base64 text (for a data: URL, the part after "base64,").
+  const fileName = "pink-dress.jpg";
+  const mimeType = "image/jpeg";
+  const base64 = "<BASE64_TEXT>";
+
+  const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+
+  const { data: { uploadUrl } } = await wix.request({
+    method: "POST",
+    url: "https://www.wixapis.com/site-media/v1/files/generate-upload-url",
+    body: { mimeType, fileName }
+  });
+
+  const { data: { file } } = await wix.request({
+    method: "PUT",
+    url: uploadUrl + "?filename=" + encodeURIComponent(fileName),
+    headers: { "Content-Type": mimeType },
+    body: bytes // the decoded bytes, never the base64 text
+  });
+
+  return { id: file.id, url: file.url, mediaType: file.mediaType, operationStatus: file.operationStatus };
+}
+```
+
+**Check what was stored before you use it.** An image comes back with `mediaType: "IMAGE"` and a `static.wixstatic.com/media/...` URL. A URL that ends in `.txt`, or a `mediaType` that is not the kind of file you sent, means the text was uploaded and not the file: do not use that URL and do not report the upload as done. Decode and upload again.
 
 ---
 
@@ -214,3 +254,5 @@ curl -X PUT '<UPLOAD_URL_FROM_RESPONSE>' \
 | 1 | Call Import File API with external URL | Get file `id` and `url` with status `PENDING` |
 | 2 | Poll List Files API | Wait for `operationStatus: "READY"` |
 | 3 | Use in other APIs | Use the `url` field (wixstatic.com URL) |
+
+When the file is not at a URL, step 1 is the two-step upload in [Upload a File That Is Not at a URL](#alternative-upload-a-file-that-is-not-at-a-url). If the file is base64 text, decode it to bytes first.

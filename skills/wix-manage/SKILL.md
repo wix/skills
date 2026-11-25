@@ -413,7 +413,7 @@ Creates a Wix Groups group on a site step by step, suggesting a name and a descr
 ## Media
 
 ### [Upload Media to Wix](references/media/upload-media-to-wix.md)
-Uploads images and files to the Wix Media Manager using the Import File API. Covers importing from external URLs, checking file status, and using the returned wixstatic.com URL in other APIs.
+Uploads images and files to the Wix Media Manager. Covers importing from an external URL, uploading a file that is not at a URL (such as a file the user attached, including one that arrives as base64 text), checking file status, and using the returned wixstatic.com URL in other APIs.
 
 ### [Generate an Image with AI](references/media/generate-image-with-ai.md)
 Generates an image from a text prompt with the Wix AI APIs (Runware). Returns a short-lived URL that must be imported to be kept — importing is Upload Media to Wix's job, and this recipe hands off to it. Covers choosing a model and its cost/latency/content-filter trade-off, the accepted output sizes, per-model batching limits, the AI credit each call spends, and why a content refusal arrives as a success response with no image.
