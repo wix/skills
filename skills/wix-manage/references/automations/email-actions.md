@@ -1,6 +1,6 @@
 ---
 name: "Automations Email Actions"
-description: "Initialize new automation email actions, including additions during updates, then configure content and verify recipients while preserving existing emails."
+description: "Initialize new automation email actions, including additions during updates, then configure content, recipients and sender while preserving existing emails."
 ---
 
 # Automation Email Actions
@@ -11,9 +11,10 @@ non-AI initialization API, distinct from the action catalog's Generate Input Map
 in place; do not initialize, delete, recreate or replace that action.
 
 Choose the API by what changes: Generate Action Input Mapping creates a new action's content;
-Get / Update Automation Email Action manage settings (§4); Get / Set Email Content manage
-the message (§3). Sender assignment, preview and test delivery have separate endpoints (§5).
-An existing action is addressed by its automation ID and APP_DEFINED node ID, not its message ID.
+Get / Update Automation Email Action manage settings, including the assigned sender (§4);
+Get / Set Email Content manage the message (§3). Sender lookup, preview and test delivery are
+in §5. An existing action is addressed by its automation ID and APP_DEFINED node ID, not its
+message ID. Every Automation Email Action method is in **Developer Preview** and subject to change.
 
 ## 1. Initialize a new email action
 
@@ -72,7 +73,7 @@ Request settings (omit only when the default matches the user's request):
 | `action.recipients`          | For a trigger contact, use `recipientType: "TRIGGER_CONTACT"` with `triggerContactOptions.contactIdPath`. Omit `recipients` for the SITE OWNER default, or set `recipientType: "SITE_OWNER"`; do not select the trigger contact just because one exists.                                 |
 | `action.emailType`           | Defaults to `PROMOTIONAL`, which respects marketing subscription. `BUSINESS_TRANSACTIONAL` requires a transactional notification topic; `BUSINESS_CRITICAL` is for essential messages and forbids a topic. Choose according to actual purpose, never to bypass subscription preferences. |
 | `action.notificationTopicId` | Real topic GUID. Promotional defaults to the general promotional topic; transactional requires an appropriate topic; critical must omit it. Never invent a topic.                                                                                                                        |
-| `action.senderDetailsId`     | Real sender-details GUID if explicitly selected; otherwise site's default, or Wix-branded fallback.                                                                                                                                                                                      |
+| `action.senderDetailsId`     | Real sender-details GUID from List Sender Details (§5) when the user selects a sender; otherwise site's default, or Wix-branded fallback.                                                                                                                                                |
 | `content`                    | Optional full email content in the Set Email Content shape. Omit for the provider's default template. Stored in the primary language; other site languages start from the default template.                                                                                              |
 
 For a new email with requested copy on a verified single-language site and no requirement to
@@ -117,8 +118,10 @@ the others send.
 
 ## 2. Persist, configure and verify
 
-1. Establish the requested recipient and actual trigger identity path. Resolve the email action
-   in the site's catalog and check update locks before creating provider resources.
+1. Establish the requested recipient and actual trigger identity path. When the user names a
+   sender, resolve it now with the List Sender Details lookup (§5) so the initializer can carry
+   `action.senderDetailsId`. Resolve the email action in the site's catalog and check update
+   locks before creating provider resources.
 2. Call Generate Action Input Mapping once for each new email step. Omit `content` to start
    from the default template, then configure it after persistence. If supplying content now,
    use the documented content shape; do not invent the proprietary WEB composer structure.
@@ -133,7 +136,10 @@ the others send.
    [Automations Validation and Persistence](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence) §3: existing nodes' mappings/namespaces/display names and
    top-level configuration must match, except the intended attachment edge. Also compare the
    saved new node's complete opaque mapping with the initializer response. Report those actual
-   comparisons; an edge/subject summary is insufficient. If ACTIVE, follow the live-edit authorization rule;
+   comparisons; an edge/subject summary is insufficient. As for Create in
+   [Automations Validation and Persistence](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence) §3, send the Create or Update as its own call and run that
+   Get as a separate call once it has returned, not in the same script as initialization,
+   Validate or the save. If ACTIVE, follow the live-edit authorization rule;
    offer deactivation while configuring the new email rather than promising the default content
    cannot run. Never silently change the user's status.
 5. Once persisted, always Get Email Content using the returned automation ID and the new
@@ -148,6 +154,7 @@ the others send.
    - **Configure requested content:** modify the returned full content → Set Email Content →
      Get Email Content. Preserve editor format unless conversion was requested (§3). When
      optional initial `content` already matches on read-back, no redundant Set is needed.
+     For several emails, finish one email's Set and Get before the next email's Set (§3 step 3).
 6. Get the automation, confirm each new step retains its provider mapping and intended audience,
    validate the final configuration, and report status plus any manual setup still required.
    Do not activate or send a test email unless separately requested.
@@ -158,7 +165,10 @@ does not make its new action an existing email.
 
 Failures: `INVALID_CONTACT_ID_PATH` means correct the actual schema path;
 `NOTIFICATION_TOPIC_REQUIRED` means resolve a transactional topic;
-`NOTIFICATION_TOPIC_NOT_SUPPORTED` means omit the topic for a genuinely critical email.
+`NOTIFICATION_TOPIC_NOT_SUPPORTED` means omit the topic for a genuinely critical email;
+`INVALID_RECIPIENTS` means rebuild `recipients` from the documented shape (§4);
+`UNKNOWN_AUDIENCE_PROVIDER` means rediscover the provider rather than guessing another ID;
+`CONTENT_NOT_PUBLISHABLE` means fix the supplied initial `content` (§3) or omit it.
 A permission/rollout failure is a blocker, not permission to fabricate a mapping. Report any
 already-created draft content or partially persisted configuration accurately; never claim an
 atomic transaction. A timeout can have created content: don't blindly repeat this non-idempotent
@@ -187,7 +197,11 @@ the automation id and the step's action id — no `messageId`:
 | Set Email Content | `POST https://www.wixapis.com/emails-automations/v1/automations/{automationId}/email-actions/{actionId}/email-content` |
 
 1. Get Email Content (optional `language` query param) → `content{emailSubject, emailPreheader,
-composer{composerDataJson, defaultValues.map}, editorType}`. Retain that complete successful
+composer{composerDataJson, defaultValues.map}, editorType}`. `LANGUAGE_NOT_CONFIGURED_FOR_SITE`
+   means that language is not one of the site's languages: omit `language` only when the user did
+   not ask for that translation; otherwise report it. `CONTENT_NOT_CONFIGURED` means the action has
+   no email content to read: report it and stop the content edit; do not call Set Email Content to
+   create content or reinitialize the action. Retain that complete successful
    response and Get Automation with overrides before the content edit, so untouched content and
    the saved email node can be compared after it. Capture the complete pre-write content of any
    other email whose preservation must be checked. If existing nodes share content, explain that
@@ -207,7 +221,11 @@ composer{composerDataJson, defaultValues.map}, editorType}`. Retain that complet
    The content needs `emailSubject` and `composer.composerDataJson`. The encoded composer string
    is limited to 2,000,000 UTF-8 bytes. Invalid WEB structures are rejected with
    `CONTENT_NOT_PUBLISHABLE`; correct the returned structure or report the blocker, never
-   retry a fabricated layout.
+   retry a fabricated layout. Write one email at a time: never send Set Email Content for two
+   emails in parallel, even for different action IDs in the same automation. Concurrent Sets
+   have both returned success while one email kept its default template. Get that email's
+   content back before the next Set. If it does not match, re-read it and Set that email once
+   more; if the next Get still does not match, stop and report the mismatch.
 4. Get Email Content and Get Automation again after the write. Compare the requested content
    with the intended values, every untouched content field with its complete before snapshot,
    and the saved node’s complete `inputMapping`, identity, namespace and graph edges with the
@@ -326,6 +344,13 @@ use **Manage Email Marketing**, separately from automation APIs. They read/updat
 also require `AUDIENCE.AUDIENCE_PROVIDER_READ`. The change applies from the next run, even when
 ACTIVE: obtain the user's authorization for that live change (an explicit request suffices).
 Respect existing origin/settings locks; do not use the provider endpoint to bypass them.
+This is also how a sender is assigned: PATCH a `senderDetailsId` returned by List Sender
+Details. For a sender change, run that lookup (§5) before step 1, or reuse its result if this
+task already looked up the same sender (§2 step 1). When no returned sender
+matches, leave the sender unchanged and report it; if the request also changes other
+settings, continue with those alone, otherwise stop without the reads and writes in steps 1–3
+below. The separate Assign / Get Assigned Sender Details methods are deprecated in favor of
+these two methods; do not use them.
 
 1. Get the automation to identify the existing email action and locks, then GET the provider
    resource below → `automationEmailAction` containing its current settings. Get Email Content
@@ -363,7 +388,14 @@ the requested audience and is not a fallback.
    with the before snapshot. Get Automation again too: this API increments its `revision`.
    Verify the same node and content reference, unchanged status/trigger/unrelated configuration,
    and use the new revision before any later Update Automation; never replay the old opaque
-   mapping over the provider change. Get Email Content again and compare the complete content
+   mapping over the provider change. The provider rewrites this step's whole `inputMapping`
+   from the new settings: a recipient change replaces `selectedAudience`, and the mapping can
+   gain default flags and lose `contactId`, while its content reference stays the same. Expect
+   that rewrite: compare this node's `id`, `namespace`, `displayName`, edges and content
+   reference (`messageId`, or `templateId` + `uniqueRuleId`), and every other node completely,
+   rather than its whole mapping with the before snapshot; confirm the new audience through
+   typed Get. When the before mapping has a non-empty `dynamicParams`, compare it too:
+   placeholders depend on it (§3), so report a change rather than accepting it as the rewrite. Get Email Content again and compare the complete content
    with its pre-change snapshot, including subject, preheader, editor type, composer and
    placeholder defaults. Keep returned fields or explicit comparisons computed from them;
    summaries that omit IDs, mappings or content cannot prove preservation.
@@ -443,6 +475,10 @@ continue into its elements.
   not literal enum equality with the request.
 - There is no revision/concurrency parameter for this provider write; last write wins. Report
   errors or partial changes honestly and re-read before retrying, rather than blindly repeating.
+- Errors: `AUTOMATION_ACTION_NOT_FOUND` or `NOT_AN_EMAIL_ACTION` means re-read the automation and
+  use the node ID of the actual `triggered-emails` `APP_DEFINED` step; `INVALID_RECIPIENTS`,
+  `UNKNOWN_AUDIENCE_PROVIDER`, `INVALID_CONTACT_ID_PATH` and the two `NOTIFICATION_TOPIC_*` codes
+  mean the same as in §2.
 
 **CUSTOM audience discovery example — contacts with a label.** List the site's CONTACT
 providers (requires **Set Up Automations**, separately from the email update scope):
@@ -514,23 +550,22 @@ rather than reusing the contact-label payload. `SPECIFIC_SITE` selects site prov
 `NON_SPECIFIC_SITE` selects account-level providers and is not a substitute for a missing site
 provider. A failed discovery or unresolved required provider input is a blocker.
 
-## 5. Sender assignment, preview and test delivery
+## 5. Sender lookup, preview and test delivery
 
-All four methods use the same automation ID + email action ID and **Manage Email Marketing**
-permission. These are distinct from settings and content writes:
+Preview and test delivery use the same automation ID + email action ID and **Manage Email
+Marketing** permission. They are distinct from settings and content writes:
 
-| Purpose                     | REST                                                                                                                                   | Minimal request / response                                                                                                                           |
-| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Get Assigned Sender Details | `GET https://www.wixapis.com/emails-automations/v1/automations/{automationId}/email-actions/{actionId}/sender-details`                 | Response `{senderDetailsId}` when explicitly assigned; an absent value means the site's default or Wix-branded fallback, not a missing sender error. |
-| Assign Sender Details       | `POST https://www.wixapis.com/emails-automations/v1/automations/{automationId}/email-actions/{actionId}/sender-details`                | Body `{"senderDetailsId":"<verified-sender-details-id>"}`; response `{}`.                                                                            |
-| Preview Email Content       | `POST https://www.wixapis.com/emails-automations/v1/automations/{automationId}/email-actions/{actionId}/email-content/preview`         | Body `{}` (optional `customPayload` uses verified trigger data); response `{html,emailSubject}`. No email is sent.                                   |
-| Send Test Email             | `POST https://www.wixapis.com/emails-automations/v1/automations/{automationId}/email-actions/{actionId}/email-content/send-test-email` | Body `{"toEmail":"<explicitly-authorized-address>"}`, optionally the same `customPayload`; response `{}`. Sends one actual email.                    |
+| Purpose               | REST                                                                                                                                   | Minimal request / response                                                                                                                                                                                                 |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Preview Email Content | `POST https://www.wixapis.com/emails-automations/v1/automations/{automationId}/email-actions/{actionId}/email-content/preview`         | Body `{}` (optional `customPayload` uses verified trigger data); response `{html,emailSubject}`. No email is sent.                                                                                                         |
+| Send Test Email       | `POST https://www.wixapis.com/emails-automations/v1/automations/{automationId}/email-actions/{actionId}/email-content/send-test-email` | Body `{"toEmail":"<explicitly-authorized-address>"}`, optionally the same `customPayload`, `fromName` (default: the site's default sender name) and `replyToEmail` (default: none); response `{}`. Sends one actual email. |
 
-For an authorized sender-only edit, discover the site's existing senders with
+To set a sender, on a new email (§1 `action.senderDetailsId`) or an existing one (§4),
+discover the site's existing senders with
 [List Sender Details](https://dev.wix.com/docs/api-reference/business-management/marketing/emails/sender-details/list-sender-details).
-This lookup separately requires **Access Verticals by Automations**
-(`SCOPE.CRM.ACCESS-VERTICALS-BY-AUTOMATIONS`), in addition to **Manage Email Marketing**
-for assigning the sender to the action:
+This lookup accepts **Set Up Automations** (`SCOPE.CRM.SETUP-AUTOMATIONS`) or **Access
+Verticals by Automations** (`SCOPE.CRM.ACCESS-VERTICALS-BY-AUTOMATIONS`); assigning the sender to the action needs
+**Manage Email Marketing**:
 
 ```http
 GET https://www.wixapis.com/sender-details/v1/sender-details
@@ -538,17 +573,39 @@ Authorization: <AUTH>
 wix-site-id: <site-id>
 ```
 
-Read `senderDetails[]`, match the requested `fromName` / `fromEmailAddress`, and retain the
-returned REST `id` (SDK: `_id`). If needed, follow `pagingMetadata.cursors.next` using the
-documented `paging` parameter. A denied or incomplete lookup is not evidence that a sender
-does not exist: report the permission or lookup blocker rather than inventing an ID.
+Read `senderDetails[]`, match the requested `fromEmailAddress` case-insensitively, and retain
+the returned REST `id` (SDK: `_id`). When only a name is given, match `fromName` and confirm the
+address with the user. If the address matches but the requested `fromName` differs, report the
+sender's actual name and ask whether to use it; the action has no separate sender-name setting.
+If several entries match (the same address under different names, or a name shared by
+several senders), ask which one. A sender can only be created for a verified address, so
+every returned entry is assignable. If needed, follow `pagingMetadata.cursors.next` using the
+documented `paging` parameter. A denied or incomplete lookup is not evidence that a sender does
+not exist: report the permission or lookup blocker rather than inventing an ID. Run this lookup
+before the §4 before-snapshot reads. When no returned sender has the requested address, report
+that and leave the sender unchanged; a sender-only request then needs no settings or content
+reads or writes. Tell the user the address must first be verified and added as a sender for the
+site; this skill does not create senders.
+When a new email (§1) names a sender that the lookup did not find, omit
+`action.senderDetailsId` so it uses the site's default sender (or the Wix-branded fallback), say
+so, and confirm that sender with the user before activating.
 
-Assign the verified sender once, then Get Assigned Sender Details to confirm the returned ID. Assignment
-increments the automation's revision: Get Automation again before any subsequent Automation
-Update. Compare all unrelated settings and complete content as in §4, excluding only the
-intended sender change. A PATCH of `senderDetailsId` in §4 is an alternative to assignment,
-not an additional required write. To reset the default, use that PATCH with
-`{"automationEmailAction":{"senderDetailsId":null}}`; Assign requires an existing sender ID.
+Assign the matched sender once with the §4 PATCH, keeping that ID in a variable from the
+lookup response:
+
+```json
+{
+  "automationEmailAction": { "senderDetailsId": "<returned-sender-details-id>" }
+}
+```
+
+Then Get Automation Email Action and confirm the returned `senderDetailsId`. It is returned only
+when a sender is explicitly assigned; an absent value means the site's default sender, or a
+Wix-branded fallback, not a missing-sender error. Assignment increments the automation's
+revision: Get Automation again (§4 step 3) and use its new revision for any later Update. Run the §4
+preservation check with `senderDetailsId` excluded instead of `recipients`
+(`({ senderDetailsId, ...rest }) => rest`), and compare the complete content as in §4. To return
+to the default sender, PATCH `{"automationEmailAction":{"senderDetailsId":null}}`.
 
 Only preview when asked; it is not a replacement for Get Email Content or persisted
 configuration checks. Optional `language` selects a translation. Placeholder values come only
@@ -560,8 +617,10 @@ Send Test Email requires explicit authorization for the recipient address; an in
 configure, preview or activate an automation does not authorize a test send. A preinstalled
 action still sharing template content can be read and previewed, but a test send requires
 site-owned content. Explain that prerequisite and obtain authorization before a first content
-write; do not silently publish a copy just to test. Report `CONTENT_NOT_CONFIGURED` or
-`TEST_EMAIL_LIMIT_REACHED` and stop rather than repeatedly sending. A successful empty test
+write; do not silently publish a copy just to test. Test emails are rate-limited per action.
+`CONTENT_NOT_CONFIGURED` means the action has no content at all, unlike shared preinstalled
+content. On `TEST_EMAIL_LIMIT_REACHED`, `CONTENT_NOT_CONFIGURED` or
+`LANGUAGE_NOT_CONFIGURED_FOR_SITE`, report the error and stop rather than repeatedly sending. A successful empty test
 response acknowledges the request; do not claim inbox delivery without evidence.
 
 ## Related API references
@@ -571,7 +630,6 @@ response acknowledges the request; do not claim inbox delivery without evidence.
 - [Set Email Content](https://dev.wix.com/docs/api-reference/business-management/marketing/emails/automation-email-action/set-email-content)
 - [Get Automation Email Action](https://dev.wix.com/docs/api-reference/business-management/marketing/emails/automation-email-action/get-automation-email-action)
 - [Update Automation Email Action](https://dev.wix.com/docs/api-reference/business-management/marketing/emails/automation-email-action/update-automation-email-action)
-- [Get Assigned Sender Details](https://dev.wix.com/docs/api-reference/business-management/marketing/emails/automation-email-action/get-assigned-sender-details)
-- [Assign Sender Details](https://dev.wix.com/docs/api-reference/business-management/marketing/emails/automation-email-action/assign-sender-details)
+- [List Sender Details](https://dev.wix.com/docs/api-reference/business-management/marketing/emails/sender-details/list-sender-details)
 - [Preview Email Content](https://dev.wix.com/docs/api-reference/business-management/marketing/emails/automation-email-action/preview-email-content)
 - [Send Test Email](https://dev.wix.com/docs/api-reference/business-management/marketing/emails/automation-email-action/send-test-email)

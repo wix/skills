@@ -580,7 +580,7 @@ For entity IDs/keys or provider-owned configuration, load [Automations Entity an
   Resolve entity identifiers through verified vertical read APIs and find provider-owned automation configuration workflows.
 
 - [Automations Email Actions](references/automations/email-actions.md)
-  Initialize new automation email actions, including additions during updates, then configure content and verify recipients while preserving existing emails.
+  Initialize new automation email actions, including additions during updates, then configure content, recipients and sender while preserving existing emails.
 
 - [Automations Mapping Expressions](references/automations/bracket-expressions.md)
   Write builder-compatible automation mapping expressions, literals and data references.
