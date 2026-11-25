@@ -10,11 +10,13 @@ Walk every marketing-plan request through this conversation, in this order. Skip
 
 1. **Open with the current state.** Fetch the plan (STEP 3 endpoint) and the marketing settings (`GET .../marketing-settings`). Tell the user what the plan is shaped by and what they can change: goal, marketing tools, content pillars (topics), tone of voice, point of view, business profile, and per-tool cadence. Say which inputs are site-derived and **read-only**: language, business/target locations, industry — those change in the site's Language & Region / SEO business-location settings, never through marketing settings (details in STEP 1).
 2. **Decide the settings with the user.** For each setting they want to change, use their words. If they want help choosing, fetch the selectable values (`GET .../marketing-settings/plan-goal-options`, `GET .../marketing-settings/defaults`) and propose suggestions for them to confirm. Write only values the user gave or confirmed; leave everything else to the site defaults. Never fabricate a goal, tone, or topic list on their behalf, and never put `language`, `targetLocations`, or `businessLocation` in the request or claim the call changed them.
-3. **Save, then offer to generate.** Upsert the confirmed settings (STEP 1, `fieldMask` as a comma-separated string matching exactly what you send), then offer to generate the plan — or, if a plan already exists, to regenerate it so the new settings take effect (settings are read only at generation time; use the keyword-research variant when `topics` changed). Poll until `ACTIVE` (STEPs 2-3).
+3. **Save, then offer to generate.** Upsert the confirmed settings (STEP 1, `fieldMask` as a comma-separated string matching exactly what you send), then offer to generate the plan — or, if a plan already exists, to regenerate it so the new settings take effect (settings are read only at generation time; use the keyword-research variant when `topics` changed). Poll until `ACTIVE` (STEPs 2-3). If the user asked for a specific channel ("Instagram posts"), also check that channel (STEP 4, "Check the connection"). If it isn't connected, don't stop there: generate the plan and present its drafts, and in the same message say the channel isn't connected, so its drafts won't show on the dashboard or schedule until it is. Offer to connect it now: get the authorization URL (STEP 4c of the [Create and Publish a Social Media Post](create-and-publish-social-post.md) recipe) and give it to the user.
 4. **Present the plan from the API data only.** Show the returned activities and their post drafts. Never invent activities, dates, or captions and present them as "the plan" — if it isn't in the response, it isn't in the plan (also applies to STEP 5's post generation).
-5. **Show before scheduling.** Scheduling publishes the drafts the plan returned. Before Schedule Drafts (STEP 4), show each draft's caption and media (render the image inline, or give its URL) and get explicit approval. Schedule exactly what was approved — never regenerate after approval.
-6. **Diff the schedule response.** Only drafts for Publisher-connected channels are scheduled; the rest silently stay `DRAFT`. Compare the returned `SCHEDULED` ids against the ids you sent, and tell the user which drafts didn't schedule and which channel needs connecting (STEP 4).
-7. **Respect cutoffs and gates.** Skip `TWITTER` drafts dated after July 31, 2026. `FAILED_PRECONDITION` on Schedule Drafts means the plan lacks the premium scheduling feature: say so once and stop; it is not a transient error to retry.
+5. **Show the drafts, then ask.** Scheduling publishes the drafts the plan returned. Show every draft in the chat — date, full caption and media (render the image inline, or give its URL as a link) — state that nothing is scheduled yet, and end on one question: "Do you want me to schedule these?" Never answer with only a link to the dashboard. The user may ask for changes (revise and show again) or approve. Schedule exactly what was approved — never regenerate after approval.
+6. **Connect before scheduling.** After approval and before Schedule Drafts, check that every channel of the approved drafts is connected through the Publisher (STEP 4, "Check the connection"). If one isn't, stop: tell the user which channel needs connecting, send them through the connect flow, wait for them to confirm, re-check, and only then schedule.
+7. **Diff the schedule response.** Compare the returned `SCHEDULED` ids against the ids you sent. Drafts for unconnected channels silently stay `DRAFT`; with rule 6 this is a safety net — report any that remain.
+8. **Finish with the dashboard link.** After scheduling, tell the user what was scheduled and link them to `https://manage.wix.com/dashboard/{metaSiteId}/social-marketing-web`. Take any other dashboard link from [Marketing Dashboard Navigation](marketing-dashboard-navigation.md); never invent a URL.
+9. **Respect cutoffs and gates.** Skip `TWITTER` drafts dated after July 31, 2026. `FAILED_PRECONDITION` on Schedule Drafts means the plan lacks the premium scheduling feature: say so once and stop; it is not a transient error to retry.
 
 The rest of this recipe is the reference for executing each step.
 
@@ -143,6 +145,14 @@ Posts are generated automatically only for the **near-term** activities (how far
 
 ## STEP 4: Schedule the draft posts
 
+### Check the connection
+
+For each distinct channel among the approved drafts (e.g. `INSTAGRAM`), follow STEP 4 of the [Create and Publish a Social Media Post](create-and-publish-social-post.md) recipe: `GET https://www.wixapis.com/social-publisher/v1/{CHANNEL}/long-lived-token-status` — `VALID` means connected; `NEVER_CREATED`, `DISCONNECTED` and `INVALID` mean the user must connect or reconnect through that recipe's connect flow (STEP 4c). Check per channel — a connected Facebook says nothing about Instagram.
+
+If a channel isn't connected, **do not schedule and do not regenerate**. Tell the user which channel is missing, send them through the connect flow, wait for their confirmation, check again, then schedule the same approved drafts. If the user declines to connect, say those drafts can't be scheduled and leave them as drafts.
+
+### Schedule
+
 Collect the `id` of every `item` whose `status` is `DRAFT` from the activities you want to publish. **Before scheduling, show the user what will be published** — each draft's caption and media (render the image inline if the surface supports it, otherwise post its URL as a clickable link) — and get their approval. The drafts are the plan's words, not the user's, and scheduling publishes them, so never schedule content the user hasn't reviewed. Skip `TWITTER` drafts whose activity date falls after **July 31, 2026** — X is sunset then, and a post scheduled past the cutoff will never publish.
 
 **API Endpoint:** `POST https://www.wixapis.com/promote/marketing-plan-service/v1/marketing-plan/schedule-drafts`
@@ -164,7 +174,7 @@ Collect the `id` of every `item` whose `status` is `DRAFT` from the activities y
 - **Only drafts for Publisher-connected channels are scheduled; drafts for unconnected channels are silently skipped and stay `DRAFT` — with no error.** A `200` does not mean everything was scheduled. **Diff the returned `items` against the `draftIds` you sent:** any id not returned as `SCHEDULED` is still a draft. Tell the user which channels those drafts belong to and that the channel needs connecting — connect it via the [Create and Publish a Social Media Post](https://dev.wix.com/docs/api-reference/business-management/marketing/skills) recipe's connect flow, then reschedule those ids.
 - Requires the site's plan to include the schedule-posts premium feature; otherwise the call returns `FAILED_PRECONDITION` (advise upgrading the social media marketing plan).
 
-The scheduled posts are managed by the Publisher and appear on the site's Social Media Marketing page.
+The scheduled posts are managed by the Publisher and appear on the site's Social Media Marketing page: `https://manage.wix.com/dashboard/{metaSiteId}/social-marketing-web`. Give the user this link once scheduling succeeds. If the plan has activities with no posts yet, offer STEP 5 in the same message.
 
 ---
 
