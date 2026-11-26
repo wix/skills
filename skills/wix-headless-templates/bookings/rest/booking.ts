@@ -162,13 +162,15 @@ export async function fetchCourseAvailability(service: Pick<ServiceDetail, "sche
  * unconditionally.  GET /form-schema-service/v4/forms/{formId}/summary (labels, types) and
  * GET /form-schema-service/v4/forms/{formId} (which fields are required — the summary doesn't say).
  */
-export async function fetchBookingForm(formId: string | null): Promise<BookingFormField[]> {
+export async function fetchBookingForm(formId: string | null, serviceId: string): Promise<BookingFormField[]> {
   if (!formId) return FALLBACK_FIELDS;
   try {
     const id = encodeURIComponent(formId);
+    // Bookings uses the service context to override fields (for example, customer address).
+    const query = new URLSearchParams({ additionalMetadata: JSON.stringify({ serviceIds: [serviceId] }) });
     const [res, form] = await Promise.all([
       wixRequest<Raw>(`/form-schema-service/v4/forms/${id}/summary`, { method: "GET" }),
-      wixRequest<Raw>(`/form-schema-service/v4/forms/${id}`, { method: "GET" }).catch(() => null),
+      wixRequest<Raw>(`/form-schema-service/v4/forms/${id}?${query}`, { method: "GET" }).catch(() => null),
     ]);
     return toFormFields(res?.formSummary, form?.form);
   } catch {

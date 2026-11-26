@@ -298,7 +298,7 @@ export function createBookingFlowStore(service: ServiceDetail): BookingFlowStore
         requestZone = resolveDisplayTimeZone(s);
         loadForZone();
       });
-      fetchBookingForm(service.formId).then((f) => { if (started) { formFields = f; emit(); } });
+      fetchBookingForm(service.formId, service.id).then((f) => { if (started) { formFields = f; emit(); } });
       if (service.hasAddOns) fetchAddOnGroups(service.id).then((g) => { if (started) { addOnGroups = g; emit(); } });
     },
     stop() {

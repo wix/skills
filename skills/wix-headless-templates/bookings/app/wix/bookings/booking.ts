@@ -166,20 +166,22 @@ export async function fetchCourseAvailability(service: Pick<ServiceDetail, "sche
  * ALWAYS returns a non-empty list — contact basics when the schema is missing/unusable —
  * so the form can render unconditionally.
  */
-export async function fetchBookingForm(formId: string | null): Promise<BookingFormField[]> {
+export async function fetchBookingForm(formId: string | null, serviceId: string): Promise<BookingFormField[]> {
   if (!formId) return FALLBACK_FIELDS;
   try {
     // Over wixFetch, not the @wix/forms `forms` module: that generated module is 15 MB and would
     // ride into the booking island's client chunk (11 MB per visitor). The summary has labels and
     // types; only the full schema says which fields are required.
     const id = encodeURIComponent(formId);
+    // Bookings uses the service context to override fields (for example, customer address).
+    const query = new URLSearchParams({ additionalMetadata: JSON.stringify({ serviceIds: [serviceId] }) });
     const json = async (path: string): Promise<Raw | null> => {
       const r = await wixFetch(path);
       return r.ok ? ((await r.json()) as Raw) : null;
     };
     const [res, form] = await Promise.all([
       json(`/form-schema-service/v4/forms/${id}/summary`),
-      json(`/form-schema-service/v4/forms/${id}`).catch(() => null),
+      json(`/form-schema-service/v4/forms/${id}?${query}`).catch(() => null),
     ]);
     if (!res) return FALLBACK_FIELDS;
     return toFormFields(res.formSummary, form?.form);
