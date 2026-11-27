@@ -446,7 +446,16 @@ Links Pricing Plans to Bookings services using the Benefit Programs API. Enables
 ## Restaurants
 
 ### [Wix Restaurants Setup](references/restaurants/wix-restaurants-setup.md)
-Configures restaurant menus, sections, and items using Menus API. Covers menu structure (Menu → Section → Item), the two-step item modifier / modifier group flow, pricing, availability schedules, and ordering settings.
+Creates new Wix Restaurants menus, sections, dishes, labels, modifiers and modifier groups, assigning each menu to a business location. Use when the user wants to add a menu, a section, dishes, or an option group that does not exist yet. To change or delete existing menus, dishes, prices, labels or modifiers, use the Restaurants reference recipes instead.
+
+### [Restaurants Menus and Sections Reference](references/restaurants/restaurants-menus-and-sections-reference.md)
+Changes, deletes, duplicates and looks up existing Wix Restaurants menus and sections, and manages the business locations (addresses) menus belong to. Use to rename, hide or reorder a menu or section, move dishes between sections, remove a menu or section, or add, change or find a location. To create a new menu from scratch, use Wix Restaurants Setup.
+
+### [Restaurants Items, Variants and Prices Reference](references/restaurants/restaurants-items-variants-and-prices-reference.md)
+Changes, deletes and looks up existing Wix Restaurants dishes (items) and their prices and sizes. Use to edit a dish's name, description, price, visibility or order settings, give a dish sizes with a price each, or remove a dish. To create dishes as part of a new menu, use Wix Restaurants Setup.
+
+### [Restaurants Labels and Modifiers Reference](references/restaurants/restaurants-labels-and-modifiers-reference.md)
+Changes, deletes and looks up existing Wix Restaurants labels, modifiers and modifier groups. Use to rename or remove a label such as Spicy or Vegan, add or reprice a topping or add-on, change an option group's rules, or attach labels and groups to a dish. To create a new label, modifier or modifier group from scratch, or as part of a new menu, use Wix Restaurants Setup.
 
 ### [Restaurants Dashboard Navigation](references/restaurants/restaurants-dashboard-navigation.md)
 "Builds direct links to Wix Restaurants dashboard pages on manage.wix.com — menus, menu items, the online orders board, online-ordering fulfillment settings (pickup, delivery, dine-in), the reservations list, floor plans, and reservation experience settings. Pairs each main Restaurants entity (menu, section, item, order, reservation) with its read API so you can fetch an entity and hand back a 'view it in your dashboard' link. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
