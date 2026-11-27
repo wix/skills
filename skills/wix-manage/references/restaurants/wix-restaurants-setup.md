@@ -1,308 +1,116 @@
 ---
 name: "Wix Restaurants Setup"
-description: Configures restaurant menus, sections, and items using Menus API. Covers menu structure (Menu → Section → Item), the two-step item modifier / modifier group flow, pricing, availability schedules, and ordering settings.
+description: Creates new Wix Restaurants menus, sections, dishes, labels, modifiers and modifier groups, assigning each menu to a business location. Use when the user wants to add a menu, a section, dishes, or an option group that does not exist yet. To change or delete existing menus, dishes, prices, labels or modifiers, use the Restaurants reference recipes instead.
 ---
 # Wix Restaurants Setup API Reference
 
 > These calls need the Wix Restaurants Menus app on the site (`appDefId` `b278a256-2757-4f19-9313-c05c783bec92`; online ordering is Wix Restaurants Orders `9a5d83fd-8570-482e-81ab-cfa88942ee60`, reservations Wix Table Reservations `f9c07de2-5341-40c6-b096-8eb39de391fb`); a `428`, a `400` naming the app, or an empty result on a site that should have content means it is not there. [List Installed Apps](../app-installation/list-installed-apps.md) shows what the site has; [Install Wix Apps](../app-installation/install-wix-apps.md) adds one by that id.
 
+All calls need the Manage Restaurants permission. Structure: **Menu** (belongs to one business location) → **Section** → **Item** (a dish; it carries labels and modifier groups, and can appear at several locations).
 
-This recipe covers setting up and configuring Wix Restaurants using the REST API, including menus, items, and ordering configuration.
+## Rules for the agent
 
-## Prerequisites
+- **Fetch, never ask.** Locations, menus, sections, items and labels are all readable through the APIs. Read them yourself; do not ask the user to paste addresses or names. Ask only to choose between several fetched candidates, or when nothing matches.
+- **Read before you write.** Query existing menus (`POST https://www.wixapis.com/restaurants/menus-menu/v1/menus/query`, body `{"query": {"cursorPaging": {"limit": 100}}}`) so you do not duplicate a menu that already exists at that location.
+- **Resolve the location before creating a menu.** It can be set only at creation and cannot be changed later.
+- **Confirm only what the user did not state.** A request that names the menu, the location and the dishes is the confirmation: go ahead. Ask first when you chose between several candidates, when a menu with that name already exists, or when the request is ambiguous. A label the user asked you to apply (for example "mark as Vegan") may be created without a further question.
+- **Updates send the whole entity.** To change an existing entity, get it, change the fields you need, and send the whole entity back with its current `revision`, every array in full. The PATCH examples below show only the changed fields for brevity.
+- **Finish with a link** to the new menu: see [Restaurants Dashboard Navigation](restaurants-dashboard-navigation.md).
 
-1. Wix Restaurants app installed on the site
-2. API access with restaurant management permissions
+## Step 0: Resolve the business location
 
-## Required APIs
+A request such as "for my Spanish address", "for the London branch" names a location indirectly.
 
-- **Menus API**: [REST](https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/menus/create-menu)
-- **Menu Items API**: [REST](https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/items/items/create-item)
-- **Menu Sections API**: [REST](https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/sections/create-section)
-- **Item Modifiers API**: [REST](https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/items/item-modifiers/create-modifier)
-- **Item Modifier Groups API**: [REST](https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/items/item-modifier-groups/create-modifier-group)
-- **Item Variants API**: [REST](https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/items/item-variants/bulk-create-variants)
+`POST https://www.wixapis.com/locations/v1/locations/query` with `{"query": {"filter": {"archived": false}, "paging": {"limit": 100}}}`.
 
-## Overview
+Each location has `id`, `name`, `default` and an `address` (`country` as a 2-letter ISO code, so Spain is `ES`; `city`, `postalCode`, `streetAddress`, `formattedAddress`). `address.country` cannot be filtered, so match in your own code:
 
-Wix Restaurants uses a hierarchical structure:
-- **Menus** (e.g., Breakfast, Lunch, Dinner)
-  - **Sections** (e.g., Appetizers, Main Courses, Desserts)
-    - **Items** (e.g., Caesar Salad, Grilled Salmon)
+| Matches | Do this |
+|---|---|
+| Exactly one | Use its `id`. |
+| Several | Ask which, listing each `name` and `formattedAddress`. |
+| None | List the site's locations and ask. |
+| User named no place | One location: use it and say so. Several: ask which, naming the default first. |
+| Site has no locations | Create the menu without a location and say it attaches to the first location added. |
 
-## Step 1: Create a Menu
+## Step 1: Create the menu
 
-**Endpoint**: `POST https://www.wixapis.com/restaurants/menus-menu/v1/menus`
-
-**Request Body**:
-```json
-{
-  "menu": {
-    "name": "Dinner Menu",
-    "description": "Our evening dining selections",
-    "visible": true
-  }
-}
-```
-
-**Response**:
-```json
-{
-  "menu": {
-    "id": "menu-id-123",
-    "name": "Dinner Menu",
-    "description": "Our evening dining selections",
-    "visible": true,
-    "createdDate": "2024-01-15T10:00:00.000Z"
-  }
-}
-```
-
-## Step 2: Create Menu Sections
-
-**Endpoint**: `POST https://www.wixapis.com/restaurants/menus-section/v1/sections`
-
-**Request Body**:
-```json
-{
-  "section": {
-    "name": "Appetizers",
-    "description": "Start your meal with our delicious starters",
-    "visible": true,
-    "sortOrder": 1
-  }
-}
-```
-
-Repeat per section, incrementing `sortOrder`, or create them all at once with the bulk endpoint
-in Step 7.
-
-## Step 3: Create Menu Items
-
-**Endpoint**: `POST https://www.wixapis.com/restaurants/menus-item/v1/items`
-
-**Request Body**:
-```json
-{
-  "item": {
-    "name": "Caesar Salad",
-    "description": "Fresh romaine lettuce with house-made Caesar dressing, croutons, and parmesan",
-    "priceInfo": { "price": "14.99" },
-    "visible": true,
-    "labels": [],
-    "modifierGroups": []
-  }
-}
-```
-
-`modifierGroups` holds objects referencing existing modifier groups —
-`[{ "id": "<MODIFIER_GROUP_ID>" }]`. Leave it empty until the groups exist (Step 5).
-
-## Step 4: Add Items to Sections
-
-**Endpoint**: `PATCH https://www.wixapis.com/restaurants/menus-section/v1/sections/{sectionId}`
-
-Each section update requires the latest section `revision`.
+`POST https://www.wixapis.com/restaurants/menus-menu/v1/menus`
 
 ```json
-{
-  "section": {
-    "id": "<SECTION_ID>",
-    "revision": "<SECTION_REVISION>",
-    "itemIds": ["item-id-1", "item-id-2", "item-id-3"]
-  }
-}
+{ "menu": { "name": "Dinner Menu", "description": "Our evening dining selections", "visible": true, "businessLocationId": "<LOCATION_ID>" } }
 ```
 
-## Step 5: Configure Item Options and Modifiers
+Always send `businessLocationId` when Step 0 found a match. Left out, the menu silently gets the site's default location (or `"none"` on a site with no locations). The Create Menu schema marks the field read-only while the About Business Locations article says it can be set on creation, so compare the returned `menu.businessLocationId` with what you sent, and if they differ tell the user where the menu landed instead of reporting success. To move a menu later, create a new one, or copy it with `POST https://www.wixapis.com/restaurants/menus-menu/v1/menus/{menuId}/duplicate` (body `{"businessLocationIds": ["<LOCATION_ID>"], "duplicateSubEntities": false, "menuName": "<NAME>"}`; ask the user before setting `duplicateSubEntities` to `true`, since items are shared across locations).
 
-A modifier group (e.g. "Cooking Temperature", "Toppings") holds a set of individual choices and
-the selection rule that governs them. **The choices are separate entities** — a modifier group
-does not contain inline options. Creating a group therefore takes two calls, in this order:
+## Step 2: Create items (dishes)
 
-1. Create one **item modifier** per choice (Item Modifiers API) and keep each returned `id`.
-2. Create the **modifier group** (Item Modifier Groups API), referencing those IDs.
-
-Do both calls; a group created without step 1 comes back with an empty `modifiers` array and no
-choices are saved.
-
-### Step 5a: Create each item modifier
-
-**Endpoint**: `POST https://www.wixapis.com/restaurants/item-modifiers/v1/modifiers`
-
-Only `modifier.name` is required.
+`POST https://www.wixapis.com/restaurants/menus-item/v1/items`
 
 ```json
-{
-  "modifier": {
-    "name": "Extra Cheese",
-    "type": "MODIFIER"
-  }
-}
+{ "item": { "name": "Caesar Salad", "description": "Romaine, croutons, parmesan", "priceInfo": { "price": "14.99" }, "visible": true, "labels": [{ "id": "<LABEL_ID>" }], "modifierGroups": [] } }
 ```
 
-The response returns the new `modifier.id`. Repeat per choice, collecting the IDs.
+An item has one price form: `priceInfo` (one price) or `priceVariants` (a price per size). `price` is a decimal string. `labels` and `modifierGroups` are lists of `{ "id": ... }` objects for entities that already exist (up to 10 labels), so create those first (Steps 5 and 6), or leave the lists empty and patch the item afterwards. Many items: `POST https://www.wixapis.com/restaurants/menus-item/v1/bulk/items/create` with `{"items": [...]}` (up to 100).
 
-### Step 5b: Create the modifier group
+## Step 3: Create sections and put the items in them
 
-**Endpoint**: `POST https://www.wixapis.com/restaurants/item-modifier-group/v1/modifier-groups`
+`POST https://www.wixapis.com/restaurants/menus-section/v1/sections` with `{"section": {"name": "Appetizers", "visible": true, "itemIds": ["<ITEM_ID_1>", "<ITEM_ID_2>"]}}`. 
 
-The request body's top-level field is **`modifierGroup`**. Sending `modifier` instead is rejected
-with `400 modifierGroup must not be empty` (`violatedRule: REQUIRED_FIELD`).
+To add dishes to a section that already exists, create the items, then get the section, append the new ids to its full `itemIds` and send it back with its `revision` (rules in [Menus and Sections](restaurants-menus-and-sections-reference.md)).
 
-Required: `modifierGroup` and `modifierGroup.name`.
+There is no sort-order field. Position comes from the order of `itemIds` in a section and of `sectionIds` in a menu. A section takes its business location from the menu that lists it, so attach it in Step 4.
+
+## Step 4: Attach the sections to the menu
+
+`PATCH https://www.wixapis.com/restaurants/menus-menu/v1/menus/{menuId}`, with the menu's current `revision` and the whole list:
 
 ```json
-{
-  "modifierGroup": {
-    "name": "Toppings",
-    "modifiers": [
-      {
-        "id": "<ITEM_MODIFIER_ID_1>",
-        "additionalChargeInfo": { "additionalCharge": "2.00" }
-      },
-      {
-        "id": "<ITEM_MODIFIER_ID_2>",
-        "additionalChargeInfo": { "additionalCharge": "0.00" }
-      }
-    ],
-    "rule": {
-      "required": false,
-      "minSelections": 0,
-      "maxSelections": 5
-    }
-  }
-}
+{ "menu": { "id": "<MENU_ID>", "revision": "<MENU_REVISION>", "sectionIds": ["<SECTION_ID_1>", "<SECTION_ID_2>"] } }
 ```
 
-For a mandatory single-choice group (e.g. cooking temperature) use the same shape with
-`"rule": { "required": true, "minSelections": 1, "maxSelections": 1 }`.
+Abbreviated: send the full menu as fetched, with this field changed.
 
-**Field reference** for `modifierGroup`:
+## Step 5: Labels ("Spicy", "Vegan", "Gluten-free")
 
-| Field | Notes |
-|-------|-------|
-| `name` | Required. The group's display name. |
-| `modifiers[].id` | ID of an existing item modifier from Step 5a — not a name. Up to 500. |
-| `modifiers[].additionalChargeInfo.additionalCharge` | That choice's surcharge, a decimal string (`"2.00"`). No `currency` field — the site currency is used. |
-| `modifiers[].preSelected` | Optional boolean; selects the choice by default. |
-| `rule.required` | Whether the customer must choose. Named `required`, not `mandatory`. |
-| `rule.minSelections` / `rule.maxSelections` | Integers bounding how many choices are allowed. |
+A label is a site entity with its own `id`; an item cannot carry a bare name. Match the user's wording yourself against `GET https://www.wixapis.com/restaurants/item-labels/v1/labels` (up to 500) or `POST https://www.wixapis.com/restaurants/item-labels/v1/labels/query` with `{"query": {"filter": {"name": {"$startsWith": "Spic"}}}}`. If none fits, create it: `POST https://www.wixapis.com/restaurants/item-labels/v1/labels` with `{"label": {"name": "Spicy"}}`, and use the returned `label.id`.
 
-There is no `options` field and no per-option `price` object.
+To find the dishes that carry a label, page through Query Items (`POST https://www.wixapis.com/restaurants/menus-item/v1/items/query`) and keep those whose `labels[].id` includes the label `id`. Do not try a label filter; its field name is unreliable.
 
-### Step 5c: Attach the group to an item
+## Step 6: Modifiers and modifier groups
 
-A modifier group only reaches customers once an item references it. The item's `modifierGroups`
-is an array of **objects carrying an `id`**, not bare ID strings.
+A group ("Toppings", "Cooking temperature") holds modifier entities plus a selection rule. Two calls, in order:
 
-**Endpoint**: `PATCH https://www.wixapis.com/restaurants/menus-item/v1/items/{itemId}`
+1. `POST https://www.wixapis.com/restaurants/item-modifiers/v1/modifiers` with `{"modifier": {"name": "Extra Cheese"}}`. Keep each returned `id`. Do not send `type`.
+2. `POST https://www.wixapis.com/restaurants/item-modifier-group/v1/modifier-groups` with the top-level field `modifierGroup`; sending `modifier` fails with `400 modifierGroup must not be empty`.
 
 ```json
-{
-  "item": {
-    "id": "<ITEM_ID>",
-    "revision": "<ITEM_REVISION>",
-    "modifierGroups": [{ "id": "<MODIFIER_GROUP_ID>" }]
-  }
-}
+{ "modifierGroup": { "name": "Toppings",
+  "modifiers": [ { "id": "<MODIFIER_ID_1>", "additionalChargeInfo": { "additionalCharge": "2.00" } }, { "id": "<MODIFIER_ID_2>", "additionalChargeInfo": { "additionalCharge": "0" } } ],
+  "rule": { "required": false, "minSelections": 0, "maxSelections": 5 } } }
 ```
 
-To create modifier groups in bulk, use
-`POST https://www.wixapis.com/restaurants/menus/v1/bulk/modifier-groups/create` and
-`POST https://www.wixapis.com/restaurants/menus/v1/bulk/modifiers/create`; the per-entity body
-shape is the same.
+The surcharge sits on the group entry, not on the modifier, and there is no currency field. The rule key is `required` (not `mandatory`); for a mandatory single choice use `required: true, minSelections: 1, maxSelections: 1`. It reaches customers only once an item lists it: `PATCH https://www.wixapis.com/restaurants/menus-item/v1/items/{itemId}` with `{"item": {"id": "<ITEM_ID>", "revision": "<ITEM_REVISION>", "modifierGroups": [{"id": "<GROUP_ID>"}]}}` (abbreviated: send the full item as fetched)..
 
-## Step 6: Set Menu Structure (Attach Sections to Menu)
+## Order of work
 
-Attach section IDs to a menu. This call requires the latest menu `revision`.
+Resolve the location and labels; create the menu; create modifiers, then groups; create items with their labels and groups; create sections with `itemIds`; update the menu's `sectionIds`; give the user the dashboard link.
 
-**Endpoint**: `PATCH https://www.wixapis.com/restaurants/menus-menu/v1/menus/{menuId}`
+## Example: "Create a new menu for my Spanish address with the spicy dishes"
 
-```json
-{
-  "menu": {
-    "id": "<MENU_ID>",
-    "revision": "<MENU_REVISION>",
-    "sectionIds": ["<SECTION_ID_1>", "<SECTION_ID_2>"]
-  }
-}
-```
+1. Fetch locations; the one with `address.country` `ES` is the target (several: ask which).
+2. Find the "Spicy" label `id`, then the items that carry it. None: tell the user and stop, do not create an empty menu.
+3. Query menus. A menu with the intended name at that location: ask whether to reuse it.
+4. Proceed: the request named the location and the dishes. Create the menu with `businessLocationId` and check the returned value, then a section with `itemIds` set to those dishes, then update the menu's `sectionIds`.
+5. Hand back the dashboard link.
 
-## Step 7: Bulk Operations for Large Menus
+## Errors
 
-For restaurant setup flows with many sections/items, use bulk endpoints:
+| Symptom | Cause and fix |
+|---|---|
+| Menu at the wrong location | `businessLocationId` was not sent and cannot be updated. Create the menu again, or duplicate it. |
+| `400 modifierGroup must not be empty` | The group was wrapped in `modifier`. Use `modifierGroup`. |
 
-- **Bulk Create Sections**: `POST https://www.wixapis.com/restaurants/menus-section/v1/bulk/sections/create`
-- **Bulk Create Items**: `POST https://www.wixapis.com/restaurants/menus-item/v1/bulk/items/create`
-- **Bulk Create Variants**: `POST https://www.wixapis.com/restaurants/item-variants/v1/bulk/variants/create`
+## Change or delete what already exists
 
-```json
-{
-  "sections": [
-    { "name": "Appetizers", "visible": true },
-    { "name": "Main Courses", "visible": true }
-  ],
-  "returnEntity": true
-}
-```
-
-## Step 8: Query Menus / Sections / Items
-
-Use query APIs for retrieval and UI display flows.
-
-- **Query Menus**: `POST https://www.wixapis.com/restaurants/menus-menu/v1/menus/query`
-- **Query Sections**: `POST https://www.wixapis.com/restaurants/menus-section/v1/sections/query`
-- **Query Items**: `POST https://www.wixapis.com/restaurants/menus-item/v1/items/query`
-
-```json
-{
-  "query": {
-    "cursorPaging": {
-      "limit": 50
-    }
-  }
-}
-```
-
-## Recommended Setup Order
-
-For complex restaurant menus, use this order to avoid dependency issues:
-
-1. Create variants (sizes/options) if needed.
-2. Create item modifiers, then group them into modifier groups (Step 5) if the items need
-   customization options.
-3. Create items (single or bulk).
-4. Create sections (single or bulk).
-5. Update each section with `itemIds`.
-6. Update menu with `sectionIds`.
-7. Update items with `modifierGroups` to attach the groups from step 2.
-
-## Item Labels
-
-Common dietary labels:
-- `vegetarian`
-- `vegan`
-- `gluten-free`
-- `gluten-free-option`
-- `dairy-free`
-- `nut-free`
-- `spicy`
-- `chef-recommendation`
-
-## Error Handling
-
-| Error | Cause | Solution |
-|-------|-------|----------|
-| `MENU_NOT_FOUND` | Invalid menu ID | Verify menu exists |
-| `ITEM_NOT_FOUND` | Invalid item ID | Verify item exists |
-| `INVALID_PRICE` | Negative price | Use positive amounts |
-| `400 modifierGroup must not be empty` | Request body wrapped the group in `modifier` instead of `modifierGroup` | Use `modifierGroup` as the top-level field (Step 5b) |
-| Group created but `modifiers` is `[]` | Choices were sent inline (e.g. an `options` array) instead of as item modifier IDs | Create item modifiers first, then reference their IDs in `modifiers[].id` (Step 5a → 5b) |
-
-## Related Documentation
-
-- [Menus API Reference](https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/menus/introduction)
-- [Menu Items API Reference](https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/items/items/introduction)
-- [Menu Sections API Reference](https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/sections/introduction)
-- [Restaurant Orders API](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/orders/introduction)
+See [Menus and Sections](restaurants-menus-and-sections-reference.md) (also locations and addresses), [Items, Variants and Prices](restaurants-items-variants-and-prices-reference.md), [Labels and Modifiers](restaurants-labels-and-modifiers-reference.md).

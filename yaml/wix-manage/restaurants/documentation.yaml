@@ -11,3 +11,18 @@ apiDoc:
       title: Restaurants Dashboard Navigation
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/restaurants
       tags: [restaurants]
+
+    - file: ../../../skills/wix-manage/references/restaurants/restaurants-menus-and-sections-reference.md
+      title: Restaurants Menus and Sections Reference
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/restaurants
+      tags: [restaurants]
+
+    - file: ../../../skills/wix-manage/references/restaurants/restaurants-items-variants-and-prices-reference.md
+      title: Restaurants Items, Variants and Prices Reference
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/restaurants
+      tags: [restaurants]
+
+    - file: ../../../skills/wix-manage/references/restaurants/restaurants-labels-and-modifiers-reference.md
+      title: Restaurants Labels and Modifiers Reference
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/restaurants
+      tags: [restaurants]
