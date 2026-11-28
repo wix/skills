@@ -94,6 +94,8 @@ export default function ServiceBookingView({ service }: { service: ServiceDetail
     formFields,
     values,
     setValue,
+    addresses,
+    setAddressPart,
     ctaState,
     canBook,
     book,
@@ -332,7 +334,33 @@ export default function ServiceBookingView({ service }: { service: ServiceDetail
       )}
 
       <div className="mt-6 grid max-w-md gap-3">
-        {formFields.map((f) => (
+        {formFields.map((f) =>
+          f.type === "ADDRESS" ? (
+            <fieldset key={f.target} className="grid gap-3">
+              <legend className={heading}>{f.label}{f.required ? " *" : ""}</legend>
+              {(f.addressParts ?? []).map((p) => (
+                <label key={p.sub} className="block">
+                  <span className={heading}>{p.label}{p.required ? " *" : ""}</span>
+                  {p.choices ? (
+                    <select value={addresses[f.target]?.[p.sub] ?? ""} onChange={(e) => setAddressPart(f.target, p.sub, e.target.value)} className={input}>
+                      <option value="">Choose…</option>
+                      {p.choices.map((c) => (
+                        <option key={c.value} value={c.value}>{c.label}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      value={addresses[f.target]?.[p.sub] ?? ""}
+                      required={p.required}
+                      onChange={(e) => setAddressPart(f.target, p.sub, e.target.value)}
+                      className={input}
+                    />
+                  )}
+                </label>
+              ))}
+            </fieldset>
+          ) : (
           <label key={f.target} className="block">
             <span className={heading}>{f.label}{f.required ? " *" : ""}</span>
             {f.options?.length ? (
@@ -352,7 +380,8 @@ export default function ServiceBookingView({ service }: { service: ServiceDetail
               />
             )}
           </label>
-        ))}
+          ),
+        )}
       </div>
 
       {error && <p className="mt-3 text-sm text-destructive">{error}</p>}

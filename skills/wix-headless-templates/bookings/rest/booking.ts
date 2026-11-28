@@ -40,6 +40,7 @@ import {
   offeredDaysByScheduleId,
   resolveDisplayTimeZone,
   sessionsRequest,
+  formSchemaQuery,
   toAddOnGroups,
   toFormFields,
   toLocalDateString,
@@ -50,6 +51,7 @@ import {
   type Raw,
   type SlotsWindow,
 } from "../app/wix/bookings/booking-core.js";
+import { addressFieldParts } from "../app/wix/bookings/booking-address-core.js";
 import type { AddOnGroup, BookingFormField, BookingResult, BookingsSettings, CourseAvailability, ServiceDetail, Session, Slot, SlotsPage, Weekday } from "../app/wix/bookings/types.js";
 
 export { resolveDisplayTimeZone, toLocalDateString };
@@ -160,17 +162,18 @@ export async function fetchCourseAvailability(service: Pick<ServiceDetail, "sche
  * The service's booking-form fields, flat and render-ready (values keyed by `target`). ALWAYS a
  * non-empty list — contact basics when the schema is missing/unusable — so the form renders
  * unconditionally.  GET /form-schema-service/v4/forms/{formId}/summary (labels, types) and
- * GET /form-schema-service/v4/forms/{formId} (which fields are required — the summary doesn't say).
+ * GET /form-schema-service/v4/forms/{formId}?.r=… (which fields are required and hidden for this
+ * service — the summary doesn't say; `formSchemaQuery` in the core builds the query).
  */
-export async function fetchBookingForm(formId: string | null): Promise<BookingFormField[]> {
+export async function fetchBookingForm(formId: string | null, serviceId?: string | null): Promise<BookingFormField[]> {
   if (!formId) return FALLBACK_FIELDS;
   try {
     const id = encodeURIComponent(formId);
     const [res, form] = await Promise.all([
       wixRequest<Raw>(`/form-schema-service/v4/forms/${id}/summary`, { method: "GET" }),
-      wixRequest<Raw>(`/form-schema-service/v4/forms/${id}`, { method: "GET" }).catch(() => null),
+      wixRequest<Raw>(`/form-schema-service/v4/forms/${id}${formSchemaQuery(formId, serviceId)}`, { method: "GET" }).catch(() => null),
     ]);
-    return toFormFields(res?.formSummary, form?.form);
+    return toFormFields(res?.formSummary, form?.form, addressFieldParts);
   } catch {
     return FALLBACK_FIELDS;
   }

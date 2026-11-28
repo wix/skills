@@ -220,14 +220,49 @@ export interface AddOnGroup {
   addOns: AddOn[];
 }
 
-/** A booking-form field (flat, from the form summary + schema; values are keyed by `target`). */
+/**
+ * A booking-form field (flat, from the form summary + schema). Text fields' values are keyed by
+ * `target` in `values`; an ADDRESS field's value is an object of parts in `addresses[target]`.
+ */
 export interface BookingFormField {
   target: string;
   label: string;
-  type: "STRING" | "EMAIL" | "PHONE" | "NUMBER" | "URL";
+  type: "STRING" | "EMAIL" | "PHONE" | "NUMBER" | "URL" | "ADDRESS";
   options?: string[];
   /** The form marks it required — the only fields that gate `canBook`; the rest may stay empty. */
   required: boolean;
+  /**
+   * ADDRESS only: the parts to render, in order, `country` first. Which parts appear follows the
+   * chosen country (Wix's per-country address templates), so re-read them after the country changes.
+   */
+  addressParts?: BookingAddressPart[];
+  /** ADDRESS only: what recomputing the parts for a country needs. Not for rendering. */
+  addressOverrides?: AddressOverrides;
+  /** ADDRESS only: the owner's pre-selected country (ISO-2), already set as the value's `country`. */
+  defaultCountry?: string;
+}
+
+/** One part of an ADDRESS field — its own control; `sub` is also the key in the submitted object. */
+export interface BookingAddressPart {
+  /** `country`, `addressLine`, `streetName`, `streetNumber`, `city`, `subdivision`, `postalCode`, … */
+  sub: string;
+  /** "Postal code", or the country's own word for its subdivision ("State", "Province", "Region"). */
+  label: string;
+  required: boolean;
+  /**
+   * `country`: ISO-2 codes to offer (the owner's allowed countries, else every country).
+   * `subdivision`: the country's states / provinces / regions (the bare code, "NY", which Create
+   * Booking takes); absent when the country has none on record — render a text input then.
+   */
+  choices?: { value: string; label: string }[];
+}
+
+/** The owner's address settings, kept on the field so the parts can be recomputed for a country. */
+export interface AddressOverrides {
+  required: Record<string, boolean | undefined>;
+  show: Record<string, boolean | undefined>;
+  /** Empty means every country. */
+  allowedCountries: string[];
 }
 
 /** The outcome of book(): either the browser is being redirected, or it's done. */

@@ -20,6 +20,7 @@ import {
   resolveDisplayTimeZone,
 } from "./booking";
 import { ctaStateOf } from "./services-core";
+import { addressComplete, addressPartsForCountry, formSubmissionOf } from "./booking-address-core";
 import {
   addOnsDuration,
   addOnsTotal,
@@ -78,6 +79,8 @@ export interface BookingFlowState {
   /** Schema-driven form fields (never empty — contact basics fallback). */
   formFields: BookingFormField[];
   values: Record<string, string>;
+  /** ADDRESS fields' values by target: { [sub]: value } (`country` an ISO-2 code). */
+  addresses: Record<string, Record<string, string>>;
   /** book / requestToBook / viewCourse — the CTA's label and the confirmed copy follow it. */
   ctaState: CtaState;
   /** True when a bookable slot is selected (or the service is a bookable course) and every required field has a value. */
@@ -113,6 +116,8 @@ export interface BookingFlowStore {
   canSelectMore(groupId: string): boolean;
   loadMoreSessions(): Promise<void>;
   setValue(target: string, value: string): void;
+  /** One part of an ADDRESS field. Setting `country` recomputes the field's `addressParts` and drops parts the country lacks. */
+  setAddressPart(target: string, sub: string, value: string): void;
   /** Books the selected slot (a course: the course). On "redirect" the browser is already navigating; otherwise `confirmed` is set. Rejects with the refusal (also in .error). */
   book(): Promise<BookingResult>;
 }
@@ -146,6 +151,7 @@ export function createBookingFlowStore(service: ServiceDetail): BookingFlowStore
   let addOns: AddOnSelection = {};
   let formFields: BookingFormField[] = [];
   let values: Record<string, string> = {};
+  let addresses: Record<string, Record<string, string>> = {};
   let booking = false;
   let confirmed: BookingResult | null = null;
   let error: string | null = null;
@@ -159,7 +165,10 @@ export function createBookingFlowStore(service: ServiceDetail): BookingFlowStore
   };
 
   const ctaState = (): CtaState => ctaStateOf(service, course?.full ?? false);
-  const formComplete = () => formFields.every((f) => !f.required || (values[f.target] ?? "").trim().length > 0);
+  const formComplete = () =>
+    formFields.every((f) =>
+      f.type === "ADDRESS" ? addressComplete(f, addresses[f.target]) : !f.required || (values[f.target] ?? "").trim().length > 0,
+    );
   const zoneForBooking = () => timeZone ?? requestZone ?? undefined;
 
   function getState(): BookingFlowState {
@@ -189,6 +198,7 @@ export function createBookingFlowStore(service: ServiceDetail): BookingFlowStore
       addOnsMinutes: addOnsDuration(addOnGroups, addOns),
       formFields,
       values,
+      addresses,
       ctaState: cta,
       canBook: target && formComplete() && !booking,
       booking,
@@ -297,7 +307,16 @@ export function createBookingFlowStore(service: ServiceDetail): BookingFlowStore
         requestZone = resolveDisplayTimeZone(s);
         loadForZone();
       });
-      fetchBookingForm(service.formId).then((f) => { if (started) { formFields = f; emit(); } });
+      fetchBookingForm(service.formId, service.id).then((f) => {
+        if (!started) return;
+        formFields = f;
+        for (const field of f) {
+          if (field.type === "ADDRESS" && field.defaultCountry && !addresses[field.target]?.country) {
+            addresses = { ...addresses, [field.target]: { ...addresses[field.target], country: field.defaultCountry } };
+          }
+        }
+        emit();
+      });
       if (service.hasAddOns) fetchAddOnGroups(service.id).then((g) => { if (started) { addOnGroups = g; emit(); } });
     },
     stop() {
@@ -379,6 +398,20 @@ export function createBookingFlowStore(service: ServiceDetail): BookingFlowStore
       values = { ...values, [target]: value };
       emit();
     },
+    setAddressPart(target, sub, value) {
+      let address = { ...addresses[target], [sub]: value };
+      if (sub === "country") {
+        formFields = formFields.map((f) =>
+          f.target === target && f.type === "ADDRESS" && f.addressOverrides
+            ? { ...f, addressParts: addressPartsForCountry(value || undefined, f.addressOverrides, f.required) }
+            : f,
+        );
+        const parts = formFields.find((f) => f.target === target)?.addressParts ?? [];
+        address = Object.fromEntries(Object.entries(address).filter(([k]) => parts.some((p) => p.sub === k)));
+      }
+      addresses = { ...addresses, [target]: address };
+      emit();
+    },
     async book() {
       if (!isCourse && !selectedSlot) throw new Error("Pick a time first.");
       if (isCourse && ctaState() === "viewCourse") throw new Error("This course can't be booked anymore.");
@@ -386,7 +419,7 @@ export function createBookingFlowStore(service: ServiceDetail): BookingFlowStore
       error = null;
       emit();
       try {
-        const result = await bookService(service, isCourse ? null : selectedSlot, values, {
+        const result = await bookService(service, isCourse ? null : selectedSlot, formSubmissionOf(formFields, values, addresses), {
           staffId,
           timeZone: zoneForBooking(),
           participants,

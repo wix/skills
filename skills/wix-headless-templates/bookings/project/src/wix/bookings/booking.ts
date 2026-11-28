@@ -42,6 +42,7 @@ import {
   nextSlotsCursor,
   offeredDaysByScheduleId,
   resolveDisplayTimeZone,
+  formSchemaQuery,
   sessionsRequest,
   toAddOnGroups,
   toFormFields,
@@ -53,6 +54,7 @@ import {
   type Raw,
   type SlotsWindow,
 } from "./booking-core";
+import { addressFieldParts } from "./booking-address-core";
 import type { AddOnGroup, BookingFormField, BookingResult, BookingsSettings, CourseAvailability, ServiceDetail, Session, Slot, SlotsPage, Weekday } from "./types";
 
 export { resolveDisplayTimeZone, toLocalDateString };
@@ -164,14 +166,15 @@ export async function fetchCourseAvailability(service: Pick<ServiceDetail, "sche
 /**
  * The service's booking-form fields, flat and render-ready (values are keyed by `target`).
  * ALWAYS returns a non-empty list — contact basics when the schema is missing/unusable —
- * so the form can render unconditionally.
+ * so the form can render unconditionally. Pass the service id: the schema then carries the
+ * service's overrides (which fields are hidden and required for it).
  */
-export async function fetchBookingForm(formId: string | null): Promise<BookingFormField[]> {
+export async function fetchBookingForm(formId: string | null, serviceId?: string | null): Promise<BookingFormField[]> {
   if (!formId) return FALLBACK_FIELDS;
   try {
     // Over wixFetch, not the @wix/forms `forms` module: that generated module is 15 MB and would
     // ride into the booking island's client chunk (11 MB per visitor). The summary has labels and
-    // types; only the full schema says which fields are required.
+    // types; only the full schema says which fields are required and hidden.
     const id = encodeURIComponent(formId);
     const json = async (path: string): Promise<Raw | null> => {
       const r = await wixFetch(path);
@@ -179,10 +182,10 @@ export async function fetchBookingForm(formId: string | null): Promise<BookingFo
     };
     const [res, form] = await Promise.all([
       json(`/form-schema-service/v4/forms/${id}/summary`),
-      json(`/form-schema-service/v4/forms/${id}`).catch(() => null),
+      json(`/form-schema-service/v4/forms/${id}${formSchemaQuery(formId, serviceId)}`).catch(() => null),
     ]);
     if (!res) return FALLBACK_FIELDS;
-    return toFormFields(res.formSummary, form?.form);
+    return toFormFields(res.formSummary, form?.form, addressFieldParts);
   } catch {
     return FALLBACK_FIELDS;
   }

@@ -24,6 +24,7 @@ export type UseBookingFlow = BookingFlowState &
     | "canSelectMore"
     | "loadMoreSessions"
     | "setValue"
+    | "setAddressPart"
     | "book"
   >;
 
@@ -51,6 +52,7 @@ export function useBookingFlow(service: ServiceDetail): UseBookingFlow {
     canSelectMore: store.canSelectMore,
     loadMoreSessions: store.loadMoreSessions,
     setValue: store.setValue,
+    setAddressPart: store.setAddressPart,
     book: store.book,
   };
 }
