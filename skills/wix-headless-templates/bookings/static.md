@@ -120,8 +120,13 @@ On `createBookingFlowStore(service)`. From the state, and the action each contro
   `ended`), `offeredDays`, `course.spotsLeft` and `course.full`, the `sessions` with
   `loadMoreSessions()` while `hasMoreSessions`, the form and one button.
 - `formFields`: the booking form as given, each with `target`, `label`, `type` ("STRING",
-  "EMAIL", "PHONE", "NUMBER", "URL"), `options` for a choice field, `required`. One control per
-  field calling `setValue(field.target, value)`; `values` holds them by target.
+  "EMAIL", "PHONE", "NUMBER", "URL", "ADDRESS"), `options` for a choice field, `required`. One
+  control per text field calling `setValue(field.target, value)`; `values` holds them by target.
+  An "ADDRESS" field (only for a service at the customer's location, which can't be booked
+  without it) has `addressParts`, `country` first, each `{ sub, label, required, choices? }`:
+  one control per part calling `setAddressPart(field.target, part.sub, value)`, a `<select>` when
+  the part has `choices`; `addresses[field.target]` holds the parts. Setting `country` changes
+  which parts the field has, so render again from the new state.
 - `ctaState` is "book", "requestToBook" or "viewCourse"; the button's words follow it, and a
   request is not a confirmed seat. `canBook` gates the button, `booking` is the in-flight state,
   `error` is the message for the visitor when `book()` rejects.
@@ -144,7 +149,9 @@ root.addEventListener("click", function (e) {
   else if (d.addon) store.toggleAddOn(d.addon);
 });
 root.addEventListener("input", function (e) {
-  if (e.target.dataset.field) store.setValue(e.target.dataset.field, e.target.value);
+  var d = e.target.dataset;
+  if (d.address) store.setAddressPart(d.address, d.part, e.target.value);
+  else if (d.field) store.setValue(d.field, e.target.value);
 });
 form.addEventListener("submit", function (e) { e.preventDefault(); store.book().catch(function () {}); });
 

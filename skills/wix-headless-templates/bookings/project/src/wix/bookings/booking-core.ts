@@ -446,28 +446,61 @@ export const FALLBACK_FIELDS: BookingFormField[] = [
 ];
 
 const FIELD_TYPES = ["STRING", "EMAIL", "PHONE", "NUMBER", "URL"];
+/** The summary's type for the address field Bookings adds to its form. */
+const ADDRESS_TYPE = "MULTILINE_ADDRESS";
 
 /**
- * Flat, render-ready fields from a form summary — deleted fields and non-text types dropped, values
- * keyed by `target`. `required` comes from the full form schema (`fields[].validation.required`,
- * keyed by target); the summary doesn't carry it. Without the schema every field counts as required.
+ * Turns an address field's schema entry into its parts — `addressFieldParts` in
+ * booking-address-core.ts. Passed in by the transports so this file keeps no runtime imports.
+ */
+export type AddressPartsOf = (schemaField: Raw, required: boolean) => Pick<BookingFormField, "addressParts" | "addressOverrides" | "defaultCountry">;
+
+/**
+ * The Get Form query that names the service, so Bookings applies its overrides for that service
+ * (an address field is hidden and not required unless the service takes place at the customer's
+ * location). The service id travels as `additionalMetadata`, a free-form object, which a GET
+ * carries only the way the @wix/forms SDK sends it: the whole request as base64 JSON in `.r`.
+ * A plain `additionalMetadata=<json>` is rejected (400), and `additionalMetadata.serviceIds=` is
+ * ignored. Empty when there is no service id.
+ */
+export function formSchemaQuery(formId: string, serviceId?: string | null): string {
+  if (!serviceId) return "";
+  const request = JSON.stringify({ formId, additionalMetadata: { serviceIds: [serviceId] } });
+  return `?.r=${encodeURIComponent(btoa(request))}`;
+}
+
+/**
+ * Flat, render-ready fields from a form summary — deleted fields, non-text types and fields the full
+ * schema hides dropped, values keyed by `target`. `required` and `hidden` come from the full form
+ * schema (`fields[].validation.required`, `fields[].hidden`, keyed by target); the summary carries
+ * neither, and it ignores the service, so only the schema reflects Bookings' overrides. Without the
+ * schema every field counts as required. An address field (MULTILINE_ADDRESS) becomes an ADDRESS
+ * field with its parts when `addressPartsOf` is given and the schema has it; otherwise it is left out.
  * ALWAYS non-empty: contact basics when the schema is missing or unusable.
  */
-export function toFormFields(summary: Raw | null | undefined, form?: Raw | null): BookingFormField[] {
-  const requiredByTarget = new Map<string, boolean>(
-    ((form?.fields ?? []) as Raw[]).filter((f) => f.target).map((f) => [f.target as string, f.validation?.required === true]),
-  );
+export function toFormFields(summary: Raw | null | undefined, form?: Raw | null, addressPartsOf?: AddressPartsOf): BookingFormField[] {
+  const schemaFields = ((form?.fields ?? []) as Raw[]).filter((f) => f.target);
+  const schemaByTarget = new Map<string, Raw>(schemaFields.map((f) => [f.target as string, f]));
+  const hidden = new Set<string>(schemaFields.filter((f) => f.hidden === true).map((f) => f.target as string));
   const fields = ((summary?.fields ?? []) as Raw[])
-    .filter((f) => !f.deleted)
-    .filter((f) => f.type && FIELD_TYPES.includes(f.type))
-    .map((f) => ({
-      target: f.target ?? "",
-      label: f.label ?? f.target ?? "",
-      type: f.type as BookingFormField["type"],
-      ...(Array.isArray(f.options) && f.options.length ? { options: f.options as string[] } : {}),
-      required: requiredByTarget.get(f.target ?? "") ?? true,
-    }))
-    .filter((f) => f.target);
+    .filter((f) => !f.deleted && f.target && !hidden.has(f.target))
+    // An address needs the schema: only it says whether Bookings hides the address for this
+    // service, and which parts the owner set. Without it the address is left out.
+    .filter((f) => f.type && (FIELD_TYPES.includes(f.type) || (f.type === ADDRESS_TYPE && !!addressPartsOf && schemaByTarget.has(f.target))))
+    .map((f): BookingFormField => {
+      const target = f.target as string;
+      const schema = schemaByTarget.get(target);
+      const required = schema ? schema.validation?.required === true : true;
+      const label = f.label ?? target;
+      if (f.type === ADDRESS_TYPE && addressPartsOf) return { target, label, type: "ADDRESS", required, ...addressPartsOf(schema ?? {}, required) };
+      return {
+        target,
+        label,
+        type: f.type as BookingFormField["type"],
+        ...(Array.isArray(f.options) && f.options.length ? { options: f.options as string[] } : {}),
+        required,
+      };
+    });
   return fields.length ? fields : FALLBACK_FIELDS;
 }
 

@@ -154,8 +154,10 @@ Everything you need to build on the shipped code; read the source only when some
 //   addOnGroups: [{ id, name, prompt, maxSelectable|null, addOns: [{ id, name, price, durationMinutes|null, maxQuantity|null }] }],
 //   addOns /* { [addOnId]: quantity } */, toggleAddOn(id), setAddOnQuantity(id, n), canSelectMore(groupId),
 //   addOnsTotal /* formatted or "" */, addOnsMinutes,     // shown, NOT yet sent with the booking (see hard rules)
-//   formFields: [{ target, label, type, options?, required }], // never empty (contact-basics fallback); only required ones gate canBook
-//   values, setValue(target, value),                      // inputs write here, keyed by target
+//   formFields: [{ target, label, type, options?, required, addressParts? }], // never empty (contact-basics fallback); only required ones gate canBook
+//   values, setValue(target, value),                      // text inputs write here, keyed by target
+//   addresses, setAddressPart(target, sub, value),        // type "ADDRESS": one control per addressParts entry ({ sub, label, required, choices? });
+//                                                         // setting "country" recomputes the parts — re-read them
 //   ctaState, canBook,                                    // label the CTA from ctaState; gate it on canBook
 //   book(): Promise<BookingResult>,                       // paid → the browser navigates to the Wix checkout;
 //   booking, confirmed, error }                           // free/offline → confirmed is set (REAL success)
@@ -177,7 +179,8 @@ these first; they are tested code for exactly that behaviour:
    member, the day strip with the week pagers at its ends, the active day's slot chips in morning /
    afternoon / evening buckets (disabled "Full"), the empty week pointing at `nextAvailable`,
    the sessions list, participants, deposit choice, add-ons, one input per `formFields` entry typed
-   from its `type` (a `<select>` when it has `options`), the CTA disabled until `canBook` and labelled
+   from its `type` (a `<select>` when it has `options`; an ADDRESS field as one control per
+   `addressParts` entry, a `<select>` when the part has `choices`), the CTA disabled until `canBook` and labelled
    from `ctaState` + the money, `error` inline, and the confirmed state rendered only from
    `confirmed` with copy by `ctaState`.
 2. `components/bookings/ServicesView.tsx` — category pills only when `categories.length > 1`, the
@@ -287,7 +290,9 @@ Routes on Wix hosting: the host serves files only, so a clean route answers 404 
 - **Money strings are final** — render `price`, `basePrice`, `deposit.amount`, `addOnsTotal` as given;
   "" means unknown, so omit it. Never format amounts yourself or assume a currency.
 - **The form is schema-driven** — render `formFields` as given (values keyed by `target`);
-  never hardcode field names beyond what the fallback already guarantees.
+  never hardcode field names beyond what the fallback already guarantees. The form is the one
+  Bookings shapes for this service: an address appears only for a service at the customer's
+  location, and such a service can't be booked without it.
 - **Gate the CTA on `canBook`** and surface `error` — `book()` can reject (slot taken,
   validation); that message is for the visitor.
 - **The confirmed state must reflect REAL success**: render it only from `confirmed` (set by
