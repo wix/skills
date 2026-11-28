@@ -73,7 +73,15 @@ Free text (`search.fields`) accepts `loginEmail`, `contact.firstName`, `contact.
    ```
 
 2. When `members` is empty, send the every-member query (below) and keep the member whose `loginEmail`, `contact.firstName` and `contact.lastName`, or `profile.nickname` equals the user's words, ignoring case. Do both steps before you answer.
-3. Use the member's `id` for the calls in Step 4.
+3. When the every-member scan also finds no match by email, the person may be a contact whose member `loginEmail` differs from their contact email (the Contacts screen shows them as a site member, but Query Members never returns them for the email the user gave). Search contacts:
+
+   `POST https://www.wixapis.com/contacts/v5/contacts/search` with `{"search": {"search": {"expression": "jane@example.com", "mode": "AND"}}}`.
+
+   If a result in `contacts[]` has `memberInfo.memberId`, fetch the member by ID:
+   `GET https://www.wixapis.com/members/v1/members/<memberId>?fieldsets=FULL`.
+
+   The member's `loginEmail` may differ from the contact email the user gave, or may be missing. Use the member's actual `loginEmail` for Send Set Password Email and other login-email actions, and tell the user which address you will use before you send anything to an address they did not name. If the member has no `loginEmail`, say so: there is no login address to send to. If a contact exists but has no `memberInfo`, tell the user the person is a contact, not a site member. Do all three steps before you tell the user there is no such member.
+4. Use the member's `id` for the calls in Step 4.
 
 How these fields behave:
 
